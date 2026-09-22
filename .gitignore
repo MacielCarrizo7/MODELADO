@@ -1,0 +1,16 @@
+# Dependencias de Composer
+/vendor/
+
+# Archivos de credenciales y secretos (NUNCA subir claves a GitHub)
+credenciales/
+*.json.key
+*.key
+.totp_key
+
+# Logs y volcados temporales
+*.log
+scratch/
+.env
+
+# Backups locales
+database_backup.sql

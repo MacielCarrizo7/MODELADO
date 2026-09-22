@@ -1,0 +1,49 @@
+================================================================================
+          GUÍA RÁPIDA: CÓMO TRANSPORTAR LA APLICACIÓN A OTRA COMPUTADORA
+================================================================================
+
+Hemos creado 2 scripts automáticos para que no tengas que configurar nada manual:
+
+================================================================================
+PASO 1: EN ESTA COMPUTADORA (ORIGEN)
+================================================================================
+1. Entrá a esta carpeta (C:\xampp\htdocs\stock_app)
+2. Hacé doble clic en el archivo:
+   👉 1_EXPORTAR_APP.bat
+
+3. Esto creará automáticamente el archivo comprimido:
+   📁 PAQUETE_MIGRACION_STOCK_APP.zip
+   (incluye tu código, librerías, claves de seguridad y el respaldo completo
+    de la base de datos con todos tus productos, usuarios y ventas).
+
+4. Copiá ese archivo 'PAQUETE_MIGRACION_STOCK_APP.zip' a un Pendrive o subilo a
+   Google Drive / OneDrive.
+
+
+================================================================================
+PASO 2: EN LA OTRA COMPUTADORA (DESTINO)
+================================================================================
+1. Asegurate de tener instalado XAMPP.
+2. Abrí el "XAMPP Control Panel" y dale clic a "Start" en:
+   - Apache
+   - MySQL
+
+3. Descomprimí el ZIP dentro de:
+   C:\xampp\htdocs\stock_app
+
+4. Entrá a esa carpeta y hacé doble clic en:
+   👉 2_INSTALAR_EN_OTRA_PC.bat
+
+5. ¡Listo! El script crea la base de datos 'control_stock', importa todos tus
+   datos y abre automáticamente la pantalla de Login en el navegador web.
+
+
+================================================================================
+DATOS DE ACCESO (ADMINISTRADOR INICIAL):
+================================================================================
+URL:         http://localhost/stock_app/login.php
+DNI:         11111111
+Nombre:      Admin
+Apellido:    Principal
+Contraseña:  Admin1234!
+================================================================================

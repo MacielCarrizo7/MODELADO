@@ -1,0 +1,19 @@
+{
+    "name": "control-stock/aplicacion",
+    "description": "Gestión de stock, ventas y autenticación TOTP",
+    "license": "proprietary",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "robthree/twofactorauth": "3.0.3",
+        "bacon/bacon-qr-code": "^3.0",
+        "kreait/firebase-php": "^7.15",
+        "google/cloud-firestore": "^1.43"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}

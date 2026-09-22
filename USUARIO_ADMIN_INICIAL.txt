@@ -1,0 +1,38 @@
+================================================================================
+          CREDENCIALES DE ACCESO INICIAL - CONTROL STOCK (XAMPP LOCAL)
+================================================================================
+
+URL de Acceso:
+http://localhost/PLANES/login.php
+
+--------------------------------------------------------------------------------
+DATOS DEL USUARIO ADMINISTRADOR INICIAL
+--------------------------------------------------------------------------------
+DNI:         12345678
+Nombre:      Admin
+Apellido:    General
+Contraseña:  admin123
+Rol:         admin (Administrador con control total)
+Activo:      1
+
+--------------------------------------------------------------------------------
+PASOS PARA EL INGRESO:
+--------------------------------------------------------------------------------
+1. Abrí tu navegador en: http://localhost/PLANES/login.php
+2. Ingresá los 4 campos:
+   - DNI: 12345678
+   - Nombre: Admin
+   - Apellido: General
+   - Contraseña: admin123
+3. Hacé clic en "Iniciar sesión".
+4. Ingresarás directamente al Panel de Control (admin.php).
+
+--------------------------------------------------------------------------------
+GESTIÓN DE USUARIOS Y ROLES:
+--------------------------------------------------------------------------------
+Como Administrador podés:
+- Crear y gestionar nuevos usuarios (Vendedor, Cliente, Administrador) desde "Gestión de Usuarios" (registro.php).
+- Crear, editar y eliminar productos con control de empaques, FIFO y stock.
+- Registrar ventas con selección de clientes, empaques y descuentos.
+- Consultar el Kardex de auditoría de ingresos de mercadería.
+================================================================================

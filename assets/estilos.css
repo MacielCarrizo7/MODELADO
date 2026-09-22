@@ -1,0 +1,351 @@
+:root {
+    --cs-primary: #2563eb;
+    --cs-primary-dark: #1d4ed8;
+    --cs-primary-light: #eff6ff;
+    --cs-ink: #172033;
+    --cs-muted: #68738a;
+    --cs-bg: #f4f7fb;
+    --cs-border: #e3e9f2;
+    --cs-success: #047857;
+    --cs-warning: #b45309;
+    --cs-danger: #b91c1c;
+    --cs-surface: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    min-height: 100vh;
+    color: var(--cs-ink);
+    background: var(--cs-bg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.texto-secundario { color: var(--cs-muted); }
+.etiqueta {
+    font-size: .75rem;
+    font-weight: 750;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.marca-icono {
+    display: inline-grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--cs-primary), #60a5fa);
+    border-radius: .8rem;
+    box-shadow: 0 .45rem 1rem rgba(37, 99, 235, .22);
+    font-size: .86rem;
+    font-weight: 800;
+}
+
+.marca-icono-claro {
+    color: var(--cs-primary-dark);
+    background: #fff;
+}
+
+.login-body {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    background:
+        radial-gradient(circle at 8% 10%, rgba(96, 165, 250, .2), transparent 28rem),
+        #eef3fa;
+}
+
+.login-layout {
+    display: grid;
+    max-width: 1040px;
+    min-height: 650px;
+    margin: auto;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1.08fr) minmax(390px, .92fr);
+    background: #fff;
+    border: 1px solid rgba(227, 233, 242, .9);
+    border-radius: 1.5rem;
+    box-shadow: 0 1.5rem 4rem rgba(30, 41, 59, .14);
+}
+
+.login-presentacion {
+    align-items: flex-end;
+    padding: 4.5rem;
+    color: #fff;
+    background:
+        radial-gradient(circle at 85% 15%, rgba(255,255,255,.18), transparent 15rem),
+        linear-gradient(145deg, #172554, #1d4ed8 62%, #60a5fa);
+}
+
+.login-card {
+    display: flex;
+    padding: 3.5rem;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.form-label { font-weight: 650; color: #334155; font-size: .88rem; margin-bottom: .4rem; }
+.form-control, .form-select {
+    min-height: 2.85rem;
+    border-color: #cfd8e6;
+    border-radius: .75rem;
+    font-size: .95rem;
+    transition: all .15s ease-in-out;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 .22rem rgba(37, 99, 235, .12);
+}
+
+.app-navbar {
+    background: rgba(255, 255, 255, .96);
+    border-bottom: 1px solid var(--cs-border);
+    backdrop-filter: blur(12px);
+    z-index: 1020;
+}
+
+.nav-link-app {
+    color: #526077;
+    border-radius: .65rem;
+    font-weight: 600;
+    padding: .5rem .85rem;
+    transition: all .15s ease-in-out;
+}
+.nav-link-app:hover, .nav-link-app:focus, .nav-link-app.active {
+    color: var(--cs-primary-dark);
+    background: #eff6ff;
+}
+
+/* Sistema de Pestañas Modernas */
+.nav-tabs-app {
+    display: flex;
+    gap: .5rem;
+    padding: .35rem;
+    background: #e2e8f0;
+    border-radius: .95rem;
+    border: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.nav-tabs-app::-webkit-scrollbar { display: none; }
+
+.nav-tabs-app .nav-link {
+    border: none;
+    border-radius: .75rem;
+    color: #475569;
+    font-weight: 650;
+    font-size: .9rem;
+    padding: .65rem 1.15rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    white-space: nowrap;
+    transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: transparent;
+}
+.nav-tabs-app .nav-link:hover {
+    color: var(--cs-primary-dark);
+    background: rgba(255, 255, 255, .6);
+}
+.nav-tabs-app .nav-link.active {
+    color: var(--cs-primary-dark);
+    background: #ffffff;
+    box-shadow: 0 .2rem .6rem rgba(15, 23, 42, .08);
+}
+
+.hero-panel {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(125deg, #172554, #1d4ed8 60%, #3b82f6);
+    border-radius: 1.25rem;
+    box-shadow: 0 1rem 2.5rem rgba(30, 64, 175, .16);
+}
+.hero-panel::after {
+    content: "";
+    position: absolute;
+    width: 18rem;
+    height: 18rem;
+    right: -7rem;
+    bottom: -11rem;
+    border: 3rem solid rgba(255,255,255,.08);
+    border-radius: 50%;
+}
+.hero-contenido { position: relative; z-index: 1; }
+
+.stat-card, .seccion-card {
+    background: #fff;
+    border: 1px solid var(--cs-border);
+    border-radius: 1rem;
+    box-shadow: 0 .45rem 1.5rem rgba(23, 32, 51, .045);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+.stat-card {
+    padding: 1.35rem;
+    position: relative;
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 .75rem 2rem rgba(23, 32, 51, .07);
+}
+.stat-valor {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--cs-ink);
+    letter-spacing: -.02em;
+    margin-top: .25rem;
+}
+.seccion-card { padding: 1.5rem; }
+
+.table { --bs-table-bg: transparent; margin-bottom: 0; }
+.table thead th {
+    color: #64748b;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--cs-border);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: .85rem 1rem;
+}
+.table td {
+    vertical-align: middle;
+    padding: .9rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.estado-stock {
+    display: inline-flex;
+    padding: .35rem .65rem;
+    align-items: center;
+    color: var(--cs-success);
+    background: #ecfdf5;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.estado-stock.agotado { color: #b42318; background: #fef3f2; }
+.estado-stock.bajo { color: #b45309; background: #fffbeb; }
+
+/* Badges de Presentación y Empaque */
+.badge-presentacion {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .3rem .6rem;
+    font-size: .75rem;
+    font-weight: 650;
+    border-radius: .5rem;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+.badge-presentacion.caja { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.badge-presentacion.bulto { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+
+/* Badges de Vencimiento y Rotación FIFO */
+.badge-vencimiento {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .3rem .6rem;
+    font-size: .75rem;
+    font-weight: 700;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.badge-vencimiento.vigente {
+    color: #065f46;
+    background: #d1fae5;
+}
+.badge-vencimiento.vence-pronto {
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    animation: pulsoSuave 2s infinite ease-in-out;
+}
+.badge-vencimiento.vencido {
+    color: #991b1b;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+.badge-vencimiento.sin-vencimiento {
+    color: #64748b;
+    background: #f1f5f9;
+}
+
+@keyframes pulsoSuave {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .75; }
+}
+
+.empty-state {
+    padding: 3rem 1rem;
+    color: var(--cs-muted);
+    text-align: center;
+}
+
+.modal-content {
+    border: 0;
+    border-radius: 1.15rem;
+    box-shadow: 0 1.5rem 4rem rgba(15,23,42,.22);
+}
+.modal-header {
+    border-bottom: 1px solid var(--cs-border);
+    padding: 1.25rem 1.5rem;
+}
+.modal-body { padding: 1.5rem; }
+.modal-footer {
+    border-top: 1px solid var(--cs-border);
+    padding: 1rem 1.5rem;
+}
+
+.btn {
+    border-radius: .7rem;
+    font-weight: 650;
+    padding: .5rem 1rem;
+    transition: all .15s ease-in-out;
+}
+.btn-primary { background: var(--cs-primary); border-color: var(--cs-primary); }
+.btn-primary:hover { background: var(--cs-primary-dark); border-color: var(--cs-primary-dark); }
+
+.avatar {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    place-items: center;
+    color: var(--cs-primary-dark);
+    background: #dbeafe;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: .88rem;
+}
+
+/* Animaciones suaves en pestañas */
+.tab-pane {
+    animation: fadeIn .2s ease-in-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 991.98px) {
+    .login-layout { display: block; max-width: 560px; min-height: 0; }
+    .login-card { padding: 2.5rem; }
+}
+
+@media (max-width: 575.98px) {
+    .login-body { display: block; }
+    .login-layout { border-radius: 1rem; }
+    .login-card { padding: 1.5rem; }
+    .hero-panel { border-radius: 1rem; }
+    .hero-panel h1 { font-size: 1.75rem; }
+    .seccion-card { padding: 1rem; }
+    .nav-tabs-app .nav-link { padding: .5rem .75rem; font-size: .82rem; }
+}

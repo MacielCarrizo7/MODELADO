@@ -1,0 +1,9 @@
+vendor/
+.git
+.gitignore
+.dockerignore
+*.log
+*.sql
+*.bat
+credenciales/
+*.json.key
