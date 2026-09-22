@@ -615,5 +615,63 @@ class FirestoreConexion {
     public static function obtenerSiguienteIdHistorial(): int {
         return self::obtenerFirestore()->obtenerSiguienteId("contadores", "historial", "ultimo_id");
     }
+
+    public static function obtenerSiguienteIdProveedor(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "proveedores", "ultimo_id");
+    }
+
+    public static function obtenerSiguienteIdMovimiento(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "movimientos", "ultimo_id");
+    }
+
+    /**
+     * Registra un evento en el historial de trazabilidad de un producto.
+     */
+    public static function registrarMovimientoProducto(
+        int $productoId,
+        string $tipo,
+        string $descripcion,
+        ?int $cantidadAnterior = null,
+        ?int $cantidadNueva = null,
+        ?int $diferencia = null,
+        ?float $precioAnterior = null,
+        ?float $precioNuevo = null,
+        ?int $usuarioId = null,
+        ?string $usuarioNombre = null
+    ): int {
+        try {
+            $firestore = self::obtenerFirestore();
+            $movId = self::obtenerSiguienteIdMovimiento();
+            $fecha = date("Y-m-d H:i:s");
+
+            if ($usuarioId === null && isset($_SESSION["usuario_id"])) {
+                $usuarioId = (int) $_SESSION["usuario_id"];
+            }
+            if ($usuarioNombre === null && isset($_SESSION["usuario_nombre"])) {
+                $usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "") . " " . ($_SESSION["usuario_apellido"] ?? ""));
+            }
+
+            $doc = [
+                "id" => $movId,
+                "producto_id" => $productoId,
+                "tipo" => $tipo,
+                "descripcion" => $descripcion,
+                "cantidad_anterior" => $cantidadAnterior,
+                "cantidad_nueva" => $cantidadNueva,
+                "diferencia" => $diferencia,
+                "precio_anterior" => $precioAnterior,
+                "precio_nuevo" => $precioNuevo,
+                "usuario_id" => $usuarioId,
+                "usuario_nombre" => $usuarioNombre,
+                "fecha" => $fecha
+            ];
+
+            $firestore->guardarDocumento("movimientos_producto", (string)$movId, $doc);
+            return $movId;
+        } catch (Throwable $e) {
+            error_log("Error al registrar movimiento de producto: " . $e->getMessage());
+            return 0;
+        }
+    }
 }
 ?>

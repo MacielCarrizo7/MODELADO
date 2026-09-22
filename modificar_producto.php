@@ -5,6 +5,7 @@ requerirUsuarioJson(["admin"]);
 requerirCsrfJson();
 
 $id = filter_input(INPUT_POST, "id", FILTER_VALIDATE_INT) ?: 0;
+$codigoBarras = trim($_POST["codigo_barras"] ?? "");
 $nombre = trim($_POST["nombre"] ?? "");
 $precio = floatval($_POST["precio"] ?? 0);
 $stock = filter_input(INPUT_POST, "stock", FILTER_VALIDATE_INT);
@@ -49,11 +50,14 @@ if ($fechaVencimiento !== "") {
     $vencimientoParam = null;
 }
 
+$codigoBarrasParam = $codigoBarras !== "" ? $codigoBarras : null;
+
 if (mb_strlen($proveedor) > 150) {
     responderJson(["error" => "El nombre del proveedor supera los 150 caracteres."], 400);
 }
 $proveedorParam = $proveedor !== "" ? $proveedor : null;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
+$usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
 
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
@@ -63,11 +67,26 @@ try {
         responderJson(["error" => "El producto no existe."], 404);
     }
 
+    // Validar código de barras no duplicado en otro producto
+    if ($codigoBarrasParam !== null) {
+        $existentesCb = $firestore->consultar("productos", [
+            ["codigo_barras", "==", $codigoBarrasParam]
+        ]);
+        foreach ($existentesCb as $ecb) {
+            $eId = (int) ($ecb["id"] ?? $ecb["_id"] ?? 0);
+            if ($eId !== $id) {
+                responderJson(["error" => "Ya existe otro producto con el mismo código de barras."], 409);
+            }
+        }
+    }
+
     $stockAnterior = (int) ($productoActual["stock"] ?? 0);
+    $precioAnterior = (float) ($productoActual["precio"] ?? 0);
     $diferenciaStock = $stock - $stockAnterior;
 
     $camposActualizados = [
         "nombre" => $nombre,
+        "codigo_barras" => $codigoBarrasParam,
         "precio" => $precio,
         "stock" => $stock,
         "presentacion" => $presentacion,
@@ -107,6 +126,37 @@ try {
 
         $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
+
+    // Determinar tipo de movimiento para el historial
+    $tipoMovimiento = "EDICION_DATOS";
+    $detallesCambio = [];
+
+    if ($diferenciaStock !== 0) {
+        $tipoMovimiento = $diferenciaStock > 0 ? "INGRESO_STOCK" : "AJUSTE_STOCK";
+        $signo = $diferenciaStock > 0 ? "+{$diferenciaStock}" : (string)$diferenciaStock;
+        $detallesCambio[] = "Stock: {$stockAnterior} → {$stock} ({$signo} un.)";
+    }
+    if (abs($precio - $precioAnterior) > 0.001) {
+        $detallesCambio[] = "Precio: $" . number_format($precioAnterior, 2) . " → $" . number_format($precio, 2);
+    }
+    if ($motivo !== "") {
+        $detallesCambio[] = "Motivo: {$motivo}";
+    }
+
+    $descMov = !empty($detallesCambio) ? implode(" | ", $detallesCambio) : "Actualización de datos del producto";
+
+    FirestoreConexion::registrarMovimientoProducto(
+        productoId: $id,
+        tipo: $tipoMovimiento,
+        descripcion: $descMov,
+        cantidadAnterior: $stockAnterior,
+        cantidadNueva: $stock,
+        diferencia: $diferenciaStock,
+        precioAnterior: $precioAnterior,
+        precioNuevo: $precio,
+        usuarioId: $usuarioId,
+        usuarioNombre: $usuarioNombre
+    );
 
     responderJson(["success" => true, "mensaje" => "Producto modificado correctamente."]);
 } catch (Throwable $e) {

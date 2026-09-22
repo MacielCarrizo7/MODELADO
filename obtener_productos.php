@@ -7,6 +7,7 @@ header("Content-Type: application/json; charset=UTF-8");
 $semaforo = trim($_GET["semaforo"] ?? "");
 $busqueda = mb_strtolower(trim($_GET["busqueda"] ?? ""));
 $presentacion = trim($_GET["presentacion"] ?? "");
+$codigoBarrasFiltro = trim($_GET["codigo_barras"] ?? "");
 
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
@@ -21,6 +22,7 @@ try {
     foreach ($todos as $p) {
         $id = (int) ($p["id"] ?? $p["_id"] ?? 0);
         $codigo = (string) ($p["codigo"] ?? "");
+        $codigoBarras = (string) ($p["codigo_barras"] ?? "");
         $nombre = (string) ($p["nombre"] ?? "");
         $descripcion = (string) ($p["descripcion"] ?? "");
         $precio = (float) ($p["precio"] ?? 0);
@@ -31,12 +33,18 @@ try {
         $proveedor = (string) ($p["proveedor"] ?? "");
         $categoria = (string) ($p["categoria"] ?? "");
 
-        // Filtro de búsqueda
+        // Filtro por código de barras exacto
+        if ($codigoBarrasFiltro !== "" && $codigoBarras !== $codigoBarrasFiltro && $codigo !== $codigoBarrasFiltro) {
+            continue;
+        }
+
+        // Filtro de búsqueda general
         if ($busqueda !== "") {
             $nomLower = mb_strtolower($nombre);
             $provLower = mb_strtolower($proveedor);
             $codLower = mb_strtolower($codigo);
-            if (!str_contains($nomLower, $busqueda) && !str_contains($provLower, $busqueda) && !str_contains($codLower, $busqueda)) {
+            $cbLower = mb_strtolower($codigoBarras);
+            if (!str_contains($nomLower, $busqueda) && !str_contains($provLower, $busqueda) && !str_contains($codLower, $busqueda) && !str_contains($cbLower, $busqueda)) {
                 continue;
             }
         }
@@ -80,6 +88,7 @@ try {
         $productosFiltrados[] = [
             "id" => $id,
             "codigo" => $codigo !== "" ? $codigo : null,
+            "codigo_barras" => $codigoBarras !== "" ? $codigoBarras : null,
             "nombre" => $nombre,
             "descripcion" => $descripcion !== "" ? $descripcion : null,
             "precio" => $precio,

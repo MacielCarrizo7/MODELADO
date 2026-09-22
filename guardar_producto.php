@@ -5,6 +5,7 @@ requerirUsuarioJson(["admin"]);
 requerirCsrfJson();
 
 $codigo = trim($_POST["codigo"] ?? "");
+$codigoBarras = trim($_POST["codigo_barras"] ?? "");
 $nombre = trim($_POST["nombre"] ?? "");
 $descripcion = trim($_POST["descripcion"] ?? "");
 $precio = floatval($_POST["precio"] ?? 0);
@@ -48,6 +49,7 @@ if ($fechaVencimiento !== "") {
 }
 
 $codigoParam = $codigo !== "" ? $codigo : null;
+$codigoBarrasParam = $codigoBarras !== "" ? $codigoBarras : null;
 $descripcionParam = $descripcion !== "" ? $descripcion : null;
 $categoriaParam = $categoria !== "" ? $categoria : null;
 
@@ -58,14 +60,27 @@ $proveedorParam = $proveedor !== "" ? $proveedor : null;
 
 $totalUnidades = $stock * $unidadesPorBulto;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
+$usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
 
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
+
+    // Si se especificó código de barras, verificar que no esté duplicado
+    if ($codigoBarrasParam !== null) {
+        $existentesCb = $firestore->consultar("productos", [
+            ["codigo_barras", "==", $codigoBarrasParam]
+        ]);
+        if (!empty($existentesCb)) {
+            responderJson(["error" => "Ya existe otro producto con el mismo código de barras."], 409);
+        }
+    }
+
     $productoId = FirestoreConexion::obtenerSiguienteIdProducto();
 
     $productoDatos = [
         "id" => $productoId,
         "codigo" => $codigoParam,
+        "codigo_barras" => $codigoBarrasParam,
         "nombre" => $nombre,
         "descripcion" => $descripcionParam,
         "presentacion" => $presentacion,
@@ -80,6 +95,7 @@ try {
 
     $firestore->guardarDocumento("productos", (string)$productoId, $productoDatos);
 
+    // Registrar en Kardex de ingresos si stock > 0
     if ($totalUnidades > 0) {
         $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
         $ingresoDatos = [
@@ -100,7 +116,26 @@ try {
         $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
 
-    responderJson(["success" => true, "id" => $productoId, "mensaje" => "Producto registrado exitosamente."], 201);
+    // Registrar en trazabilidad de movimientos de producto
+    FirestoreConexion::registrarMovimientoProducto(
+        productoId: $productoId,
+        tipo: "ALTA_INICIAL",
+        descripcion: "Alta inicial del producto con stock de {$totalUnidades} un. a $" . number_format($precio, 2),
+        cantidadAnterior: 0,
+        cantidadNueva: $totalUnidades,
+        diferencia: $totalUnidades,
+        precioAnterior: null,
+        precioNuevo: $precio,
+        usuarioId: $usuarioId,
+        usuarioNombre: $usuarioNombre
+    );
+
+    responderJson([
+        "success" => true,
+        "id" => $productoId,
+        "codigo_barras" => $codigoBarrasParam,
+        "mensaje" => "Producto registrado exitosamente."
+    ], 201);
 } catch (Throwable $e) {
     error_log("Error al guardar producto en Firestore: " . $e->getMessage());
     responderJson(["error" => "No se pudo registrar el producto: " . $e->getMessage()], 500);

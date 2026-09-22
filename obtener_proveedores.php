@@ -6,19 +6,48 @@ header("Content-Type: application/json; charset=UTF-8");
 
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
+    $proveedoresRegistrados = $firestore->obtenerColeccion("proveedores");
     $productos = $firestore->obtenerColeccion("productos");
     $ingresos = $firestore->obtenerColeccion("ingresos_stock");
 
     $proveedoresMapa = [];
 
-    // Procesar productos
+    // 1. Cargar proveedores registrados
+    foreach ($proveedoresRegistrados as $pr) {
+        $id = (int) ($pr["id"] ?? $pr["_id"] ?? 0);
+        $nom = trim((string)($pr["nombre"] ?? ""));
+        if ($nom === "") continue;
+
+        $proveedoresMapa[$nom] = [
+            "id" => $id,
+            "proveedor" => $nom,
+            "nombre" => $nom,
+            "email" => (string) ($pr["email"] ?? ""),
+            "direccion" => (string) ($pr["direccion"] ?? ""),
+            "telefono" => (string) ($pr["telefono"] ?? ""),
+            "cuit_cuil" => (string) ($pr["cuit_cuil"] ?? ""),
+            "total_productos" => 0,
+            "total_ingresos" => 0,
+            "total_unidades" => 0,
+            "ultimo_ingreso" => null,
+            "productos_set" => []
+        ];
+    }
+
+    // 2. Asociar productos
     foreach ($productos as $p) {
         $prov = trim((string)($p["proveedor"] ?? ""));
         if ($prov === "") continue;
 
         if (!isset($proveedoresMapa[$prov])) {
             $proveedoresMapa[$prov] = [
+                "id" => 0,
                 "proveedor" => $prov,
+                "nombre" => $prov,
+                "email" => "",
+                "direccion" => "",
+                "telefono" => "",
+                "cuit_cuil" => "",
                 "total_productos" => 0,
                 "total_ingresos" => 0,
                 "total_unidades" => 0,
@@ -34,14 +63,20 @@ try {
         }
     }
 
-    // Procesar ingresos
+    // 3. Asociar ingresos
     foreach ($ingresos as $ing) {
         $prov = trim((string)($ing["proveedor"] ?? ""));
         if ($prov === "") continue;
 
         if (!isset($proveedoresMapa[$prov])) {
             $proveedoresMapa[$prov] = [
+                "id" => 0,
                 "proveedor" => $prov,
+                "nombre" => $prov,
+                "email" => "",
+                "direccion" => "",
+                "telefono" => "",
+                "cuit_cuil" => "",
                 "total_productos" => 0,
                 "total_ingresos" => 0,
                 "total_unidades" => 0,
@@ -66,7 +101,13 @@ try {
         $lista = array_keys($p["productos_set"]);
         sort($lista, SORT_NATURAL | SORT_FLAG_CASE);
         $resultado[] = [
+            "id" => $p["id"],
             "proveedor" => $p["proveedor"],
+            "nombre" => $p["nombre"],
+            "email" => $p["email"],
+            "direccion" => $p["direccion"],
+            "telefono" => $p["telefono"],
+            "cuit_cuil" => $p["cuit_cuil"],
             "total_productos" => $p["total_productos"],
             "total_ingresos" => $p["total_ingresos"],
             "total_unidades" => $p["total_unidades"],
@@ -76,7 +117,7 @@ try {
     }
 
     usort($resultado, function ($a, $b) {
-        return strcasecmp($a["proveedor"], $b["proveedor"]);
+        return strcasecmp($a["nombre"], $b["nombre"]);
     });
 
     echo json_encode($resultado, JSON_UNESCAPED_UNICODE);

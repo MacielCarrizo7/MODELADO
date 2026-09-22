@@ -80,6 +80,19 @@ try {
         ];
         $firestore->guardarDocumento("venta_historial", (string)$histId, $historialDoc);
 
+        // Registrar en movimientos de producto
+        FirestoreConexion::registrarMovimientoProducto(
+            productoId: $productoId,
+            tipo: "VENTA_CANCELADA",
+            descripcion: "Venta #{$ventaId} cancelada. Reintegro de {$cantidadAnterior} un. al stock" . ($motivo !== "" ? " (Motivo: {$motivo})" : ""),
+            cantidadAnterior: $stockActual,
+            cantidadNueva: $stockActual + $cantidadAnterior,
+            diferencia: +$cantidadAnterior,
+            precioAnterior: (float) ($venta["precio_unitario"] ?? 0),
+            precioNuevo: (float) ($venta["precio_unitario"] ?? 0),
+            usuarioId: $usuarioId
+        );
+
         responderJson(["success" => true, "estado" => "CANCELADA"]);
     }
 
@@ -138,6 +151,20 @@ try {
         "fecha" => $fechaActual
     ];
     $firestore->guardarDocumento("venta_historial", (string)$histId, $historialDoc);
+
+    // Registrar en movimientos de producto
+    $signo = $diferencia > 0 ? "-{$diferencia}" : "+" . abs($diferencia);
+    FirestoreConexion::registrarMovimientoProducto(
+        productoId: $productoId,
+        tipo: "VENTA_MODIFICADA",
+        descripcion: "Venta #{$ventaId} modificada. Cantidad: {$cantidadAnterior} → {$cantidadNueva} ({$signo} un. en stock)" . ($motivo !== "" ? " (Motivo: {$motivo})" : ""),
+        cantidadAnterior: $stockActual,
+        cantidadNueva: $stockActual - $diferencia,
+        diferencia: -$diferencia,
+        precioAnterior: (float) ($venta["precio_unitario"] ?? 0),
+        precioNuevo: (float) ($venta["precio_unitario"] ?? 0),
+        usuarioId: $usuarioId
+    );
 
     responderJson(["success" => true, "estado" => "MODIFICADA", "total" => $totalNuevo]);
 } catch (Throwable $e) {

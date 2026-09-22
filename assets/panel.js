@@ -9,6 +9,8 @@ const formatoFechaCorta = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium"
 let productosCache = [];
 let proveedoresCache = [];
 let solicitudesCache = [];
+let html5QrScannerInstance = null;
+let callbackScannerActivo = null;
 
 function celda(texto, clase = "") {
     const td = document.createElement("td");
@@ -48,7 +50,7 @@ function fechaLegible(valor) {
     return Number.isNaN(fecha.getTime()) ? valor : formatoFecha.format(fecha);
 }
 
-// Nueva política de semáforo FIFO:
+// Política de semáforo FIFO:
 // - Rojo: ≤ 45 días (o vencido)
 // - Amarillo: 46 a 90 días
 // - Verde: > 90 días
@@ -103,49 +105,68 @@ function crearBadgeVencimiento(fechaIso) {
     return badge;
 }
 
-function crearBadgePresentacion(presentacion, unidadesPorBulto) {
-    const badge = document.createElement("span");
-    const pres = (presentacion || "unidad").toLowerCase();
-    badge.className = `badge-presentacion ${pres}`;
-    
-    if (pres === "caja") {
-        badge.textContent = `📦 Caja (${unidadesPorBulto || 1} un.)`;
-    } else if (pres === "bulto") {
-        badge.textContent = `🏷️ Bulto (${unidadesPorBulto || 1} un.)`;
-    } else {
-        badge.textContent = `🔹 Unidad`;
-    }
-    return badge;
-}
-
-function renderizarFilasProductos(listaProductos) {
+// Renderizado de Productos con Código de Barras y Botón de Historial
+function renderizarFilasProductos(productos) {
     const tbody = document.getElementById("productosBody");
     if (!tbody) return;
-    const columnas = esAdmin ? 7 : 6;
-    tbody.replaceChildren();
-
-    if (listaProductos.length === 0) {
-        mensajeEnTabla(tbody, columnas, "No se encontraron productos para los filtros seleccionados.");
+    const columnas = 8;
+    if (productos.length === 0) {
+        mensajeEnTabla(tbody, columnas, "No se encontraron productos con los filtros seleccionados.");
         return;
     }
+    tbody.replaceChildren();
 
-    listaProductos.forEach((producto) => {
+    productos.forEach((producto) => {
         const fila = document.createElement("tr");
-        
-        fila.append(celda(producto.nombre, "fw-semibold"));
 
-        const presTd = document.createElement("td");
-        presTd.appendChild(crearBadgePresentacion(producto.presentacion, producto.unidades_por_bulto));
-        fila.appendChild(presTd);
+        // 1. Código / Código de Barras
+        const cbTd = document.createElement("td");
+        const cbCont = document.createElement("div");
+        if (producto.codigo_barras) {
+            const cbBadge = document.createElement("span");
+            cbBadge.className = "badge text-bg-light border font-monospace";
+            cbBadge.textContent = producto.codigo_barras;
+            cbCont.appendChild(cbBadge);
+        } else if (producto.codigo) {
+            const codBadge = document.createElement("span");
+            codBadge.className = "badge text-bg-secondary";
+            codBadge.textContent = producto.codigo;
+            cbCont.appendChild(codBadge);
+        } else {
+            cbCont.innerHTML = '<span class="text-muted small">—</span>';
+        }
+        cbTd.appendChild(cbCont);
+        fila.appendChild(cbTd);
 
-        fila.append(celda(producto.proveedor || "—", "text-muted"));
+        // 2. Nombre
+        const nombreTd = document.createElement("td");
+        const nombreTitulo = document.createElement("div");
+        nombreTitulo.className = "fw-bold";
+        nombreTitulo.textContent = producto.nombre;
+        nombreTd.appendChild(nombreTitulo);
+        if (producto.descripcion) {
+            const desc = document.createElement("small");
+            desc.className = "text-muted d-block";
+            desc.textContent = producto.descripcion;
+            nombreTd.appendChild(desc);
+        }
+        fila.appendChild(nombreTd);
 
-        const vencTd = document.createElement("td");
-        vencTd.appendChild(crearBadgeVencimiento(producto.fecha_vencimiento));
-        fila.appendChild(vencTd);
+        // 3. Presentación
+        fila.append(celda(producto.presentacion ? producto.presentacion.toUpperCase() : "UNIDAD"));
 
-        fila.append(celda(formatoMoneda.format(Number(producto.precio))));
+        // 4. Proveedor
+        fila.append(celda(producto.proveedor || "—", "text-secondary"));
 
+        // 5. Vencimiento (FIFO)
+        const vencimientoTd = document.createElement("td");
+        vencimientoTd.appendChild(crearBadgeVencimiento(producto.fecha_vencimiento));
+        fila.appendChild(vencimientoTd);
+
+        // 6. Precio
+        fila.append(celda(formatoMoneda.format(producto.precio), "fw-bold text-primary"));
+
+        // 7. Stock
         const stockTd = document.createElement("td");
         const stock = Number(producto.stock);
         const unidadesPorBulto = Number(producto.unidades_por_bulto) || 1;
@@ -168,12 +189,22 @@ function renderizarFilasProductos(listaProductos) {
         stockTd.appendChild(badge);
         fila.appendChild(stockTd);
 
-        if (esAdmin) {
-            const accion = document.createElement("td");
-            accion.className = "text-end";
-            const grupo = document.createElement("div");
-            grupo.className = "d-inline-flex gap-1";
+        // 8. Acciones (Historial + Editar + Eliminar)
+        const accion = document.createElement("td");
+        accion.className = "text-end";
+        const grupo = document.createElement("div");
+        grupo.className = "d-inline-flex gap-1";
 
+        // Botón Historial de Movimientos
+        const btnHistorial = document.createElement("button");
+        btnHistorial.type = "button";
+        btnHistorial.className = "btn btn-outline-secondary btn-sm";
+        btnHistorial.title = "Ver historial y trazabilidad de movimientos";
+        btnHistorial.innerHTML = "📜 Historial";
+        btnHistorial.addEventListener("click", () => abrirModalHistorialProducto(producto.id));
+        grupo.appendChild(btnHistorial);
+
+        if (esAdmin) {
             const btnEditar = document.createElement("button");
             btnEditar.type = "button";
             btnEditar.className = "btn btn-outline-primary btn-sm";
@@ -187,9 +218,10 @@ function renderizarFilasProductos(listaProductos) {
             btnEliminar.addEventListener("click", () => eliminarProducto(producto.id, producto.nombre));
 
             grupo.append(btnEditar, btnEliminar);
-            accion.appendChild(grupo);
-            fila.appendChild(accion);
         }
+        accion.appendChild(grupo);
+        fila.appendChild(accion);
+
         tbody.appendChild(fila);
     });
 }
@@ -207,7 +239,11 @@ function filtrarYRenderizarProductos() {
         if (query !== "") {
             const nombre = (producto.nombre || "").toLowerCase();
             const proveedor = (producto.proveedor || "").toLowerCase();
-            if (!nombre.includes(query) && !proveedor.includes(query)) return false;
+            const codigo = (producto.codigo || "").toLowerCase();
+            const cb = (producto.codigo_barras || "").toLowerCase();
+            if (!nombre.includes(query) && !proveedor.includes(query) && !codigo.includes(query) && !cb.includes(query)) {
+                return false;
+            }
         }
 
         if (presentacionFiltro !== "") {
@@ -229,7 +265,7 @@ function filtrarYRenderizarProductos() {
 async function cargarProductos() {
     const tbody = document.getElementById("productosBody");
     if (!tbody) return;
-    const columnas = esAdmin ? 7 : 6;
+    const columnas = 8;
     mensajeEnTabla(tbody, columnas, "Cargando productos...");
     try {
         productosCache = await solicitar("obtener_productos.php");
@@ -241,6 +277,7 @@ async function cargarProductos() {
         
         filtrarYRenderizarProductos();
         llenarSelectoresProductos();
+        llenarSelectorBarcodeProductos();
     } catch (error) {
         mensajeEnTabla(tbody, columnas, error.message, true);
     }
@@ -270,343 +307,841 @@ function llenarSelectoresProductos() {
     }
 
     if (venta) {
-        const ventaActual = venta.value;
-        venta.replaceChildren();
-        let hayDisponibles = false;
+        const valorActual = venta.value;
+        venta.replaceChildren(new Option("-- Seleccionar producto --", ""));
         productosCache.forEach((producto) => {
-            if (Number(producto.stock) > 0) {
-                hayDisponibles = true;
-                const opt = new Option(`${producto.nombre} · stock: ${producto.stock} un. · ${formatoMoneda.format(Number(producto.precio))}`, producto.id);
-                venta.appendChild(opt);
+            const cbTxt = producto.codigo_barras ? ` [CB: ${producto.codigo_barras}]` : "";
+            const opt = new Option(`${producto.nombre}${cbTxt} (Stock: ${producto.stock} un. - ${formatoMoneda.format(producto.precio)})`, producto.id);
+            opt.dataset.precio = producto.precio;
+            opt.dataset.stock = producto.stock;
+            opt.dataset.presentacion = producto.presentacion || "unidad";
+            opt.dataset.unidadesBulto = producto.unidades_por_bulto || 1;
+            opt.dataset.codigoBarras = producto.codigo_barras || "";
+            venta.appendChild(opt);
+        });
+        venta.value = valorActual;
+    }
+}
+
+// -------------------------------------------------------------
+// HISTORIAL Y TRAZABILIDAD DE MOVIMIENTOS DE PRODUCTO
+// -------------------------------------------------------------
+async function abrirModalHistorialProducto(productoId) {
+    const modalEl = document.getElementById("modalHistorialProducto");
+    if (!modalEl) return;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    
+    const lblNombre = document.getElementById("historialProductoNombre");
+    const lblDetalles = document.getElementById("historialProductoDetalles");
+    const lblStock = document.getElementById("historialProductoStock");
+    const lblPrecio = document.getElementById("historialProductoPrecio");
+    const tbody = document.getElementById("historialProductoBody");
+
+    mensajeEnTabla(tbody, 5, "Cargando trazabilidad de movimientos...");
+    modal.show();
+
+    try {
+        const respuesta = await solicitar(`obtener_movimientos_producto.php?producto_id=${productoId}`);
+        const prod = respuesta.producto;
+        const movimientos = respuesta.movimientos || [];
+
+        if (lblNombre) lblNombre.textContent = prod.nombre;
+        if (lblDetalles) {
+            lblDetalles.textContent = `Código: ${prod.codigo || "—"} | Código de Barras: ${prod.codigo_barras || "—"} | Proveedor: ${prod.proveedor || "—"}`;
+        }
+        if (lblStock) lblStock.textContent = `${prod.stock_actual} un.`;
+        if (lblPrecio) lblPrecio.textContent = formatoMoneda.format(prod.precio_actual);
+
+        if (movimientos.length === 0) {
+            mensajeEnTabla(tbody, 5, "No hay movimientos registrados para este producto aún.");
+            return;
+        }
+
+        tbody.replaceChildren();
+        movimientos.forEach((m) => {
+            const fila = document.createElement("tr");
+
+            // Fecha
+            fila.append(celda(fechaLegible(m.fecha), "small text-nowrap"));
+
+            // Tipo de Movimiento con Badge
+            const tipoTd = document.createElement("td");
+            const badge = document.createElement("span");
+            let badgeClase = "badge-mov-edicion";
+            let icono = "📝";
+
+            switch (m.tipo) {
+                case "ALTA_INICIAL":
+                    badgeClase = "badge-mov-alta";
+                    icono = "✨";
+                    break;
+                case "INGRESO_STOCK":
+                    badgeClase = "badge-mov-ingreso";
+                    icono = "📥";
+                    break;
+                case "VENTA":
+                    badgeClase = "badge-mov-venta";
+                    icono = "🛒";
+                    break;
+                case "VENTA_CANCELADA":
+                    badgeClase = "badge-mov-cancelada";
+                    icono = "↩️";
+                    break;
+                case "VENTA_MODIFICADA":
+                case "AJUSTE_STOCK":
+                    badgeClase = "badge-mov-ajuste";
+                    icono = "⚖️";
+                    break;
+            }
+
+            badge.className = `badge-mov ${badgeClase}`;
+            badge.textContent = `${icono} ${m.tipo.replace(/_/g, " ")}`;
+            tipoTd.appendChild(badge);
+            fila.appendChild(tipoTd);
+
+            // Detalle / Descripción
+            fila.append(celda(m.descripcion || "Operación registrada", "small"));
+
+            // Variación de Stock
+            const varTd = document.createElement("td");
+            if (m.diferencia !== null && m.diferencia !== undefined) {
+                const dif = Number(m.diferencia);
+                const spanVar = document.createElement("span");
+                if (dif > 0) {
+                    spanVar.className = "text-success fw-bold";
+                    spanVar.textContent = `+${dif} un.`;
+                } else if (dif < 0) {
+                    spanVar.className = "text-danger fw-bold";
+                    spanVar.textContent = `${dif} un.`;
+                } else {
+                    spanVar.className = "text-muted";
+                    spanVar.textContent = "0 un.";
+                }
+                varTd.appendChild(spanVar);
+                if (m.cantidad_nueva !== null && m.cantidad_nueva !== undefined) {
+                    const smallSaldo = document.createElement("small");
+                    smallSaldo.className = "text-muted d-block";
+                    smallSaldo.textContent = `Saldo: ${m.cantidad_nueva} un.`;
+                    varTd.appendChild(smallSaldo);
+                }
+            } else {
+                varTd.innerHTML = '<span class="text-muted">—</span>';
+            }
+            fila.appendChild(varTd);
+
+            // Responsable
+            fila.append(celda(m.usuario_nombre || "Sistema", "small fw-semibold text-secondary"));
+
+            tbody.appendChild(fila);
+        });
+    } catch (error) {
+        mensajeEnTabla(tbody, 5, error.message, true);
+    }
+}
+
+// -------------------------------------------------------------
+// GESTIÓN COMPLETA DE PROVEEDORES
+// -------------------------------------------------------------
+async function cargarProveedores() {
+    const tbody = document.getElementById("proveedoresBody");
+    if (!tbody) return;
+    const columnas = esAdmin ? 7 : 6;
+    mensajeEnTabla(tbody, columnas, "Cargando proveedores...");
+
+    try {
+        proveedoresCache = await solicitar("obtener_proveedores.php");
+        renderizarFilasProveedores(proveedoresCache);
+        llenarSelectoresProveedores();
+        
+        const resProv = document.getElementById("resumenProveedores");
+        if (resProv) resProv.textContent = proveedoresCache.length;
+    } catch (error) {
+        mensajeEnTabla(tbody, columnas, error.message, true);
+    }
+}
+
+function renderizarFilasProveedores(proveedores) {
+    const tbody = document.getElementById("proveedoresBody");
+    if (!tbody) return;
+    const columnas = esAdmin ? 7 : 6;
+
+    if (proveedores.length === 0) {
+        mensajeEnTabla(tbody, columnas, "No hay proveedores registrados.");
+        return;
+    }
+
+    tbody.replaceChildren();
+    proveedores.forEach((prov) => {
+        const fila = document.createElement("tr");
+
+        // 1. Nombre / Empresa
+        const nomTd = document.createElement("td");
+        const nomDiv = document.createElement("div");
+        nomDiv.className = "fw-bold text-dark";
+        nomDiv.textContent = prov.nombre || prov.proveedor;
+        nomTd.appendChild(nomDiv);
+        fila.appendChild(nomTd);
+
+        // 2. CUIT / CUIL
+        fila.append(celda(prov.cuit_cuil || "—", "font-monospace small text-muted"));
+
+        // 3. Teléfono
+        fila.append(celda(prov.telefono || "—", "small"));
+
+        // 4. Correo
+        const mailTd = document.createElement("td");
+        if (prov.email) {
+            const aMail = document.createElement("a");
+            aMail.href = `mailto:${prov.email}`;
+            aMail.className = "text-primary text-decoration-none small";
+            aMail.textContent = prov.email;
+            mailTd.appendChild(aMail);
+        } else {
+            mailTd.innerHTML = '<span class="text-muted small">—</span>';
+        }
+        fila.appendChild(mailTd);
+
+        // 5. Dirección
+        fila.append(celda(prov.direccion || "—", "small text-muted"));
+
+        // 6. Catálogo Asignado
+        const catTd = document.createElement("td");
+        const badgeCat = document.createElement("span");
+        badgeCat.className = "badge text-bg-light border";
+        badgeCat.textContent = `${prov.total_productos} productos`;
+        catTd.appendChild(badgeCat);
+        if (prov.productos_lista && prov.productos_lista !== "—") {
+            const smallList = document.createElement("small");
+            smallList.className = "text-muted d-block mt-1 text-truncate";
+            smallList.style.maxWidth = "220px";
+            smallList.title = prov.productos_lista;
+            smallList.textContent = prov.productos_lista;
+            catTd.appendChild(smallList);
+        }
+        fila.appendChild(catTd);
+
+        // 7. Acciones (Editar / Eliminar solo Admin)
+        if (esAdmin) {
+            const accTd = document.createElement("td");
+            accTd.className = "text-end";
+            const divAcc = document.createElement("div");
+            divAcc.className = "d-inline-flex gap-1";
+
+            const btnEdit = document.createElement("button");
+            btnEdit.type = "button";
+            btnEdit.className = "btn btn-outline-primary btn-sm";
+            btnEdit.textContent = "Editar";
+            btnEdit.addEventListener("click", () => abrirModalEditarProveedor(prov));
+
+            const btnDel = document.createElement("button");
+            btnDel.type = "button";
+            btnDel.className = "btn btn-outline-danger btn-sm";
+            btnDel.textContent = "Eliminar";
+            btnDel.addEventListener("click", () => eliminarProveedor(prov.id, prov.nombre || prov.proveedor));
+
+            divAcc.append(btnEdit, btnDel);
+            accTd.appendChild(divAcc);
+            fila.appendChild(accTd);
+        }
+
+        tbody.appendChild(fila);
+    });
+}
+
+function llenarSelectoresProveedores() {
+    const selects = [
+        document.getElementById("productoProveedor"),
+        document.getElementById("editarProductoProveedor")
+    ];
+
+    selects.forEach((sel) => {
+        if (!sel) return;
+        const valActual = sel.value;
+        sel.replaceChildren(new Option("-- Seleccionar proveedor --", ""));
+        
+        proveedoresCache.forEach((p) => {
+            const nom = p.nombre || p.proveedor;
+            sel.appendChild(new Option(nom, nom));
+        });
+
+        const optNuevo = new Option("➕ Registrar nuevo proveedor...", "__NUEVO__");
+        optNuevo.className = "fw-bold text-primary";
+        sel.appendChild(optNuevo);
+
+        sel.value = valActual;
+
+        // Si el usuario selecciona "Registrar nuevo proveedor", abrir modal
+        sel.onchange = (e) => {
+            if (e.target.value === "__NUEVO__") {
+                abrirModalCrearProveedor();
+                e.target.value = "";
+            }
+        };
+    });
+}
+
+// Buscador en tiempo real de proveedores
+const buscadorProveedoresInput = document.getElementById("buscadorProveedores");
+if (buscadorProveedoresInput) {
+    buscadorProveedoresInput.addEventListener("input", (e) => {
+        const term = e.target.value.toLowerCase().trim();
+        const filtrados = proveedoresCache.filter((p) => {
+            const nom = (p.nombre || p.proveedor || "").toLowerCase();
+            const cuit = (p.cuit_cuil || "").toLowerCase();
+            const mail = (p.email || "").toLowerCase();
+            const tel = (p.telefono || "").toLowerCase();
+            return nom.includes(term) || cuit.includes(term) || mail.includes(term) || tel.includes(term);
+        });
+        renderizarFilasProveedores(filtrados);
+    });
+}
+
+function abrirModalCrearProveedor() {
+    const form = document.getElementById("formProveedor");
+    if (!form) return;
+    form.reset();
+    document.getElementById("proveedorId").value = "";
+    document.getElementById("tituloModalProveedor").textContent = "Registrar nuevo proveedor";
+    document.getElementById("errorProveedor").classList.add("d-none");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalProveedor")).show();
+}
+
+function abrirModalEditarProveedor(prov) {
+    const form = document.getElementById("formProveedor");
+    if (!form) return;
+    form.reset();
+    document.getElementById("proveedorId").value = prov.id || "";
+    document.getElementById("proveedorNombre").value = prov.nombre || prov.proveedor || "";
+    document.getElementById("proveedorCuit").value = prov.cuit_cuil || "";
+    document.getElementById("proveedorTelefono").value = prov.telefono || "";
+    document.getElementById("proveedorEmail").value = prov.email || "";
+    document.getElementById("proveedorDireccion").value = prov.direccion || "";
+    document.getElementById("tituloModalProveedor").textContent = "Editar proveedor";
+    document.getElementById("errorProveedor").classList.add("d-none");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalProveedor")).show();
+}
+
+const formProveedor = document.getElementById("formProveedor");
+if (formProveedor) {
+    formProveedor.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorBox = document.getElementById("errorProveedor");
+        errorBox.classList.add("d-none");
+        const provId = document.getElementById("proveedorId").value;
+        const endpoint = provId ? "modificar_proveedor.php" : "guardar_proveedor.php";
+
+        try {
+            await solicitar(endpoint, { method: "POST", body: new FormData(formProveedor) });
+            bootstrap.Modal.getInstance(document.getElementById("modalProveedor")).hide();
+            formProveedor.reset();
+            await Promise.all([cargarProveedores(), cargarProductos()]);
+        } catch (error) {
+            errorBox.textContent = error.message;
+            errorBox.classList.remove("d-none");
+        }
+    });
+}
+
+async function eliminarProveedor(id, nombre) {
+    if (!window.confirm(`¿Seguro que deseás eliminar al proveedor “${nombre}”?`)) return;
+    const datos = new FormData();
+    datos.append("id", id);
+    try {
+        await solicitar("eliminar_proveedor.php", { method: "POST", body: datos });
+        await cargarProveedores();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+// -------------------------------------------------------------
+// GENERADOR E IMPRESIÓN DE CÓDIGOS DE BARRA
+// -------------------------------------------------------------
+function llenarSelectorBarcodeProductos() {
+    const selector = document.getElementById("barcodeSelectorProducto");
+    if (!selector) return;
+    const valActual = selector.value;
+    selector.replaceChildren(new Option("-- Ingreso manual / Nuevo producto --", ""));
+    productosCache.forEach((p) => {
+        const opt = new Option(`${p.nombre} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio)})`, p.id);
+        selector.appendChild(opt);
+    });
+    selector.value = valActual;
+}
+
+function actualizarPreviewBarcode() {
+    const inputCodigo = document.getElementById("barcodeInputCodigo");
+    const inputNombre = document.getElementById("barcodeInputNombre");
+    const inputPrecio = document.getElementById("barcodeInputPrecio");
+    const selectFormato = document.getElementById("barcodeInputFormato");
+    const svgElement = document.getElementById("previewBarcodeSvg");
+    const lblNombre = document.getElementById("previewEtiquetaNombre");
+    const lblPrecio = document.getElementById("previewEtiquetaPrecio");
+
+    if (!svgElement) return;
+
+    const codigo = inputCodigo ? (inputCodigo.value.trim() || "779123456789") : "779123456789";
+    const nombre = inputNombre ? (inputNombre.value.trim() || "Nombre del Producto") : "Nombre del Producto";
+    const precio = inputPrecio && inputPrecio.value ? Number(inputPrecio.value) : 0;
+    const formato = selectFormato ? selectFormato.value : "CODE128";
+
+    if (lblNombre) lblNombre.textContent = nombre;
+    if (lblPrecio) lblPrecio.textContent = precio > 0 ? formatoMoneda.format(precio) : "$ 0,00";
+
+    try {
+        JsBarcode(svgElement, codigo, {
+            format: formato === "EAN13" && codigo.length === 13 ? "EAN13" : "CODE128",
+            lineColor: "#0f172a",
+            width: 2,
+            height: 50,
+            displayValue: true,
+            fontSize: 14,
+            font: "monospace"
+        });
+    } catch (e) {
+        // Fallback a CODE128 si falla validación estricta de EAN13
+        try {
+            JsBarcode(svgElement, codigo, {
+                format: "CODE128",
+                lineColor: "#0f172a",
+                width: 2,
+                height: 50,
+                displayValue: true,
+                fontSize: 14,
+                font: "monospace"
+            });
+        } catch (_) {}
+    }
+}
+
+const barcodeSelector = document.getElementById("barcodeSelectorProducto");
+if (barcodeSelector) {
+    barcodeSelector.addEventListener("change", (e) => {
+        const prodId = Number(e.target.value);
+        const prod = productosCache.find((p) => Number(p.id) === prodId);
+        if (prod) {
+            document.getElementById("barcodeInputCodigo").value = prod.codigo_barras || prod.codigo || generarCodigoEan13();
+            document.getElementById("barcodeInputNombre").value = prod.nombre;
+            document.getElementById("barcodeInputPrecio").value = prod.precio;
+        }
+        actualizarPreviewBarcode();
+    });
+}
+
+["barcodeInputCodigo", "barcodeInputNombre", "barcodeInputPrecio", "barcodeInputFormato"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", actualizarPreviewBarcode);
+});
+
+function generarCodigoEan13() {
+    let codigo = "779" + Math.floor(Math.random() * 1000000000).toString().padStart(9, "0");
+    return codigo;
+}
+
+const btnRandomCode = document.getElementById("btnGenerarCodigoRandom");
+if (btnRandomCode) {
+    btnRandomCode.addEventListener("click", () => {
+        document.getElementById("barcodeInputCodigo").value = generarCodigoEan13();
+        actualizarPreviewBarcode();
+    });
+}
+
+const btnCopiarCode = document.getElementById("btnCopiarCodigoBarras");
+if (btnCopiarCode) {
+    btnCopiarCode.addEventListener("click", () => {
+        const val = document.getElementById("barcodeInputCodigo").value;
+        if (val) {
+            navigator.clipboard.writeText(val);
+            alert(`Código "${val}" copiado al portapapeles.`);
+        }
+    });
+}
+
+const btnImprimir = document.getElementById("btnImprimirEtiqueta");
+if (btnImprimir) {
+    btnImprimir.addEventListener("click", () => {
+        window.print();
+    });
+}
+
+// -------------------------------------------------------------
+// ESCÁNER DE CÓDIGO DE BARRAS (CÁMARA WEB / MÓVIL + PISTOLA LECTORA)
+// -------------------------------------------------------------
+function abrirModalScannerCamara(callbackExito) {
+    callbackScannerActivo = callbackExito;
+    const modalEl = document.getElementById("modalScannerCamara");
+    if (!modalEl) return;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    iniciarLectorCamara();
+}
+
+function iniciarLectorCamara() {
+    const readerDiv = document.getElementById("qr-reader");
+    if (!readerDiv) return;
+
+    if (html5QrScannerInstance) {
+        html5QrScannerInstance.clear().catch(() => {});
+    }
+
+    html5QrScannerInstance = new Html5Qrcode("qr-reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+    html5QrScannerInstance.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+            // Sonido suave de beep o vibración
+            if (navigator.vibrate) navigator.vibrate(100);
+            
+            detenerLectorCamara();
+            bootstrap.Modal.getInstance(document.getElementById("modalScannerCamara")).hide();
+
+            if (callbackScannerActivo) {
+                callbackScannerActivo(decodedText);
+            }
+        },
+        () => {} // Ignorar frames sin código
+    ).catch((err) => {
+        const resBox = document.getElementById("scannerResultado");
+        if (resBox) {
+            resBox.textContent = "No se pudo acceder a la cámara o no hay permisos suficientes: " + err;
+            resBox.classList.remove("d-none");
+            resBox.className = "alert alert-warning py-2";
+        }
+    });
+}
+
+function detenerLectorCamara() {
+    if (html5QrScannerInstance) {
+        html5QrScannerInstance.stop().then(() => {
+            html5QrScannerInstance.clear();
+            html5QrScannerInstance = null;
+        }).catch(() => {});
+    }
+}
+
+const modalScannerEl = document.getElementById("modalScannerCamara");
+if (modalScannerEl) {
+    modalScannerEl.addEventListener("hidden.bs.modal", detenerLectorCamara);
+}
+
+// Botones de escaneo integrados
+const btnEscanearFiltro = document.getElementById("btnEscanearFiltro");
+const btnEscanearProductoTabla = document.getElementById("btnEscanearProductoTabla");
+const btnAbrirScannerGlobal = document.getElementById("btnAbrirScannerGlobal");
+
+if (btnEscanearFiltro) {
+    btnEscanearFiltro.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            const input = document.getElementById("filtroProductoBusqueda");
+            if (input) {
+                input.value = codigo;
+                filtrarYRenderizarProductos();
             }
         });
-        if (!hayDisponibles) {
-            venta.appendChild(new Option("No hay productos con stock disponible", ""));
-        } else if (ventaActual) {
-            venta.value = ventaActual;
-        }
-        actualizarOpcionesVentaSegunProducto();
-    }
+    });
 }
 
-function actualizarOpcionesVentaSegunProducto() {
-    const selectProd = document.getElementById("ventaProducto");
-    const selectTipoVenta = document.getElementById("ventaTipoVenta");
-    const infoEmpaque = document.getElementById("ventaInfoEmpaque");
-    if (!selectProd || !selectTipoVenta) return;
-
-    const prodId = Number(selectProd.value);
-    const prod = productosCache.find((p) => Number(p.id) === prodId);
-
-    selectTipoVenta.replaceChildren();
-    selectTipoVenta.appendChild(new Option("Unidades sueltas", "unidad"));
-
-    if (prod && prod.presentacion && prod.presentacion !== "unidad" && Number(prod.unidades_por_bulto) > 1) {
-        const presNombre = prod.presentacion === "caja" ? "Caja" : "Bulto";
-        selectTipoVenta.appendChild(new Option(`${presNombre} (${prod.unidades_por_bulto} un. c/u)`, prod.presentacion));
-        if (infoEmpaque) {
-            infoEmpaque.textContent = `Presentación de catálogo: ${presNombre} de ${prod.unidades_por_bulto} unidades.`;
-            infoEmpaque.classList.remove("d-none");
-        }
-    } else {
-        if (infoEmpaque) infoEmpaque.classList.add("d-none");
-    }
-
-    recalcularTotalesModalVenta();
-}
-
-function recalcularTotalesModalVenta() {
-    const selectProd = document.getElementById("ventaProducto");
-    const selectTipoVenta = document.getElementById("ventaTipoVenta");
-    const inputCantidad = document.getElementById("ventaCantidad");
-    const selectDescuento = document.getElementById("ventaDescuentoPorcentaje");
-    const inputDescuentoCustom = document.getElementById("ventaDescuentoCustom");
-    
-    const resumenSubtotal = document.getElementById("ventaResumenSubtotal");
-    const resumenDescuento = document.getElementById("ventaResumenDescuento");
-    const resumenTotal = document.getElementById("ventaResumenTotal");
-    const resumenUnidades = document.getElementById("ventaResumenUnidades");
-
-    if (!selectProd || !inputCantidad) return;
-
-    const prodId = Number(selectProd.value);
-    const prod = productosCache.find((p) => Number(p.id) === prodId);
-    const cantidad = Math.max(1, Number(inputCantidad.value) || 1);
-    const tipoVenta = selectTipoVenta ? selectTipoVenta.value : "unidad";
-    
-    let descuentoPct = 0;
-    if (selectDescuento) {
-        if (selectDescuento.value === "custom") {
-            if (inputDescuentoCustom) {
-                inputDescuentoCustom.classList.remove("d-none");
-                descuentoPct = Math.min(100, Math.max(0, Number(inputDescuentoCustom.value) || 0));
+if (btnEscanearProductoTabla) {
+    btnEscanearProductoTabla.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            const input = document.getElementById("filtroProductoBusqueda");
+            if (input) {
+                input.value = codigo;
+                filtrarYRenderizarProductos();
             }
-        } else {
-            if (inputDescuentoCustom) inputDescuentoCustom.classList.add("d-none");
-            descuentoPct = Number(selectDescuento.value) || 0;
+        });
+    });
+}
+
+if (btnAbrirScannerGlobal) {
+    btnAbrirScannerGlobal.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            // Buscar producto por código de barras
+            const encontrado = productosCache.find((p) => (p.codigo_barras === codigo || p.codigo === codigo));
+            if (encontrado) {
+                abrirModalHistorialProducto(encontrado.id);
+            } else {
+                const tabProdBtn = document.getElementById("tab-productos-btn") || document.getElementById("tab-vendedor-productos-btn");
+                if (tabProdBtn) bootstrap.Tab.getOrCreateInstance(tabProdBtn).show();
+                const input = document.getElementById("filtroProductoBusqueda");
+                if (input) {
+                    input.value = codigo;
+                    filtrarYRenderizarProductos();
+                }
+            }
+        });
+    });
+}
+
+// Escáner en Modal de Alta de Producto
+const btnScanAlta = document.getElementById("btnEscanearCodigoModalAlta");
+if (btnScanAlta) {
+    btnScanAlta.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            document.getElementById("productoCodigoBarras").value = codigo;
+        });
+    });
+}
+const btnGenAlta = document.getElementById("btnGenerarCodigoModalAlta");
+if (btnGenAlta) {
+    btnGenAlta.addEventListener("click", () => {
+        document.getElementById("productoCodigoBarras").value = generarCodigoEan13();
+    });
+}
+
+// Escáner en Modal de Edición de Producto
+const btnScanEdicion = document.getElementById("btnEscanearCodigoModalEdicion");
+if (btnScanEdicion) {
+    btnScanEdicion.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            document.getElementById("editarProductoCodigoBarras").value = codigo;
+        });
+    });
+}
+const btnGenEdicion = document.getElementById("btnGenerarCodigoModalEdicion");
+if (btnGenEdicion) {
+    btnGenEdicion.addEventListener("click", () => {
+        document.getElementById("editarProductoCodigoBarras").value = generarCodigoEan13();
+    });
+}
+
+// Escáner en Modal de Venta
+const btnScanVenta = document.getElementById("btnEscanearProductoVenta");
+if (btnScanVenta) {
+    btnScanVenta.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            const encontrado = productosCache.find((p) => (p.codigo_barras === codigo || p.codigo === codigo));
+            if (encontrado) {
+                const sel = document.getElementById("ventaProducto");
+                if (sel) {
+                    sel.value = encontrado.id;
+                    sel.dispatchEvent(new Event("change"));
+                }
+            } else {
+                alert(`No se encontró ningún producto con código "${codigo}".`);
+            }
+        });
+    });
+}
+
+// Detección de lector de código de barras físico USB / Bluetooth (Enter tras lectura rápida)
+document.addEventListener("keydown", (e) => {
+    // Si el usuario presiona Enter en el buscador de productos y coincide con un código de barras
+    if (e.key === "Enter" && document.activeElement && document.activeElement.id === "filtroProductoBusqueda") {
+        const val = document.activeElement.value.trim();
+        const prod = productosCache.find((p) => p.codigo_barras === val || p.codigo === val);
+        if (prod) {
+            filtrarYRenderizarProductos();
         }
     }
+});
 
-    if (!prod) return;
+// -------------------------------------------------------------
+// RESTO DE FUNCIONES DE VENTAS, INGRESOS Y CLIENTES
+// -------------------------------------------------------------
+async function cargarVentas(filtros = {}) {
+    const tbody = document.getElementById("ventasBody");
+    if (!tbody) return;
+    const columnas = esAdmin ? 12 : 10;
+    mensajeEnTabla(tbody, columnas, "Cargando ventas...");
 
-    const precioUnitario = Number(prod.precio);
-    const unidadesPorBulto = (tipoVenta !== "unidad" && Number(prod.unidades_por_bulto) > 1) ? Number(prod.unidades_por_bulto) : 1;
-    const totalUnidades = cantidad * unidadesPorBulto;
-    const subtotal = totalUnidades * precioUnitario;
-    const descuentoMonto = subtotal * (descuentoPct / 100);
-    const totalFinal = Math.max(0, subtotal - descuentoMonto);
+    const params = new URLSearchParams();
+    Object.entries(filtros).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.append(k, v);
+    });
 
-    if (resumenUnidades) resumenUnidades.textContent = `${totalUnidades} un.`;
-    if (resumenSubtotal) resumenSubtotal.textContent = formatoMoneda.format(subtotal);
-    if (resumenDescuento) resumenDescuento.textContent = descuentoPct > 0 ? `-${formatoMoneda.format(descuentoMonto)} (${descuentoPct}%)` : "$ 0,00";
-    if (resumenTotal) resumenTotal.textContent = formatoMoneda.format(totalFinal);
+    try {
+        const ventas = await solicitar(`obtener_ventas.php?${params.toString()}`);
+        const resVentas = document.getElementById("resumenVentas");
+        if (resVentas) resVentas.textContent = ventas.length;
+
+        if (ventas.length === 0) {
+            mensajeEnTabla(tbody, columnas, "No se registraron ventas.");
+            return;
+        }
+
+        tbody.replaceChildren();
+        ventas.forEach((venta) => {
+            const fila = document.createElement("tr");
+            fila.append(celda(String(venta.id)));
+            fila.append(celda(fechaLegible(venta.fecha)));
+            fila.append(celda(venta.cliente || "—"));
+            fila.append(celda(venta.producto_nombre || "—"));
+
+            const empaqueTexto = (venta.tipo_venta && venta.tipo_venta !== "unidad") 
+                ? `${venta.cantidad_empaque || venta.cantidad} ${venta.tipo_venta}(s) (${venta.cantidad} un.)` 
+                : `${venta.cantidad} un.`;
+            fila.append(celda(empaqueTexto));
+
+            fila.append(celda(formatoMoneda.format(venta.precio_unitario)));
+
+            const descTd = document.createElement("td");
+            if (Number(venta.descuento_monto) > 0) {
+                descTd.innerHTML = `<span class="text-danger fw-semibold">-${Number(venta.descuento_porcentaje)}%</span><br><small class="text-muted">(${formatoMoneda.format(venta.descuento_monto)})</small>`;
+            } else {
+                descTd.textContent = "0%";
+            }
+            fila.appendChild(descTd);
+
+            fila.append(celda(formatoMoneda.format(venta.total), "fw-bold text-primary"));
+
+            if (esAdmin) {
+                fila.append(celda(venta.vendedor || "—"));
+            }
+
+            const estadoTd = document.createElement("td");
+            const badge = document.createElement("span");
+            const esCancelada = venta.estado === "CANCELADA";
+            const esModificada = venta.estado === "MODIFICADA";
+            badge.className = `badge ${esCancelada ? "text-bg-danger" : esModificada ? "text-bg-warning" : "text-bg-success"}`;
+            badge.textContent = venta.estado || "ACTIVA";
+            estadoTd.appendChild(badge);
+            fila.appendChild(estadoTd);
+
+            if (esAdmin) {
+                fila.append(celda(venta.fecha_modificacion ? fechaLegible(venta.fecha_modificacion) : "—"));
+            }
+
+            const accion = document.createElement("td");
+            accion.className = "text-end";
+            if (!esCancelada) {
+                const grupo = document.createElement("div");
+                grupo.className = "d-inline-flex gap-1";
+
+                const btnModificar = document.createElement("button");
+                btnModificar.type = "button";
+                btnModificar.className = "btn btn-outline-primary btn-sm";
+                btnModificar.textContent = "Modificar";
+                btnModificar.addEventListener("click", () => {
+                    document.getElementById("modificarVentaId").value = venta.id;
+                    document.getElementById("modificarCantidad").value = venta.cantidad;
+                    document.getElementById("motivoModificacion").value = "";
+                    document.getElementById("errorModificarVenta").classList.add("d-none");
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalModificarVenta")).show();
+                });
+
+                const btnCancelar = document.createElement("button");
+                btnCancelar.type = "button";
+                btnCancelar.className = "btn btn-outline-danger btn-sm";
+                btnCancelar.textContent = "Cancelar";
+                btnCancelar.addEventListener("click", () => {
+                    document.getElementById("cancelarVentaId").value = venta.id;
+                    document.getElementById("motivoCancelacion").value = "";
+                    document.getElementById("errorCancelarVenta").classList.add("d-none");
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalCancelarVenta")).show();
+                });
+
+                grupo.append(btnModificar, btnCancelar);
+                accion.appendChild(grupo);
+            } else {
+                accion.textContent = "—";
+            }
+            fila.appendChild(accion);
+
+            tbody.appendChild(fila);
+        });
+    } catch (error) {
+        mensajeEnTabla(tbody, columnas, error.message, true);
+    }
+}
+
+async function cargarIngresos(filtros = {}) {
+    const tbody = document.getElementById("ingresosBody");
+    if (!tbody) return;
+    const columnas = 8;
+    mensajeEnTabla(tbody, columnas, "Cargando kardex de ingresos...");
+
+    const params = new URLSearchParams();
+    Object.entries(filtros).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.append(k, v);
+    });
+
+    try {
+        const ingresos = await solicitar(`obtener_ingresos.php?${params.toString()}`);
+        const resIng = document.getElementById("resumenIngresos");
+        if (resIng) resIng.textContent = `${ingresos.length} entradas`;
+
+        if (ingresos.length === 0) {
+            mensajeEnTabla(tbody, columnas, "No hay ingresos de mercadería registrados.");
+            return;
+        }
+
+        tbody.replaceChildren();
+        ingresos.forEach((ing) => {
+            const fila = document.createElement("tr");
+            fila.append(celda(String(ing.id)));
+            fila.append(celda(fechaLegible(ing.fecha)));
+            fila.append(celda(ing.producto_nombre, "fw-bold"));
+
+            const cantEmpaque = (ing.presentacion && ing.presentacion !== "unidad" && Number(ing.unidades_por_bulto) > 1)
+                ? `${ing.cantidad} ${ing.presentacion}(s) (${ing.total_unidades} un.)`
+                : `${ing.total_unidades} un.`;
+            fila.append(celda(cantEmpaque));
+
+            fila.append(celda(ing.proveedor || "—"));
+
+            const vencTd = document.createElement("td");
+            vencTd.appendChild(crearBadgeVencimiento(ing.fecha_vencimiento));
+            fila.appendChild(vencTd);
+
+            fila.append(celda(ing.usuario || "Admin"));
+            fila.append(celda(ing.motivo || "Alta de inventario", "small text-muted"));
+
+            tbody.appendChild(fila);
+        });
+    } catch (error) {
+        mensajeEnTabla(tbody, columnas, error.message, true);
+    }
 }
 
 async function cargarClientes() {
     const select = document.getElementById("ventaCliente");
     const filtroCliente = document.getElementById("filtroCliente");
+    if (!select && !filtroCliente) return;
+
     try {
         const clientes = await solicitar("obtener_clientes.php");
         if (select) {
-            select.replaceChildren(new Option("Seleccioná un cliente", ""));
-            clientes.forEach((cliente) => {
-                select.appendChild(new Option(`${cliente.apellido || ""} ${cliente.nombre} · DNI ${cliente.dni}`.trim(), cliente.id));
+            select.replaceChildren(new Option("-- Seleccionar cliente --", ""));
+            clientes.forEach((c) => {
+                select.appendChild(new Option(`${c.nombre} ${c.apellido} (DNI ${c.dni})`, c.id));
             });
         }
         if (filtroCliente) {
-            const actual = filtroCliente.value;
             filtroCliente.replaceChildren(new Option("Todos los clientes", ""));
-            clientes.forEach((cliente) => {
-                filtroCliente.appendChild(new Option(`${cliente.apellido || ""} ${cliente.nombre} (DNI ${cliente.dni})`.trim(), cliente.id));
+            clientes.forEach((c) => {
+                filtroCliente.appendChild(new Option(`${c.nombre} ${c.apellido}`, c.id));
             });
-            filtroCliente.value = actual;
         }
     } catch (error) {
-        if (select) select.replaceChildren(new Option("No se pudieron cargar los clientes", ""));
+        console.error("Error al cargar clientes:", error);
     }
 }
 
 async function cargarVendedores() {
-    const filtroVenta = document.getElementById("filtroVendedor");
-    const filtroIngreso = document.getElementById("filtroIngresoUsuario");
+    const filtroVendedor = document.getElementById("filtroVendedor");
+    const filtroIngresoUsuario = document.getElementById("filtroIngresoUsuario");
+    if (!filtroVendedor && !filtroIngresoUsuario) return;
+
     try {
         const vendedores = await solicitar("obtener_vendedores.php");
-        if (filtroVenta) {
-            const actual = filtroVenta.value;
-            filtroVenta.replaceChildren(new Option("Todos los vendedores", ""));
+        if (filtroVendedor) {
+            filtroVendedor.replaceChildren(new Option("Todos los vendedores", ""));
             vendedores.forEach((v) => {
-                const rolTexto = v.rol === "admin" ? "Admin" : "Vendedor";
-                filtroVenta.appendChild(new Option(`${v.apellido || ""} ${v.nombre} (${rolTexto})`.trim(), v.id));
+                filtroVendedor.appendChild(new Option(`${v.nombre} ${v.apellido} (${v.rol})`, v.id));
             });
-            filtroVenta.value = actual;
         }
-        if (filtroIngreso) {
-            const actual = filtroIngreso.value;
-            filtroIngreso.replaceChildren(new Option("Todos los usuarios", ""));
+        if (filtroIngresoUsuario) {
+            filtroIngresoUsuario.replaceChildren(new Option("Todos los usuarios", ""));
             vendedores.forEach((v) => {
-                const rolTexto = v.rol === "admin" ? "Admin" : "Vendedor";
-                filtroIngreso.appendChild(new Option(`${v.apellido || ""} ${v.nombre} (${rolTexto})`.trim(), v.id));
+                filtroIngresoUsuario.appendChild(new Option(`${v.nombre} ${v.apellido}`, v.id));
             });
-            filtroIngreso.value = actual;
         }
     } catch (error) {
         console.error("Error al cargar vendedores:", error);
-    }
-}
-
-function badgeEstado(estado) {
-    const badge = document.createElement("span");
-    const clases = { ACTIVA: "text-bg-success", MODIFICADA: "text-bg-warning", CANCELADA: "text-bg-danger" };
-    badge.className = `badge ${clases[estado] || "text-bg-secondary"}`;
-    badge.textContent = estado.charAt(0) + estado.slice(1).toLowerCase();
-    return badge;
-}
-
-function botonesVenta(venta) {
-    const contenedor = document.createElement("div");
-    contenedor.className = "d-flex gap-2 flex-nowrap";
-    if (venta.estado === "CANCELADA") {
-        contenedor.append("—");
-        return contenedor;
-    }
-    const modificar = document.createElement("button");
-    modificar.type = "button";
-    modificar.className = "btn btn-outline-primary btn-sm";
-    modificar.textContent = "Cantidad";
-    modificar.addEventListener("click", () => {
-        document.getElementById("modificarVentaId").value = venta.id;
-        document.getElementById("modificarCantidad").value = venta.cantidad;
-        document.getElementById("errorModificarVenta").classList.add("d-none");
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("modalModificarVenta")).show();
-    });
-    const cancelar = document.createElement("button");
-    cancelar.type = "button";
-    cancelar.className = "btn btn-outline-danger btn-sm";
-    cancelar.textContent = "Cancelar";
-    cancelar.addEventListener("click", () => {
-        document.getElementById("cancelarVentaId").value = venta.id;
-        document.getElementById("errorCancelarVenta").classList.add("d-none");
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("modalCancelarVenta")).show();
-    });
-    contenedor.append(modificar, cancelar);
-    return contenedor;
-}
-
-function filtrosVentasActuales() {
-    const form = document.getElementById("formFiltrosVentas");
-    return form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
-}
-
-async function cargarVentas(parametros = filtrosVentasActuales()) {
-    const tbody = document.getElementById("ventasBody");
-    if (!tbody) return;
-    const errorFiltros = document.getElementById("errorFiltros");
-    if (errorFiltros) errorFiltros.textContent = "";
-    mensajeEnTabla(tbody, 12, "Cargando ventas...");
-    try {
-        const ventas = await solicitar(`obtener_ventas.php?${parametros.toString()}`);
-        tbody.replaceChildren();
-        if (ventas.length === 0) {
-            mensajeEnTabla(tbody, 12, "No encontramos ventas para los filtros seleccionados.");
-            const resVentas = document.getElementById("resumenVentas");
-            if (resVentas) resVentas.textContent = "0";
-            return;
-        }
-        ventas.forEach((venta) => {
-            const fila = document.createElement("tr");
-            fila.append(celda(`#${venta.id}`, "fw-semibold"));
-            fila.append(celda(fechaLegible(venta.fecha)));
-            fila.append(celda(venta.cliente || "Sin cliente"));
-            fila.append(celda(venta.producto_nombre));
-
-            const cantTd = document.createElement("td");
-            const cant = Number(venta.cantidad);
-            const cantEmp = Number(venta.cantidad_empaque) || 1;
-            const tipoVenta = venta.tipo_venta || "unidad";
-            if (tipoVenta !== "unidad" && cantEmp > 0) {
-                cantTd.innerHTML = `<strong>${cantEmp} ${tipoVenta}${cantEmp > 1 ? "s" : ""}</strong> <small class="text-muted">(${cant} un.)</small>`;
-            } else {
-                cantTd.textContent = `${cant} un.`;
-            }
-            fila.appendChild(cantTd);
-
-            fila.append(celda(formatoMoneda.format(Number(venta.precio_unitario))));
-
-            const descTd = document.createElement("td");
-            const descPct = Number(venta.descuento_porcentaje) || 0;
-            const descMonto = Number(venta.descuento_monto) || 0;
-            if (descPct > 0) {
-                descTd.innerHTML = `<span class="badge text-bg-warning">${descPct}%</span> <small class="text-danger">(-${formatoMoneda.format(descMonto)})</small>`;
-            } else {
-                descTd.textContent = "—";
-            }
-            fila.appendChild(descTd);
-
-            fila.append(celda(formatoMoneda.format(Number(venta.total)), "fw-semibold text-primary"));
-            fila.append(celda(venta.vendedor || "—"));
-            
-            const estadoTd = document.createElement("td");
-            estadoTd.appendChild(badgeEstado(venta.estado));
-            fila.appendChild(estadoTd);
-
-            fila.append(celda(fechaLegible(venta.fecha_modificacion)));
-            
-            const acciones = document.createElement("td");
-            acciones.appendChild(botonesVenta(venta));
-            fila.appendChild(acciones);
-            
-            tbody.appendChild(fila);
-        });
-        const resVentas = document.getElementById("resumenVentas");
-        if (resVentas) resVentas.textContent = ventas.length;
-    } catch (error) {
-        mensajeEnTabla(tbody, 12, error.message, true);
-        if (errorFiltros) errorFiltros.textContent = error.message;
-    }
-}
-
-function filtrosIngresosActuales() {
-    const form = document.getElementById("formFiltrosIngresos");
-    return form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
-}
-
-async function cargarIngresos(parametros = filtrosIngresosActuales()) {
-    const tbody = document.getElementById("ingresosBody");
-    if (!tbody) return;
-    const errorFiltros = document.getElementById("errorFiltrosIngresos");
-    if (errorFiltros) errorFiltros.textContent = "";
-    mensajeEnTabla(tbody, 8, "Cargando historial de ingresos...");
-    try {
-        const ingresos = await solicitar(`obtener_ingresos.php?${parametros.toString()}`);
-        tbody.replaceChildren();
-        if (ingresos.length === 0) {
-            mensajeEnTabla(tbody, 8, "No se encontraron ingresos registrados.");
-            const resIngresos = document.getElementById("resumenIngresos");
-            if (resIngresos) resIngresos.textContent = "0";
-            return;
-        }
-        ingresos.forEach((ingreso) => {
-            const fila = document.createElement("tr");
-            fila.append(celda(`#${ingreso.id}`, "fw-semibold"));
-            fila.append(celda(fechaLegible(ingreso.fecha)));
-            fila.append(celda(ingreso.producto_nombre, "fw-semibold"));
-
-            const detalleTd = document.createElement("td");
-            const cant = Number(ingreso.cantidad);
-            const totalUnidades = Number(ingreso.total_unidades);
-            const pres = ingreso.presentacion || "unidad";
-            if (pres !== "unidad" && Number(ingreso.unidades_por_bulto) > 1) {
-                detalleTd.textContent = `${cant} ${pres}${cant > 1 ? "s" : ""} (${totalUnidades} un. total)`;
-            } else {
-                detalleTd.textContent = `${totalUnidades} unidades`;
-            }
-            fila.appendChild(detalleTd);
-
-            fila.append(celda(ingreso.proveedor || "—"));
-
-            const vencTd = document.createElement("td");
-            vencTd.appendChild(crearBadgeVencimiento(ingreso.fecha_vencimiento));
-            fila.appendChild(vencTd);
-
-            fila.append(celda(ingreso.usuario || "—"));
-            fila.append(celda(ingreso.motivo || "—", "text-muted small"));
-
-            tbody.appendChild(fila);
-        });
-
-        const resIngresos = document.getElementById("resumenIngresos");
-        if (resIngresos) resIngresos.textContent = ingresos.length;
-    } catch (error) {
-        mensajeEnTabla(tbody, 8, error.message, true);
-        if (errorFiltros) errorFiltros.textContent = error.message;
-    }
-}
-
-// Carga de Directorio de Proveedores
-async function cargarProveedores() {
-    const tbody = document.getElementById("proveedoresBody");
-    if (!tbody) return;
-    mensajeEnTabla(tbody, 5, "Cargando directorio de proveedores...");
-    try {
-        proveedoresCache = await solicitar("obtener_proveedores.php");
-        tbody.replaceChildren();
-        if (proveedoresCache.length === 0) {
-            mensajeEnTabla(tbody, 5, "No se registraron proveedores todavía.");
-            return;
-        }
-        proveedoresCache.forEach((prov) => {
-            const fila = document.createElement("tr");
-            fila.append(celda(prov.proveedor, "fw-bold text-primary"));
-            fila.append(celda(String(prov.total_productos) + " productos"));
-            fila.append(celda(String(prov.total_ingresos) + " entradas"));
-            fila.append(celda(String(prov.total_unidades) + " unidades"));
-            fila.append(celda(prov.ultimo_ingreso ? fechaLegible(prov.ultimo_ingreso) : "—"));
-            tbody.appendChild(fila);
-        });
-        const resProv = document.getElementById("resumenProveedores");
-        if (resProv) resProv.textContent = proveedoresCache.length;
-    } catch (error) {
-        mensajeEnTabla(tbody, 5, error.message, true);
     }
 }
 
@@ -641,7 +1176,7 @@ async function cargarSolicitudesVendedor() {
             const esPendiente = sol.estado === "PENDIENTE";
             const badge = document.createElement("span");
             badge.className = `badge ${esPendiente ? "text-bg-warning" : "text-bg-success"}`;
-            badge.textContent = esPendiente ? "Pendiente de atención" : `Atendida por ${sol.atendido_por_nombre || "Equipo"}`;
+            badge.textContent = esPendiente ? "Pendiente" : `Atendida por ${sol.atendido_por_nombre || "Equipo"}`;
             estadoTd.appendChild(badge);
             fila.appendChild(estadoTd);
 
@@ -651,7 +1186,7 @@ async function cargarSolicitudesVendedor() {
                 const btnAtender = document.createElement("button");
                 btnAtender.type = "button";
                 btnAtender.className = "btn btn-success btn-sm";
-                btnAtender.textContent = "✓ Marcar atendida";
+                btnAtender.textContent = "✓ Atender";
                 btnAtender.addEventListener("click", () => marcarSolicitudAtendida(sol.id));
                 accionTd.appendChild(btnAtender);
             } else {
@@ -691,6 +1226,7 @@ async function eliminarProducto(id, nombre) {
 function abrirModalEditarProducto(producto) {
     document.getElementById("editarProductoId").value = producto.id;
     document.getElementById("editarProductoNombre").value = producto.nombre;
+    document.getElementById("editarProductoCodigoBarras").value = producto.codigo_barras || "";
     document.getElementById("editarProductoPrecio").value = producto.precio;
     document.getElementById("editarProductoStock").value = producto.stock;
     document.getElementById("editarProductoPresentacion").value = producto.presentacion || "unidad";
@@ -726,6 +1262,142 @@ function configurarSelectorPresentacion(selectId, contenedorId, inputUnidadesId)
     actualizar();
 }
 
+// Cálculo en vivo de venta (Empaque + Descuentos)
+function configurarCalculadoraVenta() {
+    const selectProducto = document.getElementById("ventaProducto");
+    const selectTipoVenta = document.getElementById("ventaTipoVenta");
+    const inputCantidad = document.getElementById("ventaCantidad");
+    const selectDescuento = document.getElementById("ventaDescuentoPorcentaje");
+    const inputDescuentoCustom = document.getElementById("ventaDescuentoCustom");
+
+    const lblUnidades = document.getElementById("ventaResumenUnidades");
+    const lblSubtotal = document.getElementById("ventaResumenSubtotal");
+    const lblDescuento = document.getElementById("ventaResumenDescuento");
+    const lblTotal = document.getElementById("ventaResumenTotal");
+    const infoEmpaque = document.getElementById("ventaInfoEmpaque");
+
+    if (!selectProducto || !inputCantidad) return;
+
+    const recalcular = () => {
+        const opt = selectProducto.selectedOptions[0];
+        if (!opt || !opt.dataset.precio) {
+            if (lblUnidades) lblUnidades.textContent = "0 un.";
+            if (lblSubtotal) lblSubtotal.textContent = "$ 0,00";
+            if (lblDescuento) lblDescuento.textContent = "$ 0,00";
+            if (lblTotal) lblTotal.textContent = "$ 0,00";
+            if (infoEmpaque) infoEmpaque.classList.add("d-none");
+            return;
+        }
+
+        const precioUnitario = Number(opt.dataset.precio) || 0;
+        const unidadesPorEmpaque = Math.max(1, Number(opt.dataset.unidadesBulto) || 1);
+        const tipoVenta = selectTipoVenta ? selectTipoVenta.value : "unidad";
+        const cantidad = Math.max(1, Number(inputCantidad.value) || 1);
+
+        let totalUnidades = cantidad;
+        if (tipoVenta === "caja" || tipoVenta === "bulto") {
+            totalUnidades = cantidad * unidadesPorEmpaque;
+            if (infoEmpaque) {
+                infoEmpaque.textContent = `📦 1 ${tipoVenta} = ${unidadesPorEmpaque} unidades individuales`;
+                infoEmpaque.classList.remove("d-none");
+            }
+        } else {
+            if (infoEmpaque) infoEmpaque.classList.add("d-none");
+        }
+
+        let descPorcentaje = 0;
+        if (selectDescuento) {
+            if (selectDescuento.value === "custom") {
+                if (inputDescuentoCustom) {
+                    inputDescuentoCustom.classList.remove("d-none");
+                    descPorcentaje = Math.min(100, Math.max(0, Number(inputDescuentoCustom.value) || 0));
+                }
+            } else {
+                if (inputDescuentoCustom) inputDescuentoCustom.classList.add("d-none");
+                descPorcentaje = Number(selectDescuento.value) || 0;
+            }
+        }
+
+        const subtotal = totalUnidades * precioUnitario;
+        const montoDescuento = subtotal * (descPorcentaje / 100);
+        const total = Math.max(0, subtotal - montoDescuento);
+
+        if (lblUnidades) lblUnidades.textContent = `${totalUnidades} un.`;
+        if (lblSubtotal) lblSubtotal.textContent = formatoMoneda.format(subtotal);
+        if (lblDescuento) lblDescuento.textContent = descPorcentaje > 0 ? `-${descPorcentaje}% (${formatoMoneda.format(montoDescuento)})` : "$ 0,00";
+        if (lblTotal) lblTotal.textContent = formatoMoneda.format(total);
+    };
+
+    selectProducto.addEventListener("change", recalcular);
+    if (selectTipoVenta) selectTipoVenta.addEventListener("change", recalcular);
+    inputCantidad.addEventListener("input", recalcular);
+    if (selectDescuento) selectDescuento.addEventListener("change", recalcular);
+    if (inputDescuentoCustom) inputDescuentoCustom.addEventListener("input", recalcular);
+}
+
+// Envío de Formulario Producto (Alta)
+const formProducto = document.getElementById("formProducto");
+if (formProducto) {
+    configurarSelectorPresentacion("productoPresentacion", "contenedorUnidadesBulto", "productoUnidadesBulto");
+    formProducto.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorBox = document.getElementById("errorProducto");
+        errorBox.classList.add("d-none");
+        try {
+            await solicitar("guardar_producto.php", { method: "POST", body: new FormData(formProducto) });
+            bootstrap.Modal.getInstance(document.getElementById("modalProducto")).hide();
+            formProducto.reset();
+            configurarSelectorPresentacion("productoPresentacion", "contenedorUnidadesBulto", "productoUnidadesBulto");
+            await Promise.all([cargarProductos(), cargarIngresos(), cargarProveedores()]);
+        } catch (error) {
+            errorBox.textContent = error.message;
+            errorBox.classList.remove("d-none");
+        }
+    });
+}
+
+// Envío de Formulario Producto (Edición)
+const formEditarProducto = document.getElementById("formEditarProducto");
+if (formEditarProducto) {
+    formEditarProducto.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorBox = document.getElementById("errorEditarProducto");
+        errorBox.classList.add("d-none");
+        try {
+            await solicitar("modificar_producto.php", { method: "POST", body: new FormData(formEditarProducto) });
+            bootstrap.Modal.getInstance(document.getElementById("modalEditarProducto")).hide();
+            formEditarProducto.reset();
+            await Promise.all([cargarProductos(), cargarIngresos(), cargarProveedores()]);
+        } catch (error) {
+            errorBox.textContent = error.message;
+            errorBox.classList.remove("d-none");
+        }
+    });
+}
+
+// Envío de Formulario Venta
+const formVenta = document.getElementById("formVenta");
+if (formVenta) {
+    configurarCalculadoraVenta();
+    formVenta.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorBox = document.getElementById("errorVenta");
+        errorBox.classList.add("d-none");
+        try {
+            await solicitar("guardar_venta.php", { method: "POST", body: new FormData(formVenta) });
+            bootstrap.Modal.getInstance(document.getElementById("modalVenta")).hide();
+            formVenta.reset();
+            const infoEmpaque = document.getElementById("ventaInfoEmpaque");
+            if (infoEmpaque) infoEmpaque.classList.add("d-none");
+            await Promise.all([cargarProductos(), cargarVentas()]);
+        } catch (error) {
+            errorBox.textContent = error.message;
+            errorBox.classList.remove("d-none");
+        }
+    });
+}
+
+// Formularios de Modificación y Cancelación de Venta
 async function enviarCambioVenta(formulario, modalId, errorId) {
     const errorBox = document.getElementById(errorId);
     errorBox.classList.add("d-none");
@@ -740,7 +1412,23 @@ async function enviarCambioVenta(formulario, modalId, errorId) {
     }
 }
 
-// Configuración de eventos de filtros de productos (Búsqueda + Semáforo FIFO + Presentación)
+const formModificarVenta = document.getElementById("formModificarVenta");
+if (formModificarVenta) {
+    formModificarVenta.addEventListener("submit", (e) => {
+        e.preventDefault();
+        enviarCambioVenta(formModificarVenta, "modalModificarVenta", "errorModificarVenta");
+    });
+}
+
+const formCancelarVenta = document.getElementById("formCancelarVenta");
+if (formCancelarVenta) {
+    formCancelarVenta.addEventListener("submit", (e) => {
+        e.preventDefault();
+        enviarCambioVenta(formCancelarVenta, "modalCancelarVenta", "errorCancelarVenta");
+    });
+}
+
+// Sincronización de Filtros de Semáforo
 const inputFiltroProductoBusqueda = document.getElementById("filtroProductoBusqueda");
 const selectFiltroProductoSemaforo = document.getElementById("filtroProductoSemaforo");
 const selectFiltroProductoPresentacion = document.getElementById("filtroProductoPresentacion");
@@ -766,7 +1454,6 @@ if (selectFiltroProductoSemaforo) {
 }
 if (selectFiltroProductoPresentacion) selectFiltroProductoPresentacion.addEventListener("change", filtrarYRenderizarProductos);
 
-// Botones rápidos de semáforo
 document.querySelectorAll("[data-boton-semaforo]").forEach((boton) => {
     boton.addEventListener("click", () => {
         const valor = boton.getAttribute("data-boton-semaforo");
@@ -788,7 +1475,41 @@ if (btnLimpiarFiltrosProductos) {
     });
 }
 
-// Accesos directos desde las tarjetas de leyenda del semáforo FIFO
+// Filtros de Ventas
+const formFiltrosVentas = document.getElementById("formFiltrosVentas");
+if (formFiltrosVentas) {
+    formFiltrosVentas.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const datos = Object.fromEntries(new FormData(formFiltrosVentas));
+        cargarVentas(datos);
+    });
+    const btnLimpiarVentas = document.getElementById("limpiarFiltros");
+    if (btnLimpiarVentas) {
+        btnLimpiarVentas.addEventListener("click", () => {
+            formFiltrosVentas.reset();
+            cargarVentas();
+        });
+    }
+}
+
+// Filtros de Ingresos
+const formFiltrosIngresos = document.getElementById("formFiltrosIngresos");
+if (formFiltrosIngresos) {
+    formFiltrosIngresos.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const datos = Object.fromEntries(new FormData(formFiltrosIngresos));
+        cargarIngresos(datos);
+    });
+    const btnLimpiarIng = document.getElementById("limpiarFiltrosIngresos");
+    if (btnLimpiarIng) {
+        btnLimpiarIng.addEventListener("click", () => {
+            formFiltrosIngresos.reset();
+            cargarIngresos();
+        });
+    }
+}
+
+// Tarjetas de Semáforo en Resumen
 document.querySelectorAll("[data-filtro-semaforo]").forEach((elemento) => {
     elemento.style.cursor = "pointer";
     elemento.addEventListener("click", () => {
@@ -805,170 +1526,16 @@ document.querySelectorAll("[data-filtro-semaforo]").forEach((elemento) => {
     });
 });
 
-// Configuración de eventos de formularios y filtros de ventas
-const formFiltrosVentas = document.getElementById("formFiltrosVentas");
-if (formFiltrosVentas) {
-    formFiltrosVentas.addEventListener("submit", (evento) => {
-        evento.preventDefault();
-        cargarVentas();
-    });
-}
-
-const limpiarFiltros = document.getElementById("limpiarFiltros");
-if (limpiarFiltros) {
-    limpiarFiltros.addEventListener("click", () => {
-        document.getElementById("formFiltrosVentas").reset();
-        cargarVentas(new URLSearchParams());
-    });
-}
-
-const formFiltrosIngresos = document.getElementById("formFiltrosIngresos");
-if (formFiltrosIngresos) {
-    formFiltrosIngresos.addEventListener("submit", (evento) => {
-        evento.preventDefault();
-        cargarIngresos();
-    });
-}
-
-const limpiarFiltrosIngresos = document.getElementById("limpiarFiltrosIngresos");
-if (limpiarFiltrosIngresos) {
-    limpiarFiltrosIngresos.addEventListener("click", () => {
-        document.getElementById("formFiltrosIngresos").reset();
-        cargarIngresos(new URLSearchParams());
-    });
-}
-
-const formModificarVenta = document.getElementById("formModificarVenta");
-if (formModificarVenta) {
-    formModificarVenta.addEventListener("submit", (evento) => {
-        evento.preventDefault();
-        enviarCambioVenta(evento.currentTarget, "modalModificarVenta", "errorModificarVenta");
-    });
-}
-
-const formCancelarVenta = document.getElementById("formCancelarVenta");
-if (formCancelarVenta) {
-    formCancelarVenta.addEventListener("submit", (evento) => {
-        evento.preventDefault();
-        enviarCambioVenta(evento.currentTarget, "modalCancelarVenta", "errorCancelarVenta");
-    });
-}
-
-const formVenta = document.getElementById("formVenta");
-if (formVenta) {
-    const ventaProducto = document.getElementById("ventaProducto");
-    const ventaTipoVenta = document.getElementById("ventaTipoVenta");
-    const ventaCantidad = document.getElementById("ventaCantidad");
-    const ventaDescuento = document.getElementById("ventaDescuentoPorcentaje");
-    const ventaDescuentoCustom = document.getElementById("ventaDescuentoCustom");
-
-    if (ventaProducto) ventaProducto.addEventListener("change", actualizarOpcionesVentaSegunProducto);
-    if (ventaTipoVenta) ventaTipoVenta.addEventListener("change", recalcularTotalesModalVenta);
-    if (ventaCantidad) ventaCantidad.addEventListener("input", recalcularTotalesModalVenta);
-    if (ventaDescuento) ventaDescuento.addEventListener("change", recalcularTotalesModalVenta);
-    if (ventaDescuentoCustom) ventaDescuentoCustom.addEventListener("input", recalcularTotalesModalVenta);
-
-    formVenta.addEventListener("submit", async (evento) => {
-        evento.preventDefault();
-        const errorBox = document.getElementById("errorVenta");
-        errorBox.classList.add("d-none");
-        
-        const datos = new FormData(evento.currentTarget);
-        if (ventaDescuento && ventaDescuento.value === "custom" && ventaDescuentoCustom) {
-            datos.set("descuento_porcentaje", ventaDescuentoCustom.value || "0");
-        }
-
-        try {
-            await solicitar("guardar_venta.php", { method: "POST", body: datos });
-            bootstrap.Modal.getInstance(document.getElementById("modalVenta")).hide();
-            evento.currentTarget.reset();
-            recalcularTotalesModalVenta();
-            await Promise.all([cargarProductos(), cargarVentas()]);
-        } catch (error) {
-            errorBox.textContent = error.message;
-            errorBox.classList.remove("d-none");
-        }
-    });
-}
-
-if (esAdmin) {
-    configurarSelectorPresentacion("productoPresentacion", "contenedorUnidadesBulto", "productoUnidadesBulto");
-    
-    const formProducto = document.getElementById("formProducto");
-    if (formProducto) {
-        formProducto.addEventListener("submit", async (evento) => {
-            evento.preventDefault();
-            const errorBox = document.getElementById("errorProducto");
-            errorBox.classList.add("d-none");
-            try {
-                await solicitar("guardar_producto.php", { method: "POST", body: new FormData(evento.currentTarget) });
-                bootstrap.Modal.getInstance(document.getElementById("modalProducto")).hide();
-                evento.currentTarget.reset();
-                configurarSelectorPresentacion("productoPresentacion", "contenedorUnidadesBulto", "productoUnidadesBulto");
-                await Promise.all([cargarProductos(), cargarIngresos(), cargarProveedores()]);
-            } catch (error) {
-                errorBox.textContent = error.message;
-                errorBox.classList.remove("d-none");
-            }
-        });
-    }
-
-    const formEditarProducto = document.getElementById("formEditarProducto");
-    if (formEditarProducto) {
-        formEditarProducto.addEventListener("submit", async (evento) => {
-            evento.preventDefault();
-            const errorBox = document.getElementById("errorEditarProducto");
-            errorBox.classList.add("d-none");
-            try {
-                await solicitar("modificar_producto.php", { method: "POST", body: new FormData(evento.currentTarget) });
-                bootstrap.Modal.getInstance(document.getElementById("modalEditarProducto")).hide();
-                evento.currentTarget.reset();
-                await Promise.all([cargarProductos(), cargarIngresos(), cargarProveedores()]);
-            } catch (error) {
-                errorBox.textContent = error.message;
-                errorBox.classList.remove("d-none");
-            }
-        });
-    }
-}
-
-// Filtro rápido para buscador de proveedores
-const buscadorProveedores = document.getElementById("buscadorProveedores");
-if (buscadorProveedores) {
-    buscadorProveedores.addEventListener("input", (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        const filas = document.querySelectorAll("#proveedoresBody tr");
-        filas.forEach((f) => {
-            f.style.display = f.textContent.toLowerCase().includes(query) ? "" : "none";
-        });
-    });
-}
-
-// Navegación por hash de pestañas
-function sincronizarPestanaDesdeHash() {
-    const hash = window.location.hash;
-    if (hash) {
-        const disparadorPestana = document.querySelector(`.nav-tabs-app button[data-bs-target="${hash}"]`) ||
-                                  document.querySelector(`.nav-tabs-app a[href="${hash}"]`);
-        if (disparadorPestana) {
-            const pestana = bootstrap.Tab.getOrCreateInstance(disparadorPestana);
-            pestana.show();
-        }
-    }
-}
-
-document.querySelectorAll('.nav-tabs-app button[data-bs-toggle="tab"]').forEach((boton) => {
-    boton.addEventListener("shown.bs.tab", (evento) => {
-        const objetivo = evento.target.getAttribute("data-bs-target");
-        if (objetivo && objetivo.startsWith("#")) {
-            history.replaceState(null, "", objetivo);
-        }
-    });
+// Inicialización general al cargar el DOM
+document.addEventListener("DOMContentLoaded", async () => {
+    await Promise.all([
+        cargarProductos(),
+        cargarProveedores(),
+        cargarVentas(),
+        cargarIngresos(),
+        cargarClientes(),
+        cargarVendedores(),
+        cargarSolicitudesVendedor()
+    ]);
+    actualizarPreviewBarcode();
 });
-
-window.addEventListener("hashchange", sincronizarPestanaDesdeHash);
-
-// Inicialización de datos
-Promise.all([cargarProductos(), cargarClientes(), cargarVendedores()])
-    .then(() => Promise.all([cargarVentas(), cargarIngresos(), cargarProveedores(), cargarSolicitudesVendedor()]))
-    .then(() => sincronizarPestanaDesdeHash());

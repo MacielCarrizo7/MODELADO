@@ -116,6 +116,20 @@ try {
     ];
     $firestore->guardarDocumento("venta_historial", (string)$histId, $historialDoc);
 
+    // 7. Registro en trazabilidad de movimientos de producto
+    $clienteNombre = trim(($clienteDoc["nombre"] ?? "Cliente") . " " . ($clienteDoc["apellido"] ?? ""));
+    FirestoreConexion::registrarMovimientoProducto(
+        productoId: $productoId,
+        tipo: "VENTA",
+        descripcion: "Venta #{$ventaId} registrada a {$clienteNombre} ({$totalUnidades} un. por $" . number_format($total, 2) . ")",
+        cantidadAnterior: $stockActual,
+        cantidadNueva: $nuevoStock,
+        diferencia: -$totalUnidades,
+        precioAnterior: $precioUnitario,
+        precioNuevo: $precioUnitario,
+        usuarioId: $usuarioId
+    );
+
     responderJson([
         "success" => true,
         "venta_id" => $ventaId,

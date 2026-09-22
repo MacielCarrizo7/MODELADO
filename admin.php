@@ -19,6 +19,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
     <title>Panel administrativo | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
+    <!-- Librerías para Códigos de Barra y Escáner -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body data-rol="admin" data-csrf="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, "UTF-8") ?>">
     <nav class="navbar navbar-expand-lg app-navbar sticky-top py-3">
@@ -34,7 +37,8 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <div class="navbar-nav ms-auto align-items-lg-center gap-lg-1 pt-3 pt-lg-0">
                     <a class="nav-link nav-link-app active" href="admin.php">Panel Principal</a>
                     <a class="nav-link nav-link-app" href="registro.php">Gestión de Usuarios</a>
-                    <button class="btn btn-primary btn-sm ms-lg-2" type="button" data-bs-toggle="modal" data-bs-target="#modalVenta">+ Registrar venta</button>
+                    <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras con cámara">📷 Escáner</button>
+                    <button class="btn btn-primary btn-sm ms-lg-1" type="button" data-bs-toggle="modal" data-bs-target="#modalVenta">+ Registrar venta</button>
                     <a class="btn btn-outline-danger btn-sm ms-lg-2" href="logout.php">Cerrar sesión</a>
                 </div>
             </div>
@@ -52,9 +56,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         <!-- Hero Section -->
         <section class="hero-panel p-4 p-md-5 mb-4">
             <div class="hero-contenido">
-                <p class="etiqueta text-white-50 mb-2">Panel Administrativo Global</p>
+                <p class="etiqueta text-white-50 mb-2">Panel Administrativo Cloud</p>
                 <h1 class="display-6 fw-bold mb-2">Hola, <?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></h1>
-                <p class="lead text-white-50 mb-0">Control integral de inventario, ventas por empaque/descuentos, semáforo FIFO de vencimientos y atención a clientes.</p>
+                <p class="lead text-white-50 mb-0">Control integral de inventario con códigos de barra, trazabilidad de movimientos, directorio de proveedores y política FIFO.</p>
             </div>
         </section>
 
@@ -84,6 +88,11 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-proveedores-btn" data-bs-toggle="tab" data-bs-target="#pestana-proveedores" type="button" role="tab" aria-controls="pestana-proveedores" aria-selected="false">
                         <span>🏢 Proveedores</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-barcodes-btn" data-bs-toggle="tab" data-bs-target="#pestana-barcodes" type="button" role="tab" aria-controls="pestana-barcodes" aria-selected="false">
+                        <span>🏷️ Códigos de Barra</span>
                     </button>
                 </li>
             </ul>
@@ -158,7 +167,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                         <span class="fs-4">➕</span>
                                         <div>
                                             <div class="fw-bold">Alta de producto</div>
-                                            <small class="text-muted">Cajas, bultos y vencimiento</small>
+                                            <small class="text-muted">Código de barras, stock y proveedor</small>
                                         </div>
                                     </button>
                                 </div>
@@ -175,19 +184,19 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     <button class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3" type="button" onclick="bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-proveedores-btn')).show()">
                                         <span class="fs-4">🏢</span>
                                         <div>
-                                            <div class="fw-bold">Lista de proveedores</div>
-                                            <small class="text-muted">Historial y abastecimiento</small>
+                                            <div class="fw-bold">Directorio Proveedores</div>
+                                            <small class="text-muted">Alta, CUIT, contacto y catálogo</small>
                                         </div>
                                     </button>
                                 </div>
                                 <div class="col-12 col-sm-6">
-                                    <a class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3 text-decoration-none" href="registro.php">
-                                        <span class="fs-4">👥</span>
+                                    <button class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3" type="button" onclick="bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-barcodes-btn')).show()">
+                                        <span class="fs-4">🏷️</span>
                                         <div>
-                                            <div class="fw-bold">Gestión de usuarios</div>
-                                            <small class="text-muted">Clientes y personal con buscador</small>
+                                            <div class="fw-bold">Generar Etiquetas</div>
+                                            <small class="text-muted">Códigos de barra e impresión</small>
                                         </div>
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -223,16 +232,22 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="etiqueta text-primary mb-1">Inventario y Lotes</p>
                             <h2 id="titulo-productos" class="h4 fw-bold mb-0">Listado de Productos (Orden FIFO)</h2>
                         </div>
-                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalProducto">+ Agregar producto</button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras o cámara">📷 Escanear código</button>
+                            <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalProducto">+ Agregar producto</button>
+                        </div>
                     </div>
 
-                    <!-- Filtros de Inventario con Semáforo FIFO -->
+                    <!-- Filtros de Inventario con Semáforo FIFO y Código de Barras -->
                     <form id="formFiltrosProductos" class="row g-3 align-items-end mb-3 p-3 bg-light rounded-3 border" onsubmit="return false;">
                         <div class="col-12 col-sm-6 col-lg-4">
-                            <label for="filtroProductoBusqueda" class="form-label">Buscar producto / proveedor</label>
-                            <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre o proveedor...">
+                            <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código / proveedor</label>
+                            <div class="input-group">
+                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre, código de barras...">
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">📷</button>
+                            </div>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-4">
+                        <div class="col-12 col-sm-6 col-lg-3">
                             <label for="filtroProductoSemaforo" class="form-label">Semáforo de vencimiento (FIFO)</label>
                             <select id="filtroProductoSemaforo" name="semaforo" class="form-select">
                                 <option value="">Todos los vencimientos</option>
@@ -242,10 +257,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                 <option value="sin_fecha">⚪ Sin fecha de vencimiento</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-2">
+                        <div class="col-12 col-sm-6 col-lg-3">
                             <label for="filtroProductoPresentacion" class="form-label">Presentación</label>
                             <select id="filtroProductoPresentacion" name="presentacion" class="form-select">
-                                <option value="">Todas</option>
+                                <option value="">Todas las presentaciones</option>
                                 <option value="unidad">Unidades</option>
                                 <option value="caja">Cajas</option>
                                 <option value="bulto">Bultos</option>
@@ -267,9 +282,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     </div>
 
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
+                        <table class="table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
+                                    <th>Cód. / Barras</th>
                                     <th>Producto</th>
                                     <th>Presentación</th>
                                     <th>Proveedor</th>
@@ -437,7 +453,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 </section>
             </div>
 
-            <!-- Pestaña 5: Directorio de Proveedores -->
+            <!-- Pestaña 5: Directorio y Gestión de Proveedores -->
             <div class="tab-pane fade" id="pestana-proveedores" role="tabpanel" aria-labelledby="tab-proveedores-btn">
                 <section class="seccion-card" aria-labelledby="titulo-proveedores">
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
@@ -445,8 +461,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="etiqueta text-primary mb-1">Cadena de Suministro</p>
                             <h2 id="titulo-proveedores" class="h4 fw-bold mb-0">Directorio de Proveedores</h2>
                         </div>
-                        <div class="col-12 col-sm-4">
-                            <input type="text" id="buscadorProveedores" class="form-control" placeholder="🔍 Buscar proveedor...">
+                        <div class="d-flex gap-2 w-100 w-sm-auto">
+                            <input type="text" id="buscadorProveedores" class="form-control" placeholder="🔍 Buscar proveedor, CUIT o email...">
+                            <button class="btn btn-primary text-nowrap" type="button" data-bs-toggle="modal" data-bs-target="#modalProveedor">+ Nuevo Proveedor</button>
                         </div>
                     </div>
 
@@ -454,11 +471,13 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <table class="table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th>Proveedor</th>
-                                    <th>Productos en Catálogo</th>
-                                    <th>Entradas Registradas</th>
-                                    <th>Volumen Total Abastecido</th>
-                                    <th>Último Ingreso</th>
+                                    <th>Proveedor / Empresa</th>
+                                    <th>CUIT / CUIL</th>
+                                    <th>Teléfono</th>
+                                    <th>Correo Electrónico</th>
+                                    <th>Dirección</th>
+                                    <th>Catálogo Asignado</th>
+                                    <th class="text-end">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="proveedoresBody"></tbody>
@@ -467,8 +486,207 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 </section>
             </div>
 
+            <!-- Pestaña 6: Generador e Impresión de Códigos de Barra -->
+            <div class="tab-pane fade" id="pestana-barcodes" role="tabpanel" aria-labelledby="tab-barcodes-btn">
+                <section class="seccion-card" aria-labelledby="titulo-barcodes">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+                        <div>
+                            <p class="etiqueta text-primary mb-1">Etiquetado y Trazabilidad</p>
+                            <h2 id="titulo-barcodes" class="h4 fw-bold mb-0">Generador de Códigos de Barra</h2>
+                        </div>
+                        <button class="btn btn-success" type="button" id="btnImprimirEtiqueta">🖨️ Imprimir Etiqueta</button>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-12 col-lg-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <h3 class="h6 fw-bold mb-3">Configurar datos de la etiqueta</h3>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label" for="barcodeSelectorProducto">Seleccionar producto existente (opcional)</label>
+                                    <select class="form-select" id="barcodeSelectorProducto">
+                                        <option value="">-- Ingreso manual / Nuevo producto --</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="barcodeInputCodigo">Código de Barras *</label>
+                                    <div class="input-group">
+                                        <input type="text" id="barcodeInputCodigo" class="form-control" placeholder="Ej: 7791234567890">
+                                        <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoRandom" title="Generar código aleatorio">🎲 Generar</button>
+                                    </div>
+                                    <small class="text-muted">Admite formatos estándar (EAN-13, CODE128, etc.).</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="barcodeInputNombre">Nombre / Descripción en etiqueta</label>
+                                    <input type="text" id="barcodeInputNombre" class="form-control" placeholder="Ej: Arroz Largo Fino 1kg">
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-12 col-sm-6">
+                                        <label class="form-label" for="barcodeInputPrecio">Precio a mostrar ($)</label>
+                                        <input type="number" step="0.01" id="barcodeInputPrecio" class="form-control" placeholder="0.00">
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <label class="form-label" for="barcodeInputFormato">Tipo de código</label>
+                                        <select id="barcodeInputFormato" class="form-select">
+                                            <option value="CODE128">CODE128 (Universal)</option>
+                                            <option value="EAN13">EAN-13 (13 dígitos)</option>
+                                            <option value="CODE39">CODE39</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6">
+                            <div class="etiqueta-barcode-card h-100 d-flex flex-column justify-content-center align-items-center">
+                                <h3 class="h6 fw-bold text-muted mb-3">Vista Previa de la Etiqueta</h3>
+                                
+                                <div id="seccionImpresionEtiqueta">
+                                    <div class="etiqueta-print-box shadow-sm">
+                                        <div class="etiqueta-print-empresa">Control Stock</div>
+                                        <div class="etiqueta-print-nombre" id="previewEtiquetaNombre">Nombre del Producto</div>
+                                        <svg id="previewBarcodeSvg" class="barcode-svg my-2"></svg>
+                                        <div class="etiqueta-print-precio" id="previewEtiquetaPrecio">$ 0,00</div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4">
+                                    <button class="btn btn-outline-primary btn-sm" type="button" id="btnCopiarCodigoBarras">📋 Copiar código</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
         </div>
     </main>
+
+    <!-- Modal Agregar / Modificar Proveedor -->
+    <div class="modal fade" id="modalProveedor" tabindex="-1" aria-labelledby="tituloModalProveedor" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formProveedor">
+                    <input type="hidden" name="id" id="proveedorId">
+                    <div class="modal-header">
+                        <h2 id="tituloModalProveedor" class="modal-title fs-5 fw-bold">Registrar nuevo proveedor</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="errorProveedor" class="alert alert-danger d-none"></div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="proveedorNombre">Nombre o Empresa *</label>
+                            <input class="form-control" id="proveedorNombre" name="nombre" maxlength="150" placeholder="Ej: Molinos Río de la Plata S.A." required>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-sm-6">
+                                <label class="form-label" for="proveedorCuit">CUIT / CUIL</label>
+                                <input class="form-control" id="proveedorCuit" name="cuit_cuil" maxlength="30" placeholder="Ej: 30-12345678-9">
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <label class="form-label" for="proveedorTelefono">Teléfono de contacto</label>
+                                <input class="form-control" id="proveedorTelefono" name="telefono" maxlength="50" placeholder="Ej: +54 9 11 1234-5678">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="proveedorEmail">Correo electrónico</label>
+                            <input class="form-control" id="proveedorEmail" name="email" type="email" maxlength="150" placeholder="contacto@proveedor.com">
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label" for="proveedorDireccion">Dirección / Localidad</label>
+                            <input class="form-control" id="proveedorDireccion" name="direccion" maxlength="200" placeholder="Ej: Av. Libertador 1234, CABA">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarProveedor">Guardar proveedor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Historial de Movimientos de Producto (Auditoría / Trazabilidad) -->
+    <div class="modal fade" id="modalHistorialProducto" tabindex="-1" aria-labelledby="tituloModalHistorialProducto" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <p class="etiqueta text-primary mb-1">Auditoría y Trazabilidad</p>
+                        <h2 id="tituloModalHistorialProducto" class="modal-title fs-5 fw-bold">Historial de Movimientos del Producto</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Resumen del Producto Consultado -->
+                    <div class="p-3 bg-light rounded-3 border mb-4">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-sm-6">
+                                <h3 class="h6 fw-bold mb-1" id="historialProductoNombre">—</h3>
+                                <div class="text-muted small" id="historialProductoDetalles">Cód: — | Barras: —</div>
+                            </div>
+                            <div class="col-6 col-sm-3 text-sm-center">
+                                <span class="text-muted small d-block">Stock Actual</span>
+                                <strong class="fs-5 text-primary" id="historialProductoStock">—</strong>
+                            </div>
+                            <div class="col-6 col-sm-3 text-sm-end">
+                                <span class="text-muted small d-block">Precio Vigente</span>
+                                <strong class="fs-5 text-success" id="historialProductoPrecio">—</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Movimientos Cronológicos -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Tipo de Movimiento</th>
+                                    <th>Detalle / Operación</th>
+                                    <th>Variación Stock</th>
+                                    <th>Responsable</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historialProductoBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Escáner de Cámara Web / Móvil -->
+    <div class="modal fade" id="modalScannerCamara" tabindex="-1" aria-labelledby="tituloModalScanner" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="tituloModalScanner" class="modal-title fs-5 fw-bold">📷 Escanear Código de Barras</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p class="text-muted small mb-3">Apuntá con la cámara hacia el código de barras del producto para detectarlo automáticamente.</p>
+                    <div id="contenedorLectorCamara" class="p-2 mb-3">
+                        <div id="qr-reader"></div>
+                    </div>
+                    <div id="scannerResultado" class="alert alert-info d-none mb-0 py-2"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnCerrarScanner">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Agregar Producto -->
     <div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="tituloModalProducto" aria-hidden="true">
@@ -485,6 +703,16 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <div class="mb-3">
                             <label class="form-label" for="productoNombre">Nombre del producto *</label>
                             <input class="form-control" id="productoNombre" name="nombre" maxlength="150" placeholder="Ej: Arroz Largo Fino 1kg" required>
+                        </div>
+
+                        <!-- Código de Barras -->
+                        <div class="mb-3">
+                            <label class="form-label" for="productoCodigoBarras">Código de Barras (opcional)</label>
+                            <div class="input-group">
+                                <input class="form-control" id="productoCodigoBarras" name="codigo_barras" maxlength="50" placeholder="Ej: 7791234567890">
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearCodigoModalAlta" title="Escanear con cámara">📷</button>
+                                <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoModalAlta" title="Generar código aleatorio">🎲</button>
+                            </div>
                         </div>
 
                         <div class="row g-3 mb-3">
@@ -523,7 +751,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             </div>
                             <div class="col-12 col-sm-6">
                                 <label class="form-label" for="productoProveedor">Proveedor</label>
-                                <input class="form-control" id="productoProveedor" name="proveedor" maxlength="150" placeholder="Nombre o empresa">
+                                <select class="form-select" id="productoProveedor" name="proveedor">
+                                    <option value="">-- Seleccionar proveedor --</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -552,6 +782,16 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <div class="mb-3">
                             <label class="form-label" for="editarProductoNombre">Nombre del producto *</label>
                             <input class="form-control" id="editarProductoNombre" name="nombre" maxlength="150" required>
+                        </div>
+
+                        <!-- Código de Barras -->
+                        <div class="mb-3">
+                            <label class="form-label" for="editarProductoCodigoBarras">Código de Barras</label>
+                            <div class="input-group">
+                                <input class="form-control" id="editarProductoCodigoBarras" name="codigo_barras" maxlength="50" placeholder="Ej: 7791234567890">
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearCodigoModalEdicion" title="Escanear con cámara">📷</button>
+                                <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoModalEdicion" title="Generar código aleatorio">🎲</button>
+                            </div>
                         </div>
 
                         <div class="row g-3 mb-3">
@@ -587,7 +827,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             </div>
                             <div class="col-12 col-sm-6">
                                 <label class="form-label" for="editarProductoProveedor">Proveedor</label>
-                                <input class="form-control" id="editarProductoProveedor" name="proveedor" maxlength="150">
+                                <select class="form-select" id="editarProductoProveedor" name="proveedor">
+                                    <option value="">-- Seleccionar proveedor --</option>
+                                </select>
                             </div>
                         </div>
 
@@ -605,7 +847,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         </div>
     </div>
 
-    <!-- Modal Registrar Venta (con Cajas/Unidades y Descuentos) -->
+    <!-- Modal Registrar Venta (con Lector de Barras, Cajas/Unidades y Descuentos) -->
     <div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="tituloModalVenta" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -624,7 +866,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
 
                         <div class="mb-3">
                             <label class="form-label" for="ventaProducto">Producto *</label>
-                            <select class="form-select" id="ventaProducto" name="producto_id" required></select>
+                            <div class="input-group">
+                                <select class="form-select" id="ventaProducto" name="producto_id" required></select>
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearProductoVenta" title="Escanear con cámara">📷</button>
+                            </div>
                             <small id="ventaInfoEmpaque" class="text-primary small d-none"></small>
                         </div>
 
