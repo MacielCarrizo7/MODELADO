@@ -345,6 +345,44 @@ class FirestoreRestCliente {
     }
 
     /**
+     * Obtiene todos los documentos de una colección.
+     */
+    public function obtenerColeccion(string $coleccion, int $maxDocs = 500): array {
+        $token = $this->obtenerToken();
+        $url = "{$this->baseUrl}/{$coleccion}?pageSize=" . min($maxDocs, 300);
+
+        $documentos = [];
+        $nextPageToken = null;
+
+        do {
+            $pUrl = $url . ($nextPageToken ? "&pageToken=" . urlencode($nextPageToken) : "");
+            $respuesta = $this->http->get($pUrl, [
+                "headers" => [
+                    "Authorization" => "Bearer {$token}",
+                    "Accept" => "application/json",
+                ]
+            ]);
+
+            if ($respuesta->getStatusCode() !== 200) {
+                break;
+            }
+
+            $datos = json_decode((string)$respuesta->getBody(), true);
+            if (isset($datos["documents"]) && is_array($datos["documents"])) {
+                foreach ($datos["documents"] as $doc) {
+                    $documentos[] = self::formatearDocumento($doc);
+                    if (count($documentos) >= $maxDocs) {
+                        break 2;
+                    }
+                }
+            }
+            $nextPageToken = $datos["nextPageToken"] ?? null;
+        } while ($nextPageToken !== null);
+
+        return $documentos;
+    }
+
+    /**
      * Cuenta documentos de una colección (vía listar / query).
      */
     public function contarDocumentos(string $coleccion): int {
@@ -560,6 +598,22 @@ class FirestoreConexion {
      */
     public static function obtenerSiguienteIdUsuario(): int {
         return self::obtenerFirestore()->obtenerSiguienteId("contadores", "usuarios", "ultimo_id");
+    }
+
+    public static function obtenerSiguienteIdProducto(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "productos", "ultimo_id");
+    }
+
+    public static function obtenerSiguienteIdVenta(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "ventas", "ultimo_id");
+    }
+
+    public static function obtenerSiguienteIdSolicitud(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "solicitudes", "ultimo_id");
+    }
+
+    public static function obtenerSiguienteIdHistorial(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "historial", "ultimo_id");
     }
 }
 ?>

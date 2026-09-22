@@ -1,42 +1,87 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin", "vendedor"]);
 header("Content-Type: application/json; charset=UTF-8");
 
-$pdo = Conexion::obtenerInstancia();
-
-$sql = "SELECT 
-            p.nombre_proveedor AS proveedor,
-            COALESCE(prod.total_productos, 0) AS total_productos,
-            COALESCE(ing.total_ingresos, 0) AS total_ingresos,
-            COALESCE(ing.total_unidades_ingresadas, 0) AS total_unidades,
-            ing.ultimo_ingreso,
-            COALESCE(prod.productos_lista, '—') AS productos_lista
-        FROM (
-            SELECT DISTINCT proveedor AS nombre_proveedor FROM productos WHERE proveedor IS NOT NULL AND proveedor != ''
-            UNION
-            SELECT DISTINCT proveedor AS nombre_proveedor FROM ingresos_stock WHERE proveedor IS NOT NULL AND proveedor != ''
-        ) p
-        LEFT JOIN (
-            SELECT proveedor, COUNT(*) AS total_productos, GROUP_CONCAT(DISTINCT nombre ORDER BY nombre SEPARATOR ', ') AS productos_lista
-            FROM productos
-            WHERE proveedor IS NOT NULL AND proveedor != ''
-            GROUP BY proveedor
-        ) prod ON p.nombre_proveedor = prod.proveedor
-        LEFT JOIN (
-            SELECT proveedor, COUNT(*) AS total_ingresos, SUM(total_unidades) AS total_unidades_ingresadas, MAX(fecha) AS ultimo_ingreso
-            FROM ingresos_stock
-            WHERE proveedor IS NOT NULL AND proveedor != ''
-            GROUP BY proveedor
-        ) ing ON p.nombre_proveedor = ing.proveedor
-        ORDER BY p.nombre_proveedor ASC";
-
 try {
-    $stmt = $pdo->query($sql);
-    echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_UNICODE);
+    $firestore = FirestoreConexion::obtenerFirestore();
+    $productos = $firestore->obtenerColeccion("productos");
+    $ingresos = $firestore->obtenerColeccion("ingresos_stock");
+
+    $proveedoresMapa = [];
+
+    // Procesar productos
+    foreach ($productos as $p) {
+        $prov = trim((string)($p["proveedor"] ?? ""));
+        if ($prov === "") continue;
+
+        if (!isset($proveedoresMapa[$prov])) {
+            $proveedoresMapa[$prov] = [
+                "proveedor" => $prov,
+                "total_productos" => 0,
+                "total_ingresos" => 0,
+                "total_unidades" => 0,
+                "ultimo_ingreso" => null,
+                "productos_set" => []
+            ];
+        }
+
+        $proveedoresMapa[$prov]["total_productos"]++;
+        $nomProd = trim((string)($p["nombre"] ?? ""));
+        if ($nomProd !== "") {
+            $proveedoresMapa[$prov]["productos_set"][$nomProd] = true;
+        }
+    }
+
+    // Procesar ingresos
+    foreach ($ingresos as $ing) {
+        $prov = trim((string)($ing["proveedor"] ?? ""));
+        if ($prov === "") continue;
+
+        if (!isset($proveedoresMapa[$prov])) {
+            $proveedoresMapa[$prov] = [
+                "proveedor" => $prov,
+                "total_productos" => 0,
+                "total_ingresos" => 0,
+                "total_unidades" => 0,
+                "ultimo_ingreso" => null,
+                "productos_set" => []
+            ];
+        }
+
+        $proveedoresMapa[$prov]["total_ingresos"]++;
+        $proveedoresMapa[$prov]["total_unidades"] += (int)($ing["total_unidades"] ?? 0);
+
+        $fechaIng = (string)($ing["fecha"] ?? "");
+        if ($fechaIng !== "") {
+            if ($proveedoresMapa[$prov]["ultimo_ingreso"] === null || $fechaIng > $proveedoresMapa[$prov]["ultimo_ingreso"]) {
+                $proveedoresMapa[$prov]["ultimo_ingreso"] = $fechaIng;
+            }
+        }
+    }
+
+    $resultado = [];
+    foreach ($proveedoresMapa as $p) {
+        $lista = array_keys($p["productos_set"]);
+        sort($lista, SORT_NATURAL | SORT_FLAG_CASE);
+        $resultado[] = [
+            "proveedor" => $p["proveedor"],
+            "total_productos" => $p["total_productos"],
+            "total_ingresos" => $p["total_ingresos"],
+            "total_unidades" => $p["total_unidades"],
+            "ultimo_ingreso" => $p["ultimo_ingreso"],
+            "productos_lista" => !empty($lista) ? implode(", ", $lista) : "—"
+        ];
+    }
+
+    usort($resultado, function ($a, $b) {
+        return strcasecmp($a["proveedor"], $b["proveedor"]);
+    });
+
+    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("Error en obtener_proveedores: " . $e->getMessage());
+    error_log("Error en obtener_proveedores (Firestore): " . $e->getMessage());
     echo json_encode([], JSON_UNESCAPED_UNICODE);
 }
 ?>

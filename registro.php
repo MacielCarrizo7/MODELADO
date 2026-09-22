@@ -1,7 +1,7 @@
 <?php
-require_once "seguridad.php";
+require_once __DIR__ . "/seguridad.php";
 requerirPaginaAutenticada(["admin"]);
-require_once "FirestoreConexion.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 
 $firestore = FirestoreConexion::obtenerFirestore();
 $error = "";

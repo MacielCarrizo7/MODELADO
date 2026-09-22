@@ -1,10 +1,9 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin", "vendedor"]);
 header("Content-Type: application/json; charset=UTF-8");
 
-$pdo = Conexion::obtenerInstancia();
 $desde = trim($_GET["desde"] ?? "");
 $hasta = trim($_GET["hasta"] ?? "");
 $productoIdTexto = trim($_GET["producto_id"] ?? "");
@@ -23,90 +22,95 @@ if ($estado !== "" && !in_array($estado, $estadosValidos, true)) {
     responderJson(["error" => "El estado seleccionado no es válido."], 400);
 }
 
-$condiciones = [];
-$parametros = [];
-if ($desde !== "") {
-    $condiciones[] = "v.fecha >= ?";
-    $parametros[] = $desde . " 00:00:00";
-}
-if ($hasta !== "") {
-    $diaSiguiente = (new DateTimeImmutable($hasta))->modify("+1 day")->format("Y-m-d 00:00:00");
-    $condiciones[] = "v.fecha < ?";
-    $parametros[] = $diaSiguiente;
-}
-if ($productoIdTexto !== "") {
-    if (!ctype_digit($productoIdTexto) || (int) $productoIdTexto <= 0) {
-        responderJson(["error" => "El producto seleccionado no es válido."], 400);
-    }
-    $condiciones[] = "v.producto_id = ?";
-    $parametros[] = (int) $productoIdTexto;
-}
-if ($clienteIdTexto !== "") {
-    if (!ctype_digit($clienteIdTexto) || (int) $clienteIdTexto <= 0) {
-        responderJson(["error" => "El cliente seleccionado no es válido."], 400);
-    }
-    $condiciones[] = "v.cliente_id = ?";
-    $parametros[] = (int) $clienteIdTexto;
-}
-if ($estado !== "") {
-    $condiciones[] = "v.estado = ?";
-    $parametros[] = $estado;
-}
-if ($vendedorIdTexto !== "") {
-    if (!ctype_digit($vendedorIdTexto) || (int) $vendedorIdTexto <= 0) {
-        responderJson(["error" => "El vendedor seleccionado no es válido."], 400);
-    }
-    $condiciones[] = "v.usuario_id = ?";
-    $parametros[] = (int) $vendedorIdTexto;
-}
-
-$sql = "SELECT v.id, v.producto_id, v.producto_nombre, v.tipo_venta, v.cantidad_empaque, v.cantidad,
-               v.precio_unitario, v.subtotal, v.descuento_porcentaje, v.descuento_monto,
-               v.total, v.fecha, v.estado, v.fecha_modificacion, v.motivo_cancelacion,
-               v.cliente_id, v.usuario_id
-        FROM ventas v";
-if ($condiciones !== []) {
-    $sql .= " WHERE " . implode(" AND ", $condiciones);
-}
-$sql .= " ORDER BY v.fecha DESC, v.id DESC";
+$prodIdFiltro = ($productoIdTexto !== "" && ctype_digit($productoIdTexto)) ? (int)$productoIdTexto : null;
+$cliIdFiltro = ($clienteIdTexto !== "" && ctype_digit($clienteIdTexto)) ? (int)$clienteIdTexto : null;
+$vendIdFiltro = ($vendedorIdTexto !== "" && ctype_digit($vendedorIdTexto)) ? (int)$vendedorIdTexto : null;
 
 try {
-    require_once "FirestoreConexion.php";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($parametros);
-    $ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $userIds = [];
-    foreach ($ventas as $v) {
-        if (!empty($v["cliente_id"])) $userIds[(int)$v["cliente_id"]] = true;
-        if (!empty($v["usuario_id"])) $userIds[(int)$v["usuario_id"]] = true;
-    }
+    $firestore = FirestoreConexion::obtenerFirestore();
+    $todasLasVentas = $firestore->obtenerColeccion("ventas");
+    $todosLosUsuarios = $firestore->obtenerColeccion("usuarios");
 
     $mapaUsuarios = [];
-    if (!empty($userIds)) {
-        $firestore = FirestoreConexion::obtenerFirestore();
-        foreach (array_keys($userIds) as $uid) {
-            $uDoc = $firestore->obtenerDocumento("usuarios", (string)$uid);
-            if ($uDoc) {
-                $nombreCompleto = trim(($uDoc["nombre"] ?? "") . " " . ($uDoc["apellido"] ?? ""));
-                $mapaUsuarios[$uid] = $nombreCompleto;
-            } else {
-                $mapaUsuarios[$uid] = "";
-            }
+    foreach ($todosLosUsuarios as $u) {
+        $uId = (int) ($u["id"] ?? $u["_id"] ?? 0);
+        if ($uId > 0) {
+            $mapaUsuarios[$uId] = trim(($u["nombre"] ?? "") . " " . ($u["apellido"] ?? ""));
         }
     }
 
-    foreach ($ventas as &$v) {
-        $cId = (int) ($v["cliente_id"] ?? 0);
-        $uId = (int) ($v["usuario_id"] ?? 0);
-        $v["cliente"] = $mapaUsuarios[$cId] ?? "";
-        $v["vendedor"] = $mapaUsuarios[$uId] ?? "";
-    }
-    unset($v);
+    $ventasFiltradas = [];
 
-    echo json_encode($ventas, JSON_UNESCAPED_UNICODE);
+    foreach ($todasLasVentas as $v) {
+        $id = (int) ($v["id"] ?? $v["_id"] ?? 0);
+        $prodId = (int) ($v["producto_id"] ?? 0);
+        $cliId = (int) ($v["cliente_id"] ?? 0);
+        $usuId = (int) ($v["usuario_id"] ?? 0);
+        $est = (string) ($v["estado"] ?? "ACTIVA");
+        $fecha = (string) ($v["fecha"] ?? "");
+
+        // Filtro por fecha desde
+        if ($desde !== "" && $fecha !== "" && substr($fecha, 0, 10) < $desde) {
+            continue;
+        }
+
+        // Filtro por fecha hasta
+        if ($hasta !== "" && $fecha !== "" && substr($fecha, 0, 10) > $hasta) {
+            continue;
+        }
+
+        // Filtro por producto
+        if ($prodIdFiltro !== null && $prodId !== $prodIdFiltro) {
+            continue;
+        }
+
+        // Filtro por cliente
+        if ($cliIdFiltro !== null && $cliId !== $cliIdFiltro) {
+            continue;
+        }
+
+        // Filtro por vendedor
+        if ($vendIdFiltro !== null && $usuId !== $vendIdFiltro) {
+            continue;
+        }
+
+        // Filtro por estado
+        if ($estado !== "" && $est !== $estado) {
+            continue;
+        }
+
+        $ventasFiltradas[] = [
+            "id" => $id,
+            "producto_id" => $prodId,
+            "producto_nombre" => (string) ($v["producto_nombre"] ?? ""),
+            "tipo_venta" => (string) ($v["tipo_venta"] ?? "unidad"),
+            "cantidad_empaque" => (int) ($v["cantidad_empaque"] ?? $v["cantidad"] ?? 0),
+            "cantidad" => (int) ($v["cantidad"] ?? 0),
+            "precio_unitario" => (float) ($v["precio_unitario"] ?? 0),
+            "subtotal" => (float) ($v["subtotal"] ?? 0),
+            "descuento_porcentaje" => (float) ($v["descuento_porcentaje"] ?? 0),
+            "descuento_monto" => (float) ($v["descuento_monto"] ?? 0),
+            "total" => (float) ($v["total"] ?? 0),
+            "fecha" => $fecha,
+            "estado" => $est,
+            "fecha_modificacion" => !empty($v["fecha_modificacion"]) ? (string)$v["fecha_modificacion"] : null,
+            "motivo_cancelacion" => !empty($v["motivo_cancelacion"]) ? (string)$v["motivo_cancelacion"] : null,
+            "cliente_id" => $cliId,
+            "usuario_id" => $usuId,
+            "cliente" => $mapaUsuarios[$cliId] ?? "",
+            "vendedor" => $mapaUsuarios[$usuId] ?? ""
+        ];
+    }
+
+    usort($ventasFiltradas, function ($a, $b) {
+        $cmp = strcmp($b["fecha"], $a["fecha"]);
+        if ($cmp !== 0) return $cmp;
+        return $b["id"] <=> $a["id"];
+    });
+
+    echo json_encode($ventasFiltradas, JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("Error en obtener_ventas: " . $e->getMessage());
+    error_log("Error en obtener_ventas (Firestore): " . $e->getMessage());
     echo json_encode([], JSON_UNESCAPED_UNICODE);
 }
 ?>

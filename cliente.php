@@ -1,5 +1,5 @@
 <?php
-require_once "seguridad.php";
+require_once __DIR__ . "/seguridad.php";
 requerirPaginaAutenticada(["cliente"]);
 
 $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESSION["usuario_apellido"] ?? ""));

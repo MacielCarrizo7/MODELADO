@@ -1,15 +1,13 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin", "vendedor"]);
 header("Content-Type: application/json; charset=UTF-8");
-
-$pdo = Conexion::obtenerInstancia();
 
 $desde = trim($_GET["desde"] ?? "");
 $hasta = trim($_GET["hasta"] ?? "");
 $productoIdTexto = trim($_GET["producto_id"] ?? "");
-$proveedor = trim($_GET["proveedor"] ?? "");
+$proveedor = mb_strtolower(trim($_GET["proveedor"] ?? ""));
 $usuarioIdTexto = trim($_GET["usuario_id"] ?? "");
 $semaforo = trim($_GET["semaforo"] ?? "");
 
@@ -20,91 +18,119 @@ if ($desde !== "" && $hasta !== "" && $desde > $hasta) {
     responderJson(["error" => "La fecha desde no puede ser posterior a la fecha hasta."], 400);
 }
 
-$condiciones = [];
-$parametros = [];
-
-if ($desde !== "") {
-    $condiciones[] = "i.fecha >= ?";
-    $parametros[] = $desde . " 00:00:00";
-}
-if ($hasta !== "") {
-    $diaSiguiente = (new DateTimeImmutable($hasta))->modify("+1 day")->format("Y-m-d 00:00:00");
-    $condiciones[] = "i.fecha < ?";
-    $parametros[] = $diaSiguiente;
-}
-if ($productoIdTexto !== "") {
-    if (!ctype_digit($productoIdTexto) || (int) $productoIdTexto <= 0) {
-        responderJson(["error" => "El producto seleccionado no es válido."], 400);
-    }
-    $condiciones[] = "i.producto_id = ?";
-    $parametros[] = (int) $productoIdTexto;
-}
-if ($proveedor !== "") {
-    $condiciones[] = "i.proveedor LIKE ?";
-    $parametros[] = "%" . $proveedor . "%";
-}
-if ($usuarioIdTexto !== "") {
-    if (!ctype_digit($usuarioIdTexto) || (int) $usuarioIdTexto <= 0) {
-        responderJson(["error" => "El usuario seleccionado no es válido."], 400);
-    }
-    $condiciones[] = "i.usuario_id = ?";
-    $parametros[] = (int) $usuarioIdTexto;
-}
-
-if ($semaforo === "rojo") {
-    $condiciones[] = "(i.fecha_vencimiento IS NOT NULL AND i.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 45 DAY))";
-} elseif ($semaforo === "amarillo") {
-    $condiciones[] = "(i.fecha_vencimiento > DATE_ADD(CURDATE(), INTERVAL 45 DAY) AND i.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 90 DAY))";
-} elseif ($semaforo === "verde") {
-    $condiciones[] = "(i.fecha_vencimiento > DATE_ADD(CURDATE(), INTERVAL 90 DAY))";
-} elseif ($semaforo === "sin_fecha") {
-    $condiciones[] = "i.fecha_vencimiento IS NULL";
-}
-
-$sql = "SELECT i.id, i.producto_id, i.producto_nombre, i.cantidad, i.presentacion,
-               i.unidades_por_bulto, i.total_unidades, i.precio_unitario, i.proveedor,
-               i.fecha_vencimiento, i.usuario_id, i.motivo, i.fecha
-        FROM ingresos_stock i";
-
-if ($condiciones !== []) {
-    $sql .= " WHERE " . implode(" AND ", $condiciones);
-}
-$sql .= " ORDER BY i.fecha DESC, i.id DESC";
+$prodIdFiltro = ($productoIdTexto !== "" && ctype_digit($productoIdTexto)) ? (int)$productoIdTexto : null;
+$usuIdFiltro = ($usuarioIdTexto !== "" && ctype_digit($usuarioIdTexto)) ? (int)$usuarioIdTexto : null;
 
 try {
-    require_once "FirestoreConexion.php";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($parametros);
-    $ingresos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $userIds = [];
-    foreach ($ingresos as $ing) {
-        if (!empty($ing["usuario_id"])) $userIds[(int)$ing["usuario_id"]] = true;
-    }
+    $firestore = FirestoreConexion::obtenerFirestore();
+    $todosLosIngresos = $firestore->obtenerColeccion("ingresos_stock");
+    $todosLosUsuarios = $firestore->obtenerColeccion("usuarios");
 
     $mapaUsuarios = [];
-    if (!empty($userIds)) {
-        $firestore = FirestoreConexion::obtenerFirestore();
-        foreach (array_keys($userIds) as $uid) {
-            $uDoc = $firestore->obtenerDocumento("usuarios", (string)$uid);
-            if ($uDoc) {
-                $nombreCompleto = trim(($uDoc["nombre"] ?? "") . " " . ($uDoc["apellido"] ?? ""));
-                $mapaUsuarios[$uid] = $nombreCompleto;
-            } else {
-                $mapaUsuarios[$uid] = "";
-            }
+    foreach ($todosLosUsuarios as $u) {
+        $uId = (int) ($u["id"] ?? $u["_id"] ?? 0);
+        if ($uId > 0) {
+            $mapaUsuarios[$uId] = trim(($u["nombre"] ?? "") . " " . ($u["apellido"] ?? ""));
         }
     }
 
-    foreach ($ingresos as &$ing) {
-        $uId = (int) ($ing["usuario_id"] ?? 0);
-        $ing["usuario"] = $mapaUsuarios[$uId] ?? "";
-    }
-    unset($ing);
+    $hoy = new DateTimeImmutable("today");
+    $limite45 = $hoy->modify("+45 days");
+    $limite90 = $hoy->modify("+90 days");
 
-    echo json_encode($ingresos, JSON_UNESCAPED_UNICODE);
+    $ingresosFiltrados = [];
+
+    foreach ($todosLosIngresos as $i) {
+        $id = (int) ($i["id"] ?? $i["_id"] ?? 0);
+        $prodId = (int) ($i["producto_id"] ?? 0);
+        $uId = (int) ($i["usuario_id"] ?? 0);
+        $prov = (string) ($i["proveedor"] ?? "");
+        $fecha = (string) ($i["fecha"] ?? "");
+        $fechaVenc = !empty($i["fecha_vencimiento"]) ? (string)$i["fecha_vencimiento"] : null;
+
+        // Filtro desde
+        if ($desde !== "" && $fecha !== "" && substr($fecha, 0, 10) < $desde) {
+            continue;
+        }
+
+        // Filtro hasta
+        if ($hasta !== "" && $fecha !== "" && substr($fecha, 0, 10) > $hasta) {
+            continue;
+        }
+
+        // Filtro producto
+        if ($prodIdFiltro !== null && $prodId !== $prodIdFiltro) {
+            continue;
+        }
+
+        // Filtro usuario
+        if ($usuIdFiltro !== null && $uId !== $usuIdFiltro) {
+            continue;
+        }
+
+        // Filtro proveedor
+        if ($proveedor !== "" && !str_contains(mb_strtolower($prov), $proveedor)) {
+            continue;
+        }
+
+        // Filtro semáforo
+        if ($semaforo !== "") {
+            if ($semaforo === "sin_fecha") {
+                if ($fechaVenc !== null && $fechaVenc !== "") {
+                    continue;
+                }
+            } else {
+                if ($fechaVenc === null || $fechaVenc === "") {
+                    continue;
+                }
+                $dtVenc = DateTimeImmutable::createFromFormat("Y-m-d", substr($fechaVenc, 0, 10));
+                if (!$dtVenc) {
+                    continue;
+                }
+
+                if ($semaforo === "rojo") {
+                    if ($dtVenc > $limite45) {
+                        continue;
+                    }
+                } elseif ($semaforo === "amarillo") {
+                    if ($dtVenc <= $limite45 || $dtVenc > $limite90) {
+                        continue;
+                    }
+                } elseif ($semaforo === "verde") {
+                    if ($dtVenc <= $limite90) {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        $ingresosFiltrados[] = [
+            "id" => $id,
+            "producto_id" => $prodId,
+            "producto_nombre" => (string) ($i["producto_nombre"] ?? ""),
+            "cantidad" => (int) ($i["cantidad"] ?? 0),
+            "presentacion" => (string) ($i["presentacion"] ?? "unidad"),
+            "unidades_por_bulto" => (int) ($i["unidades_por_bulto"] ?? 1),
+            "total_unidades" => (int) ($i["total_unidades"] ?? 0),
+            "precio_unitario" => (float) ($i["precio_unitario"] ?? 0),
+            "proveedor" => $prov !== "" ? $prov : null,
+            "fecha_vencimiento" => $fechaVenc,
+            "usuario_id" => $uId,
+            "motivo" => (string) ($i["motivo"] ?? ""),
+            "fecha" => $fecha,
+            "usuario" => $mapaUsuarios[$uId] ?? ""
+        ];
+    }
+
+    usort($ingresosFiltrados, function ($a, $b) {
+        $cmp = strcmp($b["fecha"], $a["fecha"]);
+        if ($cmp !== 0) return $cmp;
+        return $b["id"] <=> $a["id"];
+    });
+
+    echo json_encode($ingresosFiltrados, JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("Error en obtener_ingresos: " . $e->getMessage());
+    error_log("Error en obtener_ingresos (Firestore): " . $e->getMessage());
     echo json_encode([], JSON_UNESCAPED_UNICODE);
 }
 ?>

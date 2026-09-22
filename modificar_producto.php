@@ -1,10 +1,8 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin"]);
 requerirCsrfJson();
-
-$pdo = Conexion::obtenerInstancia();
 
 $id = filter_input(INPUT_POST, "id", FILTER_VALIDATE_INT) ?: 0;
 $nombre = trim($_POST["nombre"] ?? "");
@@ -58,26 +56,28 @@ $proveedorParam = $proveedor !== "" ? $proveedor : null;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
 
 try {
-    $pdo->beginTransaction();
-
-    $stmtBuscar = $pdo->prepare("SELECT id, nombre, precio, stock, presentacion, unidades_por_bulto, fecha_vencimiento, proveedor FROM productos WHERE id = ? FOR UPDATE");
-    $stmtBuscar->execute([$id]);
-    $productoActual = $stmtBuscar->fetch();
+    $firestore = FirestoreConexion::obtenerFirestore();
+    $productoActual = $firestore->obtenerDocumento("productos", (string)$id);
 
     if (!$productoActual) {
-        $pdo->rollBack();
         responderJson(["error" => "El producto no existe."], 404);
     }
 
-    $stockAnterior = (int) $productoActual["stock"];
+    $stockAnterior = (int) ($productoActual["stock"] ?? 0);
     $diferenciaStock = $stock - $stockAnterior;
 
-    $stmtUpdate = $pdo->prepare(
-        "UPDATE productos
-         SET nombre = ?, precio = ?, stock = ?, presentacion = ?, unidades_por_bulto = ?, fecha_vencimiento = ?, proveedor = ?
-         WHERE id = ?"
-    );
-    $stmtUpdate->execute([$nombre, $precio, $stock, $presentacion, $unidadesPorBulto, $vencimientoParam, $proveedorParam, $id]);
+    $camposActualizados = [
+        "nombre" => $nombre,
+        "precio" => $precio,
+        "stock" => $stock,
+        "presentacion" => $presentacion,
+        "unidades_por_bulto" => $unidadesPorBulto,
+        "fecha_vencimiento" => $vencimientoParam,
+        "proveedor" => $proveedorParam,
+        "modificado_el" => date("Y-m-d H:i:s")
+    ];
+
+    $firestore->actualizarCampos("productos", (string)$id, $camposActualizados);
 
     // Si hubo incremento de stock, registrar en Kardex de ingresos
     if ($diferenciaStock > 0) {
@@ -86,34 +86,31 @@ try {
             $cantidadBultosIngresados = 1;
         }
 
-        $stmtIngreso = $pdo->prepare(
-            "INSERT INTO ingresos_stock
-             (producto_id, producto_nombre, cantidad, presentacion, unidades_por_bulto, total_unidades, precio_unitario, proveedor, fecha_vencimiento, usuario_id, motivo)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        );
+        $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
         $motivoIngreso = "Ajuste de inventario (+" . $diferenciaStock . " un.): " . $motivo;
-        $stmtIngreso->execute([
-            $id,
-            $nombre,
-            $cantidadBultosIngresados,
-            $presentacion,
-            $unidadesPorBulto,
-            $diferenciaStock,
-            $precio,
-            $proveedorParam,
-            $vencimientoParam,
-            $usuarioId,
-            $motivoIngreso
-        ]);
+
+        $ingresoDatos = [
+            "id" => $ingresoId,
+            "producto_id" => $id,
+            "producto_nombre" => $nombre,
+            "cantidad" => $cantidadBultosIngresados,
+            "presentacion" => $presentacion,
+            "unidades_por_bulto" => $unidadesPorBulto,
+            "total_unidades" => $diferenciaStock,
+            "precio_unitario" => $precio,
+            "proveedor" => $proveedorParam,
+            "fecha_vencimiento" => $vencimientoParam,
+            "usuario_id" => $usuarioId,
+            "motivo" => $motivoIngreso,
+            "fecha" => date("Y-m-d H:i:s")
+        ];
+
+        $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
 
-    $pdo->commit();
     responderJson(["success" => true, "mensaje" => "Producto modificado correctamente."]);
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    error_log("Error al modificar producto: " . $e->getMessage());
+    error_log("Error al modificar producto en Firestore: " . $e->getMessage());
     responderJson(["error" => "No se pudo modificar el producto: " . $e->getMessage()], 500);
 }
 ?>

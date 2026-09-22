@@ -1,9 +1,8 @@
 <?php
-require_once "seguridad.php";
+require_once __DIR__ . "/seguridad.php";
 requerirPaginaAutenticada(["admin"]);
-require_once "conexion.php";
-require_once "FirestoreConexion.php";
-$pdo = Conexion::obtenerInstancia();
+require_once __DIR__ . "/FirestoreConexion.php";
+
 try {
     $cantidadUsuarios = FirestoreConexion::obtenerFirestore()->contarDocumentos("usuarios");
 } catch (Throwable $e) {

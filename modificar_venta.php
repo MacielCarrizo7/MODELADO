@@ -1,10 +1,9 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin", "vendedor", "cliente"]);
 requerirCsrfJson();
 
-$pdo = Conexion::obtenerInstancia();
 $ventaId = filter_input(INPUT_POST, "venta_id", FILTER_VALIDATE_INT) ?: 0;
 $accion = $_POST["accion"] ?? "";
 $motivo = trim($_POST["motivo"] ?? "");
@@ -17,127 +16,132 @@ if (mb_strlen($motivo) > 500) {
 }
 
 try {
-    $pdo->beginTransaction();
-
-    $ventaStmt = $pdo->prepare(
-        "SELECT id, producto_id, cantidad, precio_unitario, total, cliente_id, estado
-         FROM ventas WHERE id = ? FOR UPDATE"
-    );
-    $ventaStmt->execute([$ventaId]);
-    $venta = $ventaStmt->fetch();
+    $firestore = FirestoreConexion::obtenerFirestore();
+    $venta = $firestore->obtenerDocumento("ventas", (string)$ventaId);
 
     if (!$venta) {
-        $pdo->rollBack();
         responderJson(["error" => "Venta no encontrada."], 404);
     }
 
     $rol = $_SESSION["usuario_rol"];
     $usuarioId = (int) $_SESSION["usuario_id"];
-    if ($rol === "cliente" && (int) $venta["cliente_id"] !== $usuarioId) {
-        $pdo->rollBack();
+    if ($rol === "cliente" && (int) ($venta["cliente_id"] ?? 0) !== $usuarioId) {
         responderJson(["error" => "No tenés permiso para modificar esta compra."], 403);
     }
 
-    if ($venta["estado"] === "CANCELADA") {
-        $pdo->commit();
+    if (($venta["estado"] ?? "") === "CANCELADA") {
         if ($accion === "cancelar") {
             responderJson(["success" => true, "already_cancelled" => true]);
         }
         responderJson(["error" => "Una venta cancelada no puede modificarse."], 409);
     }
 
-    $productoStmt = $pdo->prepare("SELECT stock FROM productos WHERE id = ? FOR UPDATE");
-    $productoStmt->execute([(int) $venta["producto_id"]]);
-    $producto = $productoStmt->fetch();
+    $productoId = (int) ($venta["producto_id"] ?? 0);
+    $producto = $firestore->obtenerDocumento("productos", (string)$productoId);
     if (!$producto) {
         throw new RuntimeException("El producto asociado ya no existe.");
     }
 
-    $estadoAnterior = $venta["estado"];
-    $cantidadAnterior = (int) $venta["cantidad"];
-    $totalAnterior = (float) $venta["total"];
+    $estadoAnterior = (string) ($venta["estado"] ?? "ACTIVA");
+    $cantidadAnterior = (int) ($venta["cantidad"] ?? 0);
+    $totalAnterior = (float) ($venta["total"] ?? 0);
     $prefijoActor = strtoupper($rol);
+    $fechaActual = date("Y-m-d H:i:s");
 
     if ($accion === "cancelar") {
-        $stock = $pdo->prepare("UPDATE productos SET stock = stock + ? WHERE id = ?");
-        $stock->execute([$cantidadAnterior, (int) $venta["producto_id"]]);
-
-        $actualizar = $pdo->prepare(
-            "UPDATE ventas
-             SET estado = 'CANCELADA', fecha_modificacion = NOW(), motivo_cancelacion = ?
-             WHERE id = ?"
-        );
-        $actualizar->execute([$motivo !== "" ? $motivo : null, $ventaId]);
-
-        $historial = $pdo->prepare(
-            "INSERT INTO venta_historial
-             (venta_id, usuario_id, tipo, cantidad_anterior, cantidad_nueva,
-              total_anterior, total_nuevo, estado_anterior, estado_nuevo, motivo)
-             VALUES (?, ?, ?, ?, 0, ?, 0, ?, 'CANCELADA', ?)"
-        );
-        $historial->execute([
-            $ventaId, $usuarioId, $prefijoActor . "_CANCELA", $cantidadAnterior,
-            $totalAnterior, $estadoAnterior, $motivo !== "" ? $motivo : null
+        // Reintegrar stock al producto
+        $stockActual = (int) ($producto["stock"] ?? 0);
+        $firestore->actualizarCampos("productos", (string)$productoId, [
+            "stock" => $stockActual + $cantidadAnterior
         ]);
 
-        $pdo->commit();
+        // Actualizar estado de la venta
+        $firestore->actualizarCampos("ventas", (string)$ventaId, [
+            "estado" => "CANCELADA",
+            "fecha_modificacion" => $fechaActual,
+            "motivo_cancelacion" => $motivo !== "" ? $motivo : null
+        ]);
+
+        // Registrar en historial
+        $histId = FirestoreConexion::obtenerSiguienteIdHistorial();
+        $historialDoc = [
+            "id" => $histId,
+            "venta_id" => $ventaId,
+            "usuario_id" => $usuarioId,
+            "tipo" => $prefijoActor . "_CANCELA",
+            "cantidad_anterior" => $cantidadAnterior,
+            "cantidad_nueva" => 0,
+            "total_anterior" => $totalAnterior,
+            "total_nuevo" => 0.0,
+            "estado_anterior" => $estadoAnterior,
+            "estado_nuevo" => "CANCELADA",
+            "motivo" => $motivo !== "" ? $motivo : null,
+            "fecha" => $fechaActual
+        ];
+        $firestore->guardarDocumento("venta_historial", (string)$histId, $historialDoc);
+
         responderJson(["success" => true, "estado" => "CANCELADA"]);
     }
 
+    // Modificar cantidad
     $cantidadNueva = filter_input(INPUT_POST, "cantidad", FILTER_VALIDATE_INT) ?: 0;
     if ($cantidadNueva <= 0) {
-        $pdo->rollBack();
         responderJson(["error" => "La nueva cantidad debe ser mayor que cero."], 400);
     }
     if ($cantidadNueva === $cantidadAnterior) {
-        $pdo->rollBack();
         responderJson(["error" => "La cantidad no cambió."], 400);
     }
 
     $diferencia = $cantidadNueva - $cantidadAnterior;
-    if ($diferencia > 0 && (int) $producto["stock"] < $diferencia) {
-        $pdo->rollBack();
+    $stockActual = (int) ($producto["stock"] ?? 0);
+    if ($diferencia > 0 && $stockActual < $diferencia) {
         responderJson(["error" => "No hay stock suficiente para aumentar la cantidad."], 400);
     }
 
-    $ajustarStock = $pdo->prepare("UPDATE productos SET stock = stock - ? WHERE id = ?");
-    $ajustarStock->execute([$diferencia, (int) $venta["producto_id"]]);
-    $totalNuevo = $cantidadNueva * (float) $venta["precio_unitario"];
-
-    $actualizar = $pdo->prepare(
-        "UPDATE ventas
-         SET cantidad = ?, total = ?, estado = 'MODIFICADA', fecha_modificacion = NOW(), motivo_cancelacion = NULL
-         WHERE id = ?"
-    );
-    $actualizar->execute([$cantidadNueva, $totalNuevo, $ventaId]);
-
-    // Actualizar también detalle_ventas
-    $updateDetalle = $pdo->prepare(
-        "UPDATE detalle_ventas
-         SET cantidad = ?, total = ?
-         WHERE venta_id = ?"
-    );
-    $updateDetalle->execute([$cantidadNueva, $totalNuevo, $ventaId]);
-
-    $historial = $pdo->prepare(
-        "INSERT INTO venta_historial
-         (venta_id, usuario_id, tipo, cantidad_anterior, cantidad_nueva,
-          total_anterior, total_nuevo, estado_anterior, estado_nuevo, motivo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'MODIFICADA', ?)"
-    );
-    $historial->execute([
-        $ventaId, $usuarioId, $prefijoActor . "_MODIFICA_CANTIDAD",
-        $cantidadAnterior, $cantidadNueva, $totalAnterior, $totalNuevo,
-        $estadoAnterior, $motivo !== "" ? $motivo : null
+    // Ajustar stock del producto
+    $firestore->actualizarCampos("productos", (string)$productoId, [
+        "stock" => $stockActual - $diferencia
     ]);
 
-    $pdo->commit();
+    $precioUnitario = (float) ($venta["precio_unitario"] ?? 0);
+    $totalNuevo = round($cantidadNueva * $precioUnitario, 2);
+
+    // Actualizar venta
+    $firestore->actualizarCampos("ventas", (string)$ventaId, [
+        "cantidad" => $cantidadNueva,
+        "total" => $totalNuevo,
+        "estado" => "MODIFICADA",
+        "fecha_modificacion" => $fechaActual,
+        "motivo_cancelacion" => null
+    ]);
+
+    // Actualizar detalle_ventas
+    $firestore->actualizarCampos("detalle_ventas", (string)$ventaId, [
+        "cantidad" => $cantidadNueva,
+        "total" => $totalNuevo
+    ]);
+
+    // Registrar en historial
+    $histId = FirestoreConexion::obtenerSiguienteIdHistorial();
+    $historialDoc = [
+        "id" => $histId,
+        "venta_id" => $ventaId,
+        "usuario_id" => $usuarioId,
+        "tipo" => $prefijoActor . "_MODIFICA_CANTIDAD",
+        "cantidad_anterior" => $cantidadAnterior,
+        "cantidad_nueva" => $cantidadNueva,
+        "total_anterior" => $totalAnterior,
+        "total_nuevo" => $totalNuevo,
+        "estado_anterior" => $estadoAnterior,
+        "estado_nuevo" => "MODIFICADA",
+        "motivo" => $motivo !== "" ? $motivo : null,
+        "fecha" => $fechaActual
+    ];
+    $firestore->guardarDocumento("venta_historial", (string)$histId, $historialDoc);
+
     responderJson(["success" => true, "estado" => "MODIFICADA", "total" => $totalNuevo]);
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    error_log("Error al modificar venta: " . $e->getMessage());
-    responderJson(["error" => "No se pudo actualizar la venta."], 500);
+    error_log("Error al modificar venta en Firestore: " . $e->getMessage());
+    responderJson(["error" => "No se pudo actualizar la venta: " . $e->getMessage()], 500);
 }
 ?>

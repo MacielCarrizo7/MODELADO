@@ -1,10 +1,8 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin"]);
 requerirCsrfJson();
-
-$pdo = Conexion::obtenerInstancia();
 
 $codigo = trim($_POST["codigo"] ?? "");
 $nombre = trim($_POST["nombre"] ?? "");
@@ -62,53 +60,49 @@ $totalUnidades = $stock * $unidadesPorBulto;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
 
 try {
-    $pdo->beginTransaction();
+    $firestore = FirestoreConexion::obtenerFirestore();
+    $productoId = FirestoreConexion::obtenerSiguienteIdProducto();
 
-    $stmt = $pdo->prepare(
-        "INSERT INTO productos (codigo, nombre, descripcion, presentacion, precio, stock, categoria, unidades_por_bulto, fecha_vencimiento, proveedor)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    );
-    $stmt->execute([
-        $codigoParam,
-        $nombre,
-        $descripcionParam,
-        $presentacion,
-        $precio,
-        $totalUnidades,
-        $categoriaParam,
-        $unidadesPorBulto,
-        $vencimientoParam,
-        $proveedorParam
-    ]);
-    $productoId = (int) $pdo->lastInsertId();
+    $productoDatos = [
+        "id" => $productoId,
+        "codigo" => $codigoParam,
+        "nombre" => $nombre,
+        "descripcion" => $descripcionParam,
+        "presentacion" => $presentacion,
+        "precio" => $precio,
+        "stock" => $totalUnidades,
+        "categoria" => $categoriaParam,
+        "unidades_por_bulto" => $unidadesPorBulto,
+        "fecha_vencimiento" => $vencimientoParam,
+        "proveedor" => $proveedorParam,
+        "creado_el" => date("Y-m-d H:i:s")
+    ];
+
+    $firestore->guardarDocumento("productos", (string)$productoId, $productoDatos);
 
     if ($totalUnidades > 0) {
-        $stmtIngreso = $pdo->prepare(
-            "INSERT INTO ingresos_stock
-             (producto_id, producto_nombre, cantidad, presentacion, unidades_por_bulto, total_unidades, precio_unitario, proveedor, fecha_vencimiento, usuario_id, motivo)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Alta inicial de producto')"
-        );
-        $stmtIngreso->execute([
-            $productoId,
-            $nombre,
-            $stock,
-            $presentacion,
-            $unidadesPorBulto,
-            $totalUnidades,
-            $precio,
-            $proveedorParam,
-            $vencimientoParam,
-            $usuarioId
-        ]);
+        $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
+        $ingresoDatos = [
+            "id" => $ingresoId,
+            "producto_id" => $productoId,
+            "producto_nombre" => $nombre,
+            "cantidad" => $stock,
+            "presentacion" => $presentacion,
+            "unidades_por_bulto" => $unidadesPorBulto,
+            "total_unidades" => $totalUnidades,
+            "precio_unitario" => $precio,
+            "proveedor" => $proveedorParam,
+            "fecha_vencimiento" => $vencimientoParam,
+            "usuario_id" => $usuarioId,
+            "motivo" => "Alta inicial de producto",
+            "fecha" => date("Y-m-d H:i:s")
+        ];
+        $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
 
-    $pdo->commit();
     responderJson(["success" => true, "id" => $productoId, "mensaje" => "Producto registrado exitosamente."], 201);
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    error_log("Error al guardar producto: " . $e->getMessage());
+    error_log("Error al guardar producto en Firestore: " . $e->getMessage());
     responderJson(["error" => "No se pudo registrar el producto: " . $e->getMessage()], 500);
 }
 ?>

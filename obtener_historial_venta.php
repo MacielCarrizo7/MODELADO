@@ -1,63 +1,65 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin", "vendedor", "cliente"]);
 header("Content-Type: application/json; charset=UTF-8");
 
-$pdo = Conexion::obtenerInstancia();
 $ventaId = filter_input(INPUT_GET, "venta_id", FILTER_VALIDATE_INT) ?: 0;
 if ($ventaId <= 0) {
     responderJson(["error" => "Venta inválida."], 400);
 }
 
 try {
+    $firestore = FirestoreConexion::obtenerFirestore();
+
     if ($_SESSION["usuario_rol"] === "cliente") {
-        $permiso = $pdo->prepare("SELECT id FROM ventas WHERE id = ? AND cliente_id = ?");
-        $permiso->execute([$ventaId, (int) $_SESSION["usuario_id"]]);
-        if (!$permiso->fetch()) {
+        $venta = $firestore->obtenerDocumento("ventas", (string)$ventaId);
+        if (!$venta || (int)($venta["cliente_id"] ?? 0) !== (int)$_SESSION["usuario_id"]) {
             responderJson(["error" => "No tenés permiso para consultar esta compra."], 403);
         }
     }
 
-    require_once "FirestoreConexion.php";
-    $stmt = $pdo->prepare(
-        "SELECT h.id, h.usuario_id, h.tipo, h.cantidad_anterior, h.cantidad_nueva,
-                h.total_anterior, h.total_nuevo, h.estado_anterior, h.estado_nuevo,
-                h.motivo, h.fecha
-         FROM venta_historial h
-         WHERE h.venta_id = ? ORDER BY h.fecha DESC, h.id DESC"
-    );
-    $stmt->execute([$ventaId]);
-    $historial = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $todosHistorial = $firestore->consultar("venta_historial", [
+        ["venta_id", "==", $ventaId]
+    ]);
 
-    $userIds = [];
-    foreach ($historial as $h) {
-        if (!empty($h["usuario_id"])) $userIds[(int)$h["usuario_id"]] = true;
-    }
-
+    $todosLosUsuarios = $firestore->obtenerColeccion("usuarios");
     $mapaUsuarios = [];
-    if (!empty($userIds)) {
-        $firestore = FirestoreConexion::obtenerFirestore();
-        foreach (array_keys($userIds) as $uid) {
-            $uDoc = $firestore->obtenerDocumento("usuarios", (string)$uid);
-            if ($uDoc) {
-                $nombreCompleto = trim(($uDoc["nombre"] ?? "") . " " . ($uDoc["apellido"] ?? ""));
-                $mapaUsuarios[$uid] = $nombreCompleto;
-            } else {
-                $mapaUsuarios[$uid] = "";
-            }
+    foreach ($todosLosUsuarios as $u) {
+        $uId = (int) ($u["id"] ?? $u["_id"] ?? 0);
+        if ($uId > 0) {
+            $mapaUsuarios[$uId] = trim(($u["nombre"] ?? "") . " " . ($u["apellido"] ?? ""));
         }
     }
 
-    foreach ($historial as &$h) {
+    $resultado = [];
+    foreach ($todosHistorial as $h) {
         $uId = (int) ($h["usuario_id"] ?? 0);
-        $h["modificado_por"] = $mapaUsuarios[$uId] ?? "";
+        $resultado[] = [
+            "id" => (int) ($h["id"] ?? $h["_id"] ?? 0),
+            "usuario_id" => $uId,
+            "tipo" => (string) ($h["tipo"] ?? ""),
+            "cantidad_anterior" => isset($h["cantidad_anterior"]) ? (int)$h["cantidad_anterior"] : null,
+            "cantidad_nueva" => isset($h["cantidad_nueva"]) ? (int)$h["cantidad_nueva"] : null,
+            "total_anterior" => isset($h["total_anterior"]) ? (float)$h["total_anterior"] : null,
+            "total_nuevo" => isset($h["total_nuevo"]) ? (float)$h["total_nuevo"] : null,
+            "estado_anterior" => (string) ($h["estado_anterior"] ?? ""),
+            "estado_nuevo" => (string) ($h["estado_nuevo"] ?? ""),
+            "motivo" => !empty($h["motivo"]) ? (string)$h["motivo"] : null,
+            "fecha" => (string) ($h["fecha"] ?? ""),
+            "modificado_por" => $mapaUsuarios[$uId] ?? ""
+        ];
     }
-    unset($h);
 
-    echo json_encode($historial, JSON_UNESCAPED_UNICODE);
+    usort($resultado, function ($a, $b) {
+        $cmp = strcmp($b["fecha"], $a["fecha"]);
+        if ($cmp !== 0) return $cmp;
+        return $b["id"] <=> $a["id"];
+    });
+
+    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("Error en obtener_historial_venta: " . $e->getMessage());
+    error_log("Error en obtener_historial_venta (Firestore): " . $e->getMessage());
     echo json_encode([], JSON_UNESCAPED_UNICODE);
 }
 ?>

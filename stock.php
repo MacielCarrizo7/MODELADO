@@ -1,5 +1,5 @@
 <?php
-require_once "seguridad.php";
+require_once __DIR__ . "/seguridad.php";
 requerirPaginaAutenticada();
 
 $destinos = [

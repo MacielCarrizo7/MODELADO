@@ -1,73 +1,89 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["admin", "vendedor", "cliente"]);
 header("Content-Type: application/json; charset=UTF-8");
 
-$pdo = Conexion::obtenerInstancia();
 $rol = $_SESSION["usuario_rol"];
 $usuarioId = (int) $_SESSION["usuario_id"];
 
 try {
+    $firestore = FirestoreConexion::obtenerFirestore();
+
     if ($rol === "cliente") {
-        $stmt = $pdo->prepare(
-            "SELECT id, mensaje, estado, fecha, fecha_atencion
-             FROM solicitudes_vendedor
-             WHERE cliente_id = ?
-             ORDER BY fecha DESC LIMIT 5"
-        );
-        $stmt->execute([$usuarioId]);
-        echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_UNICODE);
+        $solicitudes = $firestore->consultar("solicitudes_vendedor", [
+            ["cliente_id", "==", $usuarioId]
+        ]);
+
+        $resultado = [];
+        foreach ($solicitudes as $s) {
+            $resultado[] = [
+                "id" => (int) ($s["id"] ?? $s["_id"] ?? 0),
+                "mensaje" => (string) ($s["mensaje"] ?? ""),
+                "estado" => (string) ($s["estado"] ?? "PENDIENTE"),
+                "fecha" => (string) ($s["fecha"] ?? ""),
+                "fecha_atencion" => !empty($s["fecha_atencion"]) ? (string)$s["fecha_atencion"] : null
+            ];
+        }
+
+        usort($resultado, function ($a, $b) {
+            $cmp = strcmp($b["fecha"], $a["fecha"]);
+            if ($cmp !== 0) return $cmp;
+            return $b["id"] <=> $a["id"];
+        });
+
+        echo json_encode(array_slice($resultado, 0, 5), JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    require_once "FirestoreConexion.php";
-    $sql = "SELECT s.id, s.cliente_id, s.mensaje, s.estado, s.fecha, s.fecha_atencion, s.atendido_por
-            FROM solicitudes_vendedor s
-            ORDER BY CASE WHEN s.estado = 'PENDIENTE' THEN 0 ELSE 1 END, s.fecha DESC
-            LIMIT 50";
-
-    $stmt = $pdo->query($sql);
-    $solicitudes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $userIds = [];
-    foreach ($solicitudes as $s) {
-        if (!empty($s["cliente_id"])) $userIds[(int)$s["cliente_id"]] = true;
-        if (!empty($s["atendido_por"])) $userIds[(int)$s["atendido_por"]] = true;
-    }
+    $todasLasSol = $firestore->obtenerColeccion("solicitudes_vendedor");
+    $todosLosUsuarios = $firestore->obtenerColeccion("usuarios");
 
     $mapaUsuarios = [];
-    if (!empty($userIds)) {
-        $firestore = FirestoreConexion::obtenerFirestore();
-        foreach (array_keys($userIds) as $uid) {
-            $uDoc = $firestore->obtenerDocumento("usuarios", (string)$uid);
-            if ($uDoc) {
-                $mapaUsuarios[$uid] = [
-                    "dni" => (string) ($uDoc["dni"] ?? ""),
-                    "nombre" => trim(($uDoc["nombre"] ?? "") . " " . ($uDoc["apellido"] ?? ""))
-                ];
-            } else {
-                $mapaUsuarios[$uid] = [
-                    "dni" => "",
-                    "nombre" => ""
-                ];
-            }
+    foreach ($todosLosUsuarios as $u) {
+        $uId = (int) ($u["id"] ?? $u["_id"] ?? 0);
+        if ($uId > 0) {
+            $mapaUsuarios[$uId] = [
+                "dni" => (string) ($u["dni"] ?? ""),
+                "nombre" => trim(($u["nombre"] ?? "") . " " . ($u["apellido"] ?? ""))
+            ];
         }
     }
 
-    foreach ($solicitudes as &$s) {
+    $resultado = [];
+    foreach ($todasLasSol as $s) {
         $cId = (int) ($s["cliente_id"] ?? 0);
         $aId = (int) ($s["atendido_por"] ?? 0);
 
-        $s["cliente_dni"] = $mapaUsuarios[$cId]["dni"] ?? "";
-        $s["cliente_nombre"] = $mapaUsuarios[$cId]["nombre"] ?? "";
-        $s["atendido_por_nombre"] = $mapaUsuarios[$aId]["nombre"] ?? "";
+        $resultado[] = [
+            "id" => (int) ($s["id"] ?? $s["_id"] ?? 0),
+            "cliente_id" => $cId,
+            "mensaje" => (string) ($s["mensaje"] ?? ""),
+            "estado" => (string) ($s["estado"] ?? "PENDIENTE"),
+            "fecha" => (string) ($s["fecha"] ?? ""),
+            "fecha_atencion" => !empty($s["fecha_atencion"]) ? (string)$s["fecha_atencion"] : null,
+            "atendido_por" => $aId > 0 ? $aId : null,
+            "cliente_dni" => $mapaUsuarios[$cId]["dni"] ?? "",
+            "cliente_nombre" => $mapaUsuarios[$cId]["nombre"] ?? "",
+            "atendido_por_nombre" => $mapaUsuarios[$aId]["nombre"] ?? ""
+        ];
     }
-    unset($s);
 
-    echo json_encode($solicitudes, JSON_UNESCAPED_UNICODE);
+    // Ordenar PENDIENTE primero, luego por fecha DESC
+    usort($resultado, function ($a, $b) {
+        $prioridadA = ($a["estado"] === "PENDIENTE") ? 0 : 1;
+        $prioridadB = ($b["estado"] === "PENDIENTE") ? 0 : 1;
+        if ($prioridadA !== $prioridadB) {
+            return $prioridadA <=> $prioridadB;
+        }
+        $cmp = strcmp($b["fecha"], $a["fecha"]);
+        if ($cmp !== 0) return $cmp;
+        return $b["id"] <=> $a["id"];
+    });
+
+    echo json_encode(array_slice($resultado, 0, 50), JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("Error en obtener_solicitudes_vendedor: " . $e->getMessage());
+    error_log("Error en obtener_solicitudes_vendedor (Firestore): " . $e->getMessage());
     echo json_encode([], JSON_UNESCAPED_UNICODE);
 }
 ?>

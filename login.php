@@ -1,6 +1,6 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 iniciarSesionAplicacion();
 header("Cache-Control: no-store, no-cache, must-revalidate");
 
@@ -24,7 +24,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $error = "Los datos ingresados no son correctos.";
     } else {
         try {
-            require_once "FirestoreConexion.php";
             $firestore = FirestoreConexion::obtenerFirestore();
 
             // Buscar por DNI y Nombre en Firestore
@@ -129,7 +128,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <button type="submit" class="btn btn-primary btn-lg w-100">Iniciar sesión</button>
                 </form>
 
-                <p class="texto-secundario small text-center mt-4 mb-0">Sistema 100% PHP, MySQL y Apache en XAMPP.</p>
+                <p class="texto-secundario small text-center mt-4 mb-0">Sistema 100% Cloud con PHP 8.2, Docker y Firebase Firestore en Render.</p>
             </section>
         </div>
     </main>

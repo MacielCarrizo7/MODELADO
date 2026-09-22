@@ -1,10 +1,9 @@
 <?php
-require_once "seguridad.php";
-require_once "conexion.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
 requerirUsuarioJson(["cliente"]);
 requerirCsrfJson();
 
-$pdo = Conexion::obtenerInstancia();
 $clienteId = (int) $_SESSION["usuario_id"];
 $mensaje = trim($_POST["mensaje"] ?? "");
 
@@ -13,27 +12,37 @@ if (mb_strlen($mensaje) > 500) {
 }
 
 try {
-    // Verificar si ya tiene una solicitud pendiente reciente
-    $check = $pdo->prepare("SELECT id FROM solicitudes_vendedor WHERE cliente_id = ? AND estado = 'PENDIENTE' LIMIT 1");
-    $check->execute([$clienteId]);
-    $existente = $check->fetch();
+    $firestore = FirestoreConexion::obtenerFirestore();
 
-    if ($existente) {
+    // Verificar si ya tiene una solicitud pendiente
+    $solicitudes = $firestore->consultar("solicitudes_vendedor", [
+        ["cliente_id", "==", $clienteId],
+        ["estado", "==", "PENDIENTE"]
+    ]);
+
+    if (!empty($solicitudes)) {
         responderJson(["success" => true, "mensaje" => "Ya tenés una solicitud de atención pendiente. Un vendedor te contactará a la brevedad."]);
     }
 
-    $stmt = $pdo->prepare(
-        "INSERT INTO solicitudes_vendedor (cliente_id, mensaje, estado) VALUES (?, ?, 'PENDIENTE')"
-    );
-    $mensajeParam = $mensaje !== "" ? $mensaje : null;
-    $stmt->execute([$clienteId, $mensajeParam]);
+    $solicitudId = FirestoreConexion::obtenerSiguienteIdSolicitud();
+    $nuevaSol = [
+        "id" => $solicitudId,
+        "cliente_id" => $clienteId,
+        "mensaje" => $mensaje !== "" ? $mensaje : null,
+        "estado" => "PENDIENTE",
+        "fecha" => date("Y-m-d H:i:s"),
+        "fecha_atencion" => null,
+        "atendido_por" => null
+    ];
+
+    $firestore->guardarDocumento("solicitudes_vendedor", (string)$solicitudId, $nuevaSol);
 
     responderJson([
         "success" => true,
         "mensaje" => "Solicitud enviada correctamente. El equipo de ventas y administración ha sido notificado."
     ], 201);
 } catch (Throwable $e) {
-    error_log("Error en solicitar_vendedor: " . $e->getMessage());
+    error_log("Error en solicitar_vendedor (Firestore): " . $e->getMessage());
     responderJson(["error" => "No se pudo registrar la solicitud: " . $e->getMessage()], 500);
 }
 ?>

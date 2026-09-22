@@ -1,7 +1,7 @@
 <?php
-require "seguridad.php";
-require "FirestoreConexion.php";
-require "totp_servicio.php";
+require_once __DIR__ . "/seguridad.php";
+require_once __DIR__ . "/FirestoreConexion.php";
+require_once __DIR__ . "/totp_servicio.php";
 iniciarSesionAplicacion();
 header("Cache-Control: no-store");
 header("Pragma: no-cache");
