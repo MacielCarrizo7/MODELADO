@@ -680,29 +680,26 @@ function actualizarPreviewBarcode() {
 
     if (!svgElement) return;
 
-    const codigo = inputCodigo ? (inputCodigo.value.trim() || "779123456789") : "779123456789";
-    const nombre = inputNombre ? (inputNombre.value.trim() || "Nombre del Producto") : "Nombre del Producto";
+    const codigo = inputCodigo && inputCodigo.value.trim() ? inputCodigo.value.trim() : "779123456789";
+    const nombre = inputNombre && inputNombre.value.trim() ? inputNombre.value.trim() : "Nombre del Producto";
     const precio = inputPrecio && inputPrecio.value ? Number(inputPrecio.value) : 0;
-    const formato = selectFormato ? selectFormato.value : "CODE128";
+    const formato = selectFormato && selectFormato.value ? selectFormato.value : "CODE128";
 
     if (lblNombre) lblNombre.textContent = nombre;
     if (lblPrecio) lblPrecio.textContent = precio > 0 ? formatoMoneda.format(precio) : "$ 0,00";
 
-    try {
-        JsBarcode(svgElement, codigo, {
-            format: formato === "EAN13" && codigo.length === 13 ? "EAN13" : "CODE128",
-            lineColor: "#0f172a",
-            width: 2,
-            height: 50,
-            displayValue: true,
-            fontSize: 14,
-            font: "monospace"
-        });
-    } catch (e) {
-        // Fallback a CODE128 si falla validación estricta de EAN13
+    // Limpiar contenido previo del SVG
+    svgElement.innerHTML = "";
+
+    if (typeof JsBarcode === "function") {
+        let formatoFinal = formato;
+        if (formatoFinal === "EAN13" && (!/^\d{13}$/.test(codigo))) {
+            formatoFinal = "CODE128";
+        }
+
         try {
             JsBarcode(svgElement, codigo, {
-                format: "CODE128",
+                format: formatoFinal,
                 lineColor: "#0f172a",
                 width: 2,
                 height: 50,
@@ -710,7 +707,21 @@ function actualizarPreviewBarcode() {
                 fontSize: 14,
                 font: "monospace"
             });
-        } catch (_) {}
+        } catch (e) {
+            // Fallback a CODE128 si falla validación
+            try {
+                svgElement.innerHTML = "";
+                JsBarcode(svgElement, codigo, {
+                    format: "CODE128",
+                    lineColor: "#0f172a",
+                    width: 2,
+                    height: 50,
+                    displayValue: true,
+                    fontSize: 14,
+                    font: "monospace"
+                });
+            } catch (_) {}
+        }
     }
 }
 
@@ -737,7 +748,10 @@ if (barcodeSelector) {
 
 ["barcodeInputCodigo", "barcodeInputNombre", "barcodeInputPrecio", "barcodeInputFormato"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener("input", actualizarPreviewBarcode);
+    if (el) {
+        el.addEventListener("input", actualizarPreviewBarcode);
+        el.addEventListener("change", actualizarPreviewBarcode);
+    }
 });
 
 function generarCodigoEan13() {

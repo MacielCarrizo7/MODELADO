@@ -384,19 +384,33 @@ body {
     text-align: center;
 }
 
+/* Sistema de Modales Modernos y Adaptables */
+.modal {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
 .modal-content {
     border: 0;
     border-radius: 1.15rem;
     box-shadow: 0 1.5rem 4rem rgba(15,23,42,.22);
 }
+
 .modal-header {
     border-bottom: 1px solid var(--cs-border);
     padding: 1.25rem 1.5rem;
+    flex-shrink: 0;
 }
-.modal-body { padding: 1.5rem; }
+
+.modal-body {
+    padding: 1.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
 .modal-footer {
     border-top: 1px solid var(--cs-border);
     padding: 1rem 1.5rem;
+    flex-shrink: 0;
 }
 
 .btn {
@@ -487,22 +501,51 @@ body {
         padding: .5rem .85rem;
     }
 
+    /* Scroll fluido y adaptable en ventanas modales para móviles */
+    .modal {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        overflow-y: auto !important;
+    }
+
     .modal-dialog {
-        margin: .5rem;
-        max-width: calc(100% - 1rem);
+        margin: .5rem auto !important;
+        max-width: calc(100% - 1rem) !important;
+        min-height: auto !important;
+    }
+
+    .modal-dialog.modal-dialog-centered {
+        align-items: flex-start !important;
+        min-height: auto !important;
+        margin-top: .75rem !important;
+        margin-bottom: 2.5rem !important;
     }
     
     .modal-content {
-        border-radius: .95rem;
+        border-radius: 1rem;
+        max-height: calc(100dvh - 1.5rem);
+        max-height: calc(100vh - 1.5rem);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        padding: .85rem 1.15rem;
     }
 
     .modal-body {
+        flex: 1 1 auto;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
         padding: 1.15rem;
+        max-height: calc(100dvh - 130px);
+        max-height: calc(100vh - 130px);
     }
 
-    .modal-header,
     .modal-footer {
-        padding: .85rem 1.15rem;
+        padding: .75rem 1.15rem;
+        background: #ffffff;
     }
 }
 
