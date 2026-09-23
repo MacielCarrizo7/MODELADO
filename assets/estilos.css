@@ -418,6 +418,13 @@ body {
     font-weight: 650;
     padding: .5rem 1rem;
     transition: all .15s ease-in-out;
+    touch-action: manipulation;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+.btn > * {
+    pointer-events: none;
 }
 .btn-primary { background: var(--cs-primary); border-color: var(--cs-primary); }
 .btn-primary:hover { background: var(--cs-primary-dark); border-color: var(--cs-primary-dark); }

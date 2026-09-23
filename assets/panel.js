@@ -1166,8 +1166,9 @@ async function cargarVendedores() {
     }
 }
 
-// Carga de Solicitudes de Atención de Clientes
+// Carga de Solicitudes de Atención de Clientes (Solo Admin)
 async function cargarSolicitudesVendedor() {
+    if (!esAdmin) return;
     const tbody = document.getElementById("solicitudesAtencionBody");
     const badgePendientes = document.getElementById("badgeSolicitudesPendientes");
     if (!tbody) return;
@@ -1594,6 +1595,30 @@ document.querySelectorAll("[data-filtro-semaforo]").forEach((elemento) => {
             filtrarYRenderizarProductos();
         }
     });
+});
+
+// Manejador global robusto para modales en dispositivos móviles y escritorio
+document.addEventListener("click", (e) => {
+    const trigger = e.target.closest('[data-bs-toggle="modal"]');
+    if (!trigger) return;
+
+    const targetSelector = trigger.getAttribute("data-bs-target") || trigger.getAttribute("href");
+    if (!targetSelector || !targetSelector.startsWith("#")) return;
+
+    const modalEl = document.querySelector(targetSelector);
+    if (!modalEl) return;
+
+    // Cerrar menú navbar si está abierto en mobile
+    const navCollapse = document.querySelector(".navbar-collapse.show");
+    if (navCollapse && typeof bootstrap !== "undefined" && bootstrap.Collapse) {
+        const bsCollapse = bootstrap.Collapse.getInstance(navCollapse) || new bootstrap.Collapse(navCollapse, { toggle: false });
+        bsCollapse.hide();
+    }
+
+    if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.show();
+    }
 });
 
 // Inicialización general al cargar el DOM

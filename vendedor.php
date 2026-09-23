@@ -81,11 +81,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                         <span>🏢 Proveedores</span>
                     </button>
                 </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-vendedor-barcodes-btn" data-bs-toggle="tab" data-bs-target="#pestana-barcodes" type="button" role="tab" aria-controls="pestana-barcodes" aria-selected="false">
-                        <span>🏷️ Códigos de Barra</span>
-                    </button>
-                </li>
             </ul>
         </div>
 
@@ -114,32 +109,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                         </div>
                     </div>
                 </div>
-
-                <!-- Bandeja de Solicitudes de Atención de Clientes -->
-                <section class="seccion-card mb-4" aria-labelledby="titulo-solicitudes-vendedor">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <h2 id="titulo-solicitudes-vendedor" class="h5 fw-bold mb-0">🤝 Solicitudes de Atención de Clientes</h2>
-                            <span id="badgeSolicitudesPendientes" class="badge rounded-pill text-bg-danger">0</span>
-                        </div>
-                        <small class="text-muted">Clientes que requieren asistencia directa</small>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Fecha</th>
-                                    <th>Cliente</th>
-                                    <th>Mensaje / Consulta</th>
-                                    <th>Estado</th>
-                                    <th class="text-end">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="solicitudesAtencionBody"></tbody>
-                        </table>
-                    </div>
-                </section>
 
                 <div class="seccion-card">
                     <h2 class="h5 fw-bold mb-3">Rotación de Stock (Primeros en Vencer / FIFO)</h2>
@@ -341,81 +310,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                             </thead>
                             <tbody id="proveedoresBody"></tbody>
                         </table>
-                    </div>
-                </section>
-            </div>
-
-            <!-- Pestaña 6: Generador de Códigos de Barra -->
-            <div class="tab-pane fade" id="pestana-barcodes" role="tabpanel" aria-labelledby="tab-vendedor-barcodes-btn">
-                <section class="seccion-card" aria-labelledby="titulo-barcodes">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
-                        <div>
-                            <p class="etiqueta text-primary mb-1">Etiquetado y Trazabilidad</p>
-                            <h2 id="titulo-barcodes" class="h4 fw-bold mb-0">Generador de Códigos de Barra</h2>
-                        </div>
-                        <button class="btn btn-success" type="button" id="btnImprimirEtiqueta">🖨️ Imprimir Etiqueta</button>
-                    </div>
-
-                    <div class="row g-4">
-                        <div class="col-12 col-lg-6">
-                            <div class="p-3 bg-light rounded-3 border">
-                                <h3 class="h6 fw-bold mb-3">Configurar datos de la etiqueta</h3>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label" for="barcodeSelectorProducto">Seleccionar producto existente (opcional)</label>
-                                    <select class="form-select" id="barcodeSelectorProducto">
-                                        <option value="">-- Ingreso manual / Nuevo producto --</option>
-                                    </select>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label" for="barcodeInputCodigo">Código de Barras *</label>
-                                    <div class="input-group">
-                                        <input type="text" id="barcodeInputCodigo" class="form-control" placeholder="Ej: 7791234567890">
-                                        <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoRandom" title="Generar código aleatorio">🎲 Generar</button>
-                                    </div>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label" for="barcodeInputNombre">Nombre en etiqueta</label>
-                                    <input type="text" id="barcodeInputNombre" class="form-control" placeholder="Ej: Arroz Largo Fino 1kg">
-                                </div>
-
-                                <div class="row g-3 mb-3">
-                                    <div class="col-12 col-sm-6">
-                                        <label class="form-label" for="barcodeInputPrecio">Precio a mostrar ($)</label>
-                                        <input type="number" step="0.01" id="barcodeInputPrecio" class="form-control" placeholder="0.00">
-                                    </div>
-                                    <div class="col-12 col-sm-6">
-                                        <label class="form-label" for="barcodeInputFormato">Tipo de código</label>
-                                        <select id="barcodeInputFormato" class="form-select">
-                                            <option value="CODE128">CODE128 (Universal)</option>
-                                            <option value="EAN13">EAN-13 (13 dígitos)</option>
-                                            <option value="CODE39">CODE39</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6">
-                            <div class="etiqueta-barcode-card h-100 d-flex flex-column justify-content-center align-items-center">
-                                <h3 class="h6 fw-bold text-muted mb-3">Vista Previa de la Etiqueta</h3>
-                                
-                                <div id="seccionImpresionEtiqueta">
-                                    <div class="etiqueta-print-box shadow-sm">
-                                        <div class="etiqueta-print-empresa">Control Stock</div>
-                                        <div class="etiqueta-print-nombre" id="previewEtiquetaNombre">Nombre del Producto</div>
-                                        <svg id="previewBarcodeSvg" class="barcode-svg my-2"></svg>
-                                        <div class="etiqueta-print-precio" id="previewEtiquetaPrecio">$ 0,00</div>
-                                    </div>
-                                </div>
-
-                                <div class="mt-4">
-                                    <button class="btn btn-outline-primary btn-sm" type="button" id="btnCopiarCodigoBarras">📋 Copiar código</button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </section>
             </div>
