@@ -212,13 +212,13 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
-                                    <button class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" type="button" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">
+                                    <a class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" href="alta_masiva.php">
                                         <span class="fs-4">📦</span>
                                         <div>
                                             <div class="fw-bold">Alta Masiva (Lote)</div>
                                             <small class="text-muted">Ingreso multiproducto por remito</small>
                                         </div>
-                                    </button>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -256,7 +256,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras o cámara">📷 Escanear código</button>
-                            <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">📦 Alta Masiva (Lote)</button>
+                            <a class="btn btn-outline-success" href="alta_masiva.php">📦 Alta Masiva (Lote)</a>
                             <a class="btn btn-primary" href="producto_form.php">+ Agregar producto</a>
                         </div>
                     </div>

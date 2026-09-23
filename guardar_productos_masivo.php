@@ -10,6 +10,8 @@ $datosJson = json_decode($inputRaw, true);
 if (!is_array($datosJson)) {
     $datosJson = [
         "proveedor" => trim($_POST["proveedor"] ?? ""),
+        "sin_factura" => !empty($_POST["sin_factura"]),
+        "numero_factura" => trim($_POST["numero_factura"] ?? ""),
         "productos" => json_decode($_POST["productos"] ?? "[]", true)
     ];
 }
@@ -36,11 +38,14 @@ try {
     foreach ($productos as $idx => $prod) {
         $indiceFila = $idx + 1;
         $nombre = trim($prod["nombre"] ?? "");
-        $precio = floatval($prod["precio"] ?? 0);
+        $precioVenta = floatval($prod["precio_venta"] ?? ($prod["precio"] ?? 0));
+        $precioCosto = floatval($prod["precio_costo"] ?? 0);
         $stock = intval($prod["stock"] ?? 0);
         $presentacion = trim($prod["presentacion"] ?? "unidad");
         $unidadesPorBulto = max(1, intval($prod["unidades_por_bulto"] ?? 1));
         $codigoBarras = trim($prod["codigo_barras"] ?? "");
+        $categoriaId = isset($prod["categoria_id"]) && $prod["categoria_id"] !== "" ? (int)$prod["categoria_id"] : null;
+        $categoriaNombre = trim($prod["categoria_nombre"] ?? ($prod["categoria"] ?? ""));
         $fechaVencimiento = trim($prod["fecha_vencimiento"] ?? "");
         $descripcion = trim($prod["descripcion"] ?? "");
 
@@ -48,8 +53,8 @@ try {
             $errores[] = "Fila #{$indiceFila}: el nombre del producto es obligatorio.";
             continue;
         }
-        if ($precio <= 0) {
-            $errores[] = "Fila #{$indiceFila} ({$nombre}): el precio debe ser mayor a 0.";
+        if ($precioVenta <= 0) {
+            $errores[] = "Fila #{$indiceFila} ({$nombre}): el precio de venta debe ser mayor a 0.";
             continue;
         }
         if ($stock < 0) {
@@ -81,9 +86,13 @@ try {
             "nombre" => $nombre,
             "descripcion" => $descripcion !== "" ? $descripcion : null,
             "presentacion" => $presentacion,
-            "precio" => $precio,
+            "precio" => $precioVenta,
+            "precio_venta" => $precioVenta,
+            "precio_costo" => $precioCosto,
             "stock" => $totalUnidades,
-            "categoria" => null,
+            "categoria_id" => $categoriaId,
+            "categoria" => $categoriaNombre !== "" ? $categoriaNombre : null,
+            "categoria_nombre" => $categoriaNombre !== "" ? $categoriaNombre : null,
             "unidades_por_bulto" => $unidadesPorBulto,
             "fecha_vencimiento" => $vencimientoParam,
             "proveedor" => $proveedorParam,
@@ -103,7 +112,9 @@ try {
                 "presentacion" => $presentacion,
                 "unidades_por_bulto" => $unidadesPorBulto,
                 "total_unidades" => $totalUnidades,
-                "precio_unitario" => $precio,
+                "precio_unitario" => $precioVenta,
+                "precio_costo" => $precioCosto,
+                "precio_venta" => $precioVenta,
                 "proveedor" => $proveedorParam,
                 "fecha_vencimiento" => $vencimientoParam,
                 "numero_factura" => $facturaFinalLote,
@@ -119,12 +130,12 @@ try {
         FirestoreConexion::registrarMovimientoProducto(
             productoId: $productoId,
             tipo: "ALTA_INICIAL",
-            descripcion: "Alta masiva por lote con stock de {$totalUnidades} un. a $" . number_format($precio, 2) . ($proveedorParam ? " [Proveedor: {$proveedorParam}]" : ""),
+            descripcion: "Alta masiva por lote con stock de {$totalUnidades} un. Costo: $" . number_format($precioCosto, 2) . " | Venta: $" . number_format($precioVenta, 2) . ($proveedorParam ? " [Proveedor: {$proveedorParam}]" : ""),
             cantidadAnterior: 0,
             cantidadNueva: $totalUnidades,
             diferencia: $totalUnidades,
             precioAnterior: null,
-            precioNuevo: $precio,
+            precioNuevo: $precioVenta,
             usuarioId: $usuarioId,
             usuarioNombre: $usuarioNombre
         );
@@ -134,26 +145,20 @@ try {
             "nombre" => $nombre,
             "codigo_barras" => $codigoBarras,
             "stock_unidades" => $totalUnidades,
-            "precio" => $precio
+            "precio_costo" => $precioCosto,
+            "precio_venta" => $precioVenta
         ];
-    }
-
-    if (empty($guardados)) {
-        responderJson([
-            "error" => "No se pudo registrar ningún producto. " . implode(" ", $errores)
-        ], 400);
     }
 
     responderJson([
         "success" => true,
         "total_guardados" => count($guardados),
-        "proveedor" => $proveedorParam,
         "guardados" => $guardados,
-        "advertencias" => $errores,
-        "mensaje" => "Se registraron exitosamente " . count($guardados) . " productos del lote."
+        "errores" => $errores,
+        "mensaje" => "Se guardaron correctamente " . count($guardados) . " producto(s) en Firestore."
     ], 201);
 } catch (Throwable $e) {
-    error_log("Error en guardar_productos_masivo.php: " . $e->getMessage());
-    responderJson(["error" => "Ocurrió un error al procesar el lote: " . $e->getMessage()], 500);
+    error_log("Error en carga masiva: " . $e->getMessage());
+    responderJson(["error" => "No se pudo procesar la carga masiva: " . $e->getMessage()], 500);
 }
 ?>

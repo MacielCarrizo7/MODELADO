@@ -383,6 +383,13 @@ class FirestoreRestCliente {
     }
 
     /**
+     * Alias de obtenerColeccion para compatibilidad
+     */
+    public function obtenerTodos(string $coleccion, int $maxDocs = 500): array {
+        return $this->obtenerColeccion($coleccion, $maxDocs);
+    }
+
+    /**
      * Cuenta documentos de una colección (vía listar / query).
      */
     public function contarDocumentos(string $coleccion): int {
