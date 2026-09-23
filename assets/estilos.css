@@ -510,49 +510,66 @@ body {
 
     /* Scroll fluido y adaptable en ventanas modales para móviles */
     .modal {
+        position: fixed !important;
+        inset: 0 !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
+        overflow-x: hidden !important;
         overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-y: contain;
     }
 
     .modal-dialog {
-        margin: .5rem auto !important;
+        margin: .75rem auto 9rem auto !important;
         max-width: calc(100% - 1rem) !important;
         min-height: auto !important;
+        display: block !important;
     }
 
     .modal-dialog.modal-dialog-centered {
         align-items: flex-start !important;
         min-height: auto !important;
         margin-top: .75rem !important;
-        margin-bottom: 2.5rem !important;
+        margin-bottom: 9rem !important;
     }
     
     .modal-content {
-        border-radius: 1rem;
-        max-height: calc(100dvh - 1.5rem);
-        max-height: calc(100vh - 1.5rem);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
+        border-radius: 1.15rem;
+        max-height: none !important;
+        display: block !important;
+        overflow: visible !important;
+        box-shadow: 0 1rem 3rem rgba(15, 23, 42, .25);
     }
 
     .modal-header {
-        padding: .85rem 1.15rem;
+        position: sticky;
+        top: 0;
+        z-index: 15;
+        background: #ffffff;
+        padding: .95rem 1.25rem;
+        border-top-left-radius: 1.15rem;
+        border-top-right-radius: 1.15rem;
+        border-bottom: 1px solid var(--cs-border);
     }
 
     .modal-body {
-        flex: 1 1 auto;
-        overflow-y: auto !important;
+        padding: 1.25rem;
+        overflow: visible !important;
+        max-height: none !important;
         -webkit-overflow-scrolling: touch;
-        padding: 1.15rem;
-        max-height: calc(100dvh - 130px);
-        max-height: calc(100vh - 130px);
     }
 
     .modal-footer {
-        padding: .75rem 1.15rem;
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
         background: #ffffff;
+        padding: .85rem 1.25rem;
+        border-bottom-left-radius: 1.15rem;
+        border-bottom-right-radius: 1.15rem;
+        border-top: 1px solid var(--cs-border);
+        box-shadow: 0 -4px 14px rgba(15, 23, 42, .06);
     }
 }
 

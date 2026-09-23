@@ -1621,6 +1621,28 @@ document.addEventListener("click", (e) => {
     }
 });
 
+// Auto-scroll fluido al enfocar inputs en móviles para evitar bloqueo con el teclado virtual
+document.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (el && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA")) {
+        setTimeout(() => {
+            el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        }, 280);
+    }
+});
+
+// Soporte para redimensionamiento en tiempo real con visualViewport al abrir/cerrar teclado
+if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "SELECT" || active.tagName === "TEXTAREA")) {
+            setTimeout(() => {
+                active.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+            }, 120);
+        }
+    });
+}
+
 // Inicialización general al cargar el DOM
 document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll('[data-bs-target="#pestana-barcodes"]').forEach((btn) => {
