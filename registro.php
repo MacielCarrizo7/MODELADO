@@ -214,26 +214,26 @@ function e(string $valor): string {
                     
                     <!-- Barra de Búsqueda Instantánea -->
                     <div class="mb-3">
-                        <input type="text" id="buscadorUsuarios" class="form-control" placeholder="🔍 Buscar por nombre, apellido, DNI o rol...">
+                        <input type="text" id="buscadorUsuarios" class="form-control" placeholder="Buscar por nombre, apellido, DNI o rol...">
                     </div>
 
                     <!-- Pestañas de Segmentación -->
                     <ul class="nav nav-tabs-app mb-4" id="usuariosSegmentacionTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="tab-equipo-btn" data-bs-toggle="tab" data-bs-target="#panel-equipo" type="button" role="tab" aria-controls="panel-equipo" aria-selected="true">
-                                <span>👔 Equipo y Vendedores</span>
+                                <span>Equipo y Vendedores</span>
                                 <span class="badge rounded-pill text-bg-primary ms-1"><?= count($equipo) ?></span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="tab-clientes-btn" data-bs-toggle="tab" data-bs-target="#panel-clientes" type="button" role="tab" aria-controls="panel-clientes" aria-selected="false">
-                                <span>🛒 Clientes</span>
+                                <span>Clientes</span>
                                 <span class="badge rounded-pill text-bg-secondary ms-1"><?= count($clientes) ?></span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="tab-todos-btn" data-bs-toggle="tab" data-bs-target="#panel-todos" type="button" role="tab" aria-controls="panel-todos" aria-selected="false">
-                                <span>👥 Todos</span>
+                                <span>Todos</span>
                                 <span class="badge rounded-pill text-bg-light border ms-1"><?= count($usuarios) ?></span>
                             </button>
                         </li>
@@ -291,7 +291,7 @@ function e(string $valor): string {
                                                 <td class="text-end">
                                                     <?php if ($miembro["rol"] === "vendedor"): ?>
                                                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirModalEditarLimite(<?= (int)$miembro['id'] ?>, '<?= e(addslashes($miembro['nombre'])) ?>', <?= $limiteActual ?>)">
-                                                            ⚙️ Ajustar Límite
+                                                            Ajustar Límite
                                                         </button>
                                                     <?php else: ?>
                                                         <span class="text-muted small">—</span>

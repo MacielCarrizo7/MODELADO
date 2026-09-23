@@ -51,7 +51,7 @@ $csrf = tokenCsrf();
             <div class="row g-3 align-items-center">
                 <div class="col-12 col-md-6">
                     <div class="input-group">
-                        <span class="input-group-text bg-white">🔍</span>
+                        <span class="input-group-text bg-white">Buscar</span>
                         <input type="text" class="form-control" id="buscadorCatalogo" placeholder="Buscar por nombre de producto o descripción...">
                     </div>
                 </div>
@@ -64,7 +64,7 @@ $csrf = tokenCsrf();
             <!-- Botones Pills de Categorías -->
             <div class="d-flex gap-2 overflow-x-auto pt-3 pb-1" id="contenedorCategoriasPills" style="scrollbar-width: thin;">
                 <button class="btn btn-sm btn-primary rounded-pill px-3 py-1 text-nowrap active pill-cat" data-categoria="">
-                    ✨ Todas las Categorías
+                    Todas las Categorías
                 </button>
             </div>
         </div>
@@ -75,7 +75,7 @@ $csrf = tokenCsrf();
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Cargando catálogo...</span>
                 </div>
-                <p class="text-muted mt-2">Cargando catálogo visual...</p>
+                <p class="text-muted mt-2">Cargando catálogo...</p>
             </div>
         </div>
     </main>
@@ -108,7 +108,7 @@ $csrf = tokenCsrf();
             const cont = document.getElementById("contenedorCategoriasPills");
             cont.innerHTML = `
                 <button class="btn btn-sm btn-primary rounded-pill px-3 py-1 text-nowrap pill-cat active" data-categoria="">
-                    ✨ Todos
+                    Todos
                 </button>
             `;
 
@@ -116,7 +116,7 @@ $csrf = tokenCsrf();
                 const btn = document.createElement("button");
                 btn.className = "btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 text-nowrap pill-cat";
                 btn.setAttribute("data-categoria", cat.nombre);
-                btn.textContent = `${cat.icono || '🏷️'} ${cat.nombre}`;
+                btn.textContent = cat.nombre;
                 cont.appendChild(btn);
             });
 
@@ -159,7 +159,6 @@ $csrf = tokenCsrf();
             if (filtrados.length === 0) {
                 grid.innerHTML = `
                     <div class="col-12 text-center py-5">
-                        <div class="fs-1 mb-2">🔍</div>
                         <h3 class="h5 fw-bold text-dark">No se encontraron productos</h3>
                         <p class="text-muted small">Probá buscando con otras palabras o seleccioná otra categoría.</p>
                     </div>
@@ -189,11 +188,11 @@ $csrf = tokenCsrf();
                     img.className = "w-100 h-100";
                     img.style.objectFit = "cover";
                     img.onerror = () => {
-                        imgWrap.innerHTML = `<span class="fs-1 opacity-50">📦</span>`;
+                        imgWrap.innerHTML = `<span class="small text-muted">Sin imagen</span>`;
                     };
                     imgWrap.appendChild(img);
                 } else {
-                    imgWrap.innerHTML = `<span class="fs-1 opacity-50">📦</span>`;
+                    imgWrap.innerHTML = `<span class="small text-muted">Sin imagen</span>`;
                 }
 
                 // Badge de categoría superpuesto
@@ -236,8 +235,8 @@ $csrf = tokenCsrf();
                 if (esAdmin) {
                     const btnEditar = document.createElement("button");
                     btnEditar.type = "button";
-                    btnEditar.className = "btn btn-outline-primary btn-sm py-1 px-2 d-flex align-items-center gap-1";
-                    btnEditar.innerHTML = `<span>✏️</span><span>Editar</span>`;
+                    btnEditar.className = "btn btn-outline-primary btn-sm py-1 px-2";
+                    btnEditar.textContent = "Editar";
                     btnEditar.title = "Modificar foto, categoría o descripción";
                     btnEditar.addEventListener("click", () => {
                         abrirModalEditarCatalogo(prod);
@@ -283,7 +282,7 @@ $csrf = tokenCsrf();
             const selCat = document.getElementById("editProdCat");
             selCat.replaceChildren(new Option("-- Seleccionar Categoría --", ""));
             catalogoData.categorias.forEach(c => {
-                const opt = new Option(`${c.icono || '🏷️'} ${c.nombre}`, c.id);
+                const opt = new Option(c.nombre, c.id);
                 opt.dataset.nombre = c.nombre;
                 if ((prod.categoria_id && String(prod.categoria_id) === String(c.id)) || prod.categoria_nombre === c.nombre) {
                     opt.selected = true;
@@ -440,10 +439,9 @@ $csrf = tokenCsrf();
                     <input type="hidden" name="id" id="editProdId">
                     <div class="modal-header">
                         <div class="d-flex align-items-center gap-2">
-                            <span class="fs-4">✏️</span>
                             <div>
                                 <h2 id="tituloModalEditarCatalogo" class="modal-title fs-5 fw-bold mb-0">Editar Ficha del Producto</h2>
-                                <small class="text-muted">Modificá foto, categoría y descripción para el catálogo visual.</small>
+                                <small class="text-muted">Modificá foto, categoría y descripción para el catálogo.</small>
                             </div>
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -465,7 +463,7 @@ $csrf = tokenCsrf();
 
                             <div class="col-12">
                                 <label for="editProdDesc" class="form-label">Descripción Comercial</label>
-                                <textarea class="form-control" id="editProdDesc" name="descripcion" rows="3" placeholder="Detalles de presentación, características, sabor..."></textarea>
+                                <textarea class="form-control" id="editProdDesc" name="descripcion" rows="3" placeholder="Detalles de presentación, características..."></textarea>
                             </div>
 
                             <!-- Foto del Producto -->
@@ -475,7 +473,7 @@ $csrf = tokenCsrf();
                                     <div class="row align-items-center g-3">
                                         <div class="col-12 col-sm-4 text-center">
                                             <div class="border rounded-3 bg-white p-2 d-flex align-items-center justify-content-center" style="height: 120px; overflow: hidden;">
-                                                <span id="editImgPlaceholder" class="text-muted small">📷 Sin imagen</span>
+                                                <span id="editImgPlaceholder" class="text-muted small">Sin imagen</span>
                                                 <img id="editImgPreview" src="" alt="Foto" class="d-none" style="max-height: 100%; max-width: 100%; object-fit: contain;">
                                             </div>
                                         </div>
@@ -493,12 +491,12 @@ $csrf = tokenCsrf();
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <a href="#" id="linkEdicionAvanzada" class="btn btn-outline-secondary btn-sm">
-                            ⚙️ Edición avanzada (costos, stock, códigos)
+                            Edición avanzada (costos, stock, códigos)
                         </a>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-primary fw-bold px-4" id="btnGuardarEdicionCatalogo">
-                                💾 Guardar Cambios
+                                Guardar Cambios
                             </button>
                         </div>
                     </div>

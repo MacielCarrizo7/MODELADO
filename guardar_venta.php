@@ -69,10 +69,21 @@ try {
 
     foreach ($items as $idx => $item) {
         $numItem = $idx + 1;
-        $prodId = (int) ($item["producto_id"] ?? 0);
-        $cant = (int) ($item["cantidad"] ?? 0);
+        $prodId = (int) ($item["producto_id"] ?? ($item["id"] ?? 0));
+        
+        // Determinar cantidad solicitada
+        if (isset($item["cantidad_empaque"]) && (int)$item["cantidad_empaque"] > 0) {
+            $cant = (int)$item["cantidad_empaque"];
+        } elseif (isset($item["cantidad"]) && (int)$item["cantidad"] > 0) {
+            $cant = (int)$item["cantidad"];
+        } elseif (isset($item["total_unidades"]) && (int)$item["total_unidades"] > 0) {
+            $cant = (int)$item["total_unidades"];
+        } else {
+            $cant = 0;
+        }
+
         $tipoVenta = trim($item["tipo_venta"] ?? "unidad");
-        $descPorc = floatval($item["descuento_porcentaje"] ?? 0);
+        $descPorc = floatval($item["descuento_porcentaje"] ?? ($item["descuento"] ?? 0));
 
         if ($prodId <= 0 || $cant <= 0) {
             throw new DomainException("Ítem #{$numItem}: Producto o cantidad inválida.");

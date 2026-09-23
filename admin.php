@@ -16,7 +16,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-    <title>Panel administrativo | Control Stock</title>
+    <title>Panel Administrativo | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
     <!-- Librerías para Códigos de Barra, Escáner y Códigos QR -->
@@ -38,11 +38,11 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <div class="navbar-nav ms-auto align-items-lg-center gap-lg-1 pt-3 pt-lg-0">
                     <a class="nav-link nav-link-app active" href="admin.php">Panel Principal</a>
                     <a class="nav-link nav-link-app" href="catalogo.php">Catálogo Visual</a>
-                    <a class="nav-link nav-link-app" href="categorias.php">Categorías</a>
+                    <a class="nav-link nav-link-app" href="categorias.php">Categorías y FIFO</a>
                     <a class="nav-link nav-link-app" href="registro.php">Usuarios</a>
-                    <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras con cámara">📷 Escáner</button>
-                    <a class="btn btn-outline-primary btn-sm ms-lg-1" href="venta_form.php">🛒 Punto de Venta</a>
-                    <a class="btn btn-primary btn-sm ms-lg-1" href="producto_form.php">📦 + Ingreso de Productos</a>
+                    <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras con cámara">Escanear</button>
+                    <a class="btn btn-outline-primary btn-sm ms-lg-1" href="venta_form.php">Punto de Venta</a>
+                    <a class="btn btn-primary btn-sm ms-lg-1" href="producto_form.php">Nuevo Producto</a>
                     <a class="btn btn-outline-danger btn-sm ms-lg-2" href="logout.php">Cerrar sesión</a>
                 </div>
             </div>
@@ -52,17 +52,17 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
     <main class="container py-4 py-md-5">
         <?php if (isset($_GET["mfa_configurado"])): ?>
             <div class="alert alert-success alert-dismissible fade show" role="status">
-                Tu autenticador de segundo factor se configuró correctamente.
+                El autenticador de segundo factor se configuró correctamente.
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
             </div>
         <?php endif; ?>
 
-        <!-- Hero Section -->
+        <!-- Encabezado Principal -->
         <section class="hero-panel p-4 p-md-5 mb-4">
             <div class="hero-contenido">
-                <p class="etiqueta text-white-50 mb-2">Panel Administrativo Cloud</p>
+                <p class="etiqueta text-white-50 mb-2">Panel Administrativo</p>
                 <h1 class="display-6 fw-bold mb-2">Hola, <?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></h1>
-                <p class="lead text-white-50 mb-0">Control integral de inventario con códigos de barra, trazabilidad de movimientos, directorio de proveedores y política FIFO.</p>
+                <p class="lead text-white-50 mb-0">Gestión de inventario, ventas, auditoría de bajas y semáforo FIFO por categoría.</p>
             </div>
         </section>
 
@@ -71,32 +71,37 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
             <ul class="nav nav-tabs-app" id="adminTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="tab-resumen-btn" data-bs-toggle="tab" data-bs-target="#pestana-resumen" type="button" role="tab" aria-controls="pestana-resumen" aria-selected="true">
-                        <span>📊 Resumen General</span>
+                        <span>Resumen General</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-productos-btn" data-bs-toggle="tab" data-bs-target="#pestana-productos" type="button" role="tab" aria-controls="pestana-productos" aria-selected="false">
-                        <span>📦 Inventario y Lotes</span>
+                        <span>Inventario y Lotes</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-ventas-btn" data-bs-toggle="tab" data-bs-target="#pestana-ventas" type="button" role="tab" aria-controls="pestana-ventas" aria-selected="false">
-                        <span>💳 Registro de Ventas</span>
+                        <span>Registro de Ventas</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-ingresos-btn" data-bs-toggle="tab" data-bs-target="#pestana-ingresos" type="button" role="tab" aria-controls="pestana-ingresos" aria-selected="false">
-                        <span>📋 Kardex de Ingresos</span>
+                        <span>Kardex de Ingresos</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-bajas-btn" data-bs-toggle="tab" data-bs-target="#pestana-bajas" type="button" role="tab" aria-controls="pestana-bajas" aria-selected="false">
+                        <span>Bajas de Inventario</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-proveedores-btn" data-bs-toggle="tab" data-bs-target="#pestana-proveedores" type="button" role="tab" aria-controls="pestana-proveedores" aria-selected="false">
-                        <span>🏢 Proveedores</span>
+                        <span>Proveedores</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-barcodes-btn" data-bs-toggle="tab" data-bs-target="#pestana-barcodes" type="button" role="tab" aria-controls="pestana-barcodes" aria-selected="false">
-                        <span>🏷️ Códigos de Barra</span>
+                        <span>Códigos de Barra</span>
                     </button>
                 </li>
             </ul>
@@ -110,7 +115,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <div class="row g-3 mb-4">
                     <div class="col-12 col-sm-6 col-lg-3">
                         <div class="stat-card">
-                            <span class="texto-secundario small fw-semibold">Productos cargados</span>
+                            <span class="texto-secundario small fw-semibold">Productos activos</span>
                             <div id="resumenProductos" class="stat-valor">—</div>
                         </div>
                     </div>
@@ -138,10 +143,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <section class="seccion-card mb-4" aria-labelledby="titulo-solicitudes">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div class="d-flex align-items-center gap-2">
-                            <h2 id="titulo-solicitudes" class="h5 fw-bold mb-0">🤝 Solicitudes de Atención de Clientes</h2>
+                            <h2 id="titulo-solicitudes" class="h5 fw-bold mb-0">Solicitudes de Atención de Clientes</h2>
                             <span id="badgeSolicitudesPendientes" class="badge rounded-pill text-bg-danger">0</span>
                         </div>
-                        <small class="text-muted">Clientes que solicitaron asistencia directa de un vendedor</small>
+                        <small class="text-muted">Clientes que solicitaron asistencia directa</small>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -164,47 +169,42 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     <div class="col-12 col-lg-7">
                         <div class="seccion-card h-100">
                             <h2 class="h5 fw-bold mb-3">Accesos y Acciones Rápidas</h2>
-                            <p class="texto-secundario small mb-4">Realizá operaciones clave de forma inmediata desde un solo clic.</p>
+                            <p class="texto-secundario small mb-4">Operaciones clave del sistema.</p>
                             <div class="row g-3">
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-primary w-100 p-3 text-start d-flex align-items-center gap-3" href="producto_form.php">
-                                        <span class="fs-4">📦</span>
                                         <div>
-                                            <div class="fw-bold">Ingreso de Productos (1 a 50)</div>
-                                            <small class="text-muted">Carga individual o multiproducto en lote</small>
+                                            <div class="fw-bold">Ingreso de Productos</div>
+                                            <small class="text-muted">Carga individual o multiproducto</small>
                                         </div>
                                     </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" href="venta_form.php">
-                                        <span class="fs-4">🛒</span>
                                         <div>
                                             <div class="fw-bold">Punto de Venta (POS)</div>
-                                            <small class="text-muted">Carrito dinámico y escáner QR</small>
+                                            <small class="text-muted">Carrito de venta y confirmación</small>
                                         </div>
                                     </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-info w-100 p-3 text-start d-flex align-items-center gap-3" href="categorias.php">
-                                        <span class="fs-4">🏷️</span>
                                         <div>
-                                            <div class="fw-bold">Gestión de Categorías</div>
-                                            <small class="text-muted">Crear y organizar rubros</small>
+                                            <div class="fw-bold">Categorías y Semáforo FIFO</div>
+                                            <small class="text-muted">Configurar rangos de días por categoría</small>
                                         </div>
                                     </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-dark w-100 p-3 text-start d-flex align-items-center gap-3" href="catalogo.php">
-                                        <span class="fs-4">👁️</span>
                                         <div>
-                                            <div class="fw-bold">Catálogo Visual / Menú</div>
-                                            <small class="text-muted">Fichas con fotos y edición rápida</small>
+                                            <div class="fw-bold">Catálogo Visual</div>
+                                            <small class="text-muted">Listado visual de productos</small>
                                         </div>
                                     </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3" href="proveedor_form.php">
-                                        <span class="fs-4">🏢</span>
                                         <div>
                                             <div class="fw-bold">Nuevo Proveedor</div>
                                             <small class="text-muted">Alta, CUIT y contacto</small>
@@ -213,7 +213,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                 </div>
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-warning w-100 p-3 text-start d-flex align-items-center gap-3" href="registro.php">
-                                        <span class="fs-4">👥</span>
                                         <div>
                                             <div class="fw-bold">Usuarios y Permisos</div>
                                             <small class="text-muted">Límites de descuento y roles</small>
@@ -225,20 +224,23 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     </div>
                     <div class="col-12 col-lg-5">
                         <div class="seccion-card h-100">
-                            <h2 class="h5 fw-bold mb-3">Semáforo de Política FIFO (Rotación)</h2>
-                            <p class="texto-secundario small mb-3">Hacé clic en cualquier estado para filtrar los productos automáticamente:</p>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h2 class="h5 fw-bold mb-0">Semáforo FIFO por Categoría</h2>
+                                <a href="categorias.php" class="btn btn-sm btn-outline-primary">Configurar</a>
+                            </div>
+                            <p class="texto-secundario small mb-3">Los umbrales de días se adaptan a la rotación configurada en cada categoría:</p>
                             <div class="d-flex flex-column gap-2 small">
-                                <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light" data-filtro-semaforo="rojo" title="Filtrar productos próximos a vencer">
-                                    <span class="badge-vencimiento vencido">🔴 Rojo: ≤ 45 días</span>
-                                    <span class="text-muted">Urgencia alta de venta / merma</span>
+                                <div class="d-flex align-items-center justify-content-between p-2 border rounded bg-light" data-filtro-semaforo="rojo" style="cursor: pointer;" title="Filtrar productos próximos a vencer">
+                                    <span class="badge-vencimiento vencido">Rojo: Próximo a vencer</span>
+                                    <span class="text-muted">&le; Días configurados (ej. 45d)</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light" data-filtro-semaforo="amarillo" title="Filtrar productos con rotación intermedia">
-                                    <span class="badge-vencimiento vence-pronto">🟡 Amarillo: 46 a 90 días</span>
-                                    <span class="text-muted">Atención y rotación activa</span>
+                                <div class="d-flex align-items-center justify-content-between p-2 border rounded bg-light" data-filtro-semaforo="amarillo" style="cursor: pointer;" title="Filtrar productos con rotación intermedia">
+                                    <span class="badge-vencimiento vence-pronto">Amarillo: Rotación intermedia</span>
+                                    <span class="text-muted">Intermedio (ej. 46-90d)</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light" data-filtro-semaforo="verde" title="Filtrar productos vigentes">
-                                    <span class="badge-vencimiento vigente">🟢 Verde: > 90 días</span>
-                                    <span class="text-muted">Stock holgado y vigente</span>
+                                <div class="d-flex align-items-center justify-content-between p-2 border rounded bg-light" data-filtro-semaforo="verde" style="cursor: pointer;" title="Filtrar productos vigentes">
+                                    <span class="badge-vencimiento vigente">Verde: Vigente</span>
+                                    <span class="text-muted">&gt; Días intermedios</span>
                                 </div>
                             </div>
                         </div>
@@ -255,18 +257,18 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <h2 id="titulo-productos" class="h4 fw-bold mb-0">Listado de Productos (Orden FIFO)</h2>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras o cámara">📷 Escanear código</button>
-                            <a class="btn btn-primary" href="producto_form.php">📦 + Ingreso de Productos (1 a 50)</a>
+                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras">Escanear código</button>
+                            <a class="btn btn-primary" href="producto_form.php">+ Ingreso de Productos</a>
                         </div>
                     </div>
 
                     <!-- Filtros de Inventario con Semáforo FIFO, Proveedor y Código de Barras -->
-                    <form id="formFiltrosProductos" class="row g-3 align-items-end mb-3 p-3 bg-light rounded-3 border" onsubmit="return false;">
+                    <form id="formFiltrosProductos" class="row g-3 align-items-end mb-3 p-3 bg-light rounded border" onsubmit="return false;">
                         <div class="col-12 col-sm-6 col-lg-3">
                             <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código</label>
                             <div class="input-group">
-                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre, código de barras...">
-                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">📷</button>
+                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="Nombre, código de barras...">
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">Escanear</button>
                             </div>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-3">
@@ -279,10 +281,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <label for="filtroProductoSemaforo" class="form-label">Vencimiento (FIFO)</label>
                             <select id="filtroProductoSemaforo" name="semaforo" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="rojo">🔴 Rojo: ≤ 45 d</option>
-                                <option value="amarillo">🟡 Amarillo: 46-90 d</option>
-                                <option value="verde">🟢 Verde: > 90 d</option>
-                                <option value="sin_fecha">⚪ Sin fecha</option>
+                                <option value="rojo">Rojo: Próximo a vencer</option>
+                                <option value="amarillo">Amarillo: Rotación intermedia</option>
+                                <option value="verde">Verde: Vigente</option>
+                                <option value="sin_fecha">Sin fecha</option>
                             </select>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-2">
@@ -303,10 +305,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     <div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
                         <span class="text-secondary small fw-semibold">Filtro rápido:</span>
                         <button type="button" class="btn btn-sm btn-outline-dark active" data-boton-semaforo="">Todos</button>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-boton-semaforo="rojo">🔴 Próximos a vencer (≤ 45 d)</button>
-                        <button type="button" class="btn btn-sm btn-outline-warning text-dark" data-boton-semaforo="amarillo">🟡 Rotación intermedia (46-90 d)</button>
-                        <button type="button" class="btn btn-sm btn-outline-success" data-boton-semaforo="verde">🟢 Vigentes (> 90 d)</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-boton-semaforo="sin_fecha">⚪ Sin fecha</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-boton-semaforo="rojo">Próximos a vencer</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning text-dark" data-boton-semaforo="amarillo">Rotación intermedia</button>
+                        <button type="button" class="btn btn-sm btn-outline-success" data-boton-semaforo="verde">Vigentes</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-boton-semaforo="sin_fecha">Sin fecha</button>
                     </div>
 
                     <div class="table-responsive">
@@ -340,8 +342,8 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <a class="btn btn-primary" href="venta_form.php">+ Registrar venta</a>
                     </div>
 
-                    <!-- Filtros avanzados con Filtro de Cliente y Vendedor -->
-                    <form id="formFiltrosVentas" class="row g-3 align-items-end mb-4 p-3 bg-light rounded-3 border">
+                    <!-- Filtros de Ventas -->
+                    <form id="formFiltrosVentas" class="row g-3 align-items-end mb-4 p-3 bg-light rounded border">
                         <div class="col-12 col-sm-6 col-lg-2">
                             <label for="filtroDesde" class="form-label">Desde</label>
                             <input type="date" id="filtroDesde" name="desde" class="form-control">
@@ -414,12 +416,12 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
                         <div>
                             <p class="etiqueta text-primary mb-1">Auditoría de Entradas</p>
-                            <h2 id="titulo-ingresos" class="h4 fw-bold mb-0">Kardex / Historial de Ingresos de Mercadería</h2>
+                            <h2 id="titulo-ingresos" class="h4 fw-bold mb-0">Kardex de Ingresos de Mercadería</h2>
                         </div>
                         <span class="badge text-bg-primary fs-6 px-3 py-2" id="resumenIngresos">0</span>
                     </div>
 
-                    <form id="formFiltrosIngresos" class="row g-3 align-items-end mb-4 p-3 bg-light rounded-3 border">
+                    <form id="formFiltrosIngresos" class="row g-3 align-items-end mb-4 p-3 bg-light rounded border">
                         <div class="col-12 col-sm-6 col-lg-2">
                             <label for="filtroIngresoDesde" class="form-label">Desde</label>
                             <input type="date" id="filtroIngresoDesde" name="desde" class="form-control">
@@ -438,14 +440,14 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <label for="filtroIngresoSemaforo" class="form-label">Semáforo FIFO</label>
                             <select id="filtroIngresoSemaforo" name="semaforo" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="rojo">🔴 Rojo (≤ 45 d)</option>
-                                <option value="amarillo">🟡 Amarillo (46-90 d)</option>
-                                <option value="verde">🟢 Verde (> 90 d)</option>
-                                <option value="sin_fecha">⚪ Sin fecha</option>
+                                <option value="rojo">Rojo: Próximo a vencer</option>
+                                <option value="amarillo">Amarillo: Rotación intermedia</option>
+                                <option value="verde">Verde: Vigente</option>
+                                <option value="sin_fecha">Sin fecha</option>
                             </select>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-2">
-                            <label for="filtroIngresoFactura" class="form-label">📄 N° Factura</label>
+                            <label for="filtroIngresoFactura" class="form-label">N° Factura</label>
                             <input type="text" id="filtroIngresoFactura" name="numero_factura" class="form-control" placeholder="Ej: FC-0001...">
                         </div>
                         <div class="col-12 col-sm-6 col-lg-2">
@@ -486,7 +488,74 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 </section>
             </div>
 
-            <!-- Pestaña 5: Directorio y Gestión de Proveedores -->
+            <!-- Pestaña 5: Bajas de Inventario (Auditoría y Trazabilidad) -->
+            <div class="tab-pane fade" id="pestana-bajas" role="tabpanel" aria-labelledby="tab-bajas-btn">
+                <section class="seccion-card" aria-labelledby="titulo-bajas">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
+                        <div>
+                            <p class="etiqueta text-danger mb-1">Auditoría y Trazabilidad</p>
+                            <h2 id="titulo-bajas" class="h4 fw-bold mb-0">Registro Histórico de Bajas de Inventario</h2>
+                            <small class="text-muted">Historial inmutable de productos retirados por vencimiento, rotura/merma o eliminación manual.</small>
+                        </div>
+                        <span class="badge text-bg-danger fs-6 px-3 py-2" id="resumenBajas">0 bajas</span>
+                    </div>
+
+                    <!-- Filtros de Bajas -->
+                    <form id="formFiltrosBajas" class="row g-3 align-items-end mb-4 p-3 bg-light rounded border">
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <label for="filtroBajaBusqueda" class="form-label">Buscar producto / código</label>
+                            <input type="text" id="filtroBajaBusqueda" name="q" class="form-control" placeholder="Nombre, código...">
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <label for="filtroBajaMotivo" class="form-label">Motivo de Baja</label>
+                            <select id="filtroBajaMotivo" name="motivo" class="form-select">
+                                <option value="">Todos los motivos</option>
+                                <option value="Eliminación manual">Eliminación manual</option>
+                                <option value="Vencimiento">Vencimiento</option>
+                                <option value="Merma / Daño">Merma / Daño</option>
+                                <option value="Ajuste de inventario">Ajuste de inventario</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-2">
+                            <label for="filtroBajaDesde" class="form-label">Desde</label>
+                            <input type="date" id="filtroBajaDesde" name="desde" class="form-control">
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-2">
+                            <label for="filtroBajaHasta" class="form-label">Hasta</label>
+                            <input type="date" id="filtroBajaHasta" name="hasta" class="form-control">
+                        </div>
+                        <div class="col-12 col-sm-12 col-lg-2">
+                            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                        </div>
+                    </form>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-muted text-uppercase">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha de Baja</th>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Motivo de Baja</th>
+                                    <th>Stock Remanente</th>
+                                    <th>Ventas Históricas</th>
+                                    <th>Pérdida en Costo</th>
+                                    <th>Responsable</th>
+                                    <th>Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bajasBody">
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">Cargando registro de bajas de inventario...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Pestaña 6: Directorio y Gestión de Proveedores -->
             <div class="tab-pane fade" id="pestana-proveedores" role="tabpanel" aria-labelledby="tab-proveedores-btn">
                 <section class="seccion-card" aria-labelledby="titulo-proveedores">
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
@@ -495,7 +564,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <h2 id="titulo-proveedores" class="h4 fw-bold mb-0">Directorio de Proveedores</h2>
                         </div>
                         <div class="d-flex gap-2 w-100 w-sm-auto">
-                            <input type="text" id="buscadorProveedores" class="form-control" placeholder="🔍 Buscar proveedor, CUIT o email...">
+                            <input type="text" id="buscadorProveedores" class="form-control" placeholder="Buscar proveedor, CUIT o email...">
                             <a class="btn btn-primary text-nowrap" href="proveedor_form.php">+ Nuevo Proveedor</a>
                         </div>
                     </div>
@@ -519,7 +588,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 </section>
             </div>
 
-            <!-- Pestaña 6: Generador e Impresión de Códigos de Barra -->
+            <!-- Pestaña 7: Generador e Impresión de Códigos de Barra -->
             <div class="tab-pane fade" id="pestana-barcodes" role="tabpanel" aria-labelledby="tab-barcodes-btn">
                 <section class="seccion-card" aria-labelledby="titulo-barcodes">
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
@@ -527,12 +596,12 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="etiqueta text-primary mb-1">Etiquetado y Trazabilidad</p>
                             <h2 id="titulo-barcodes" class="h4 fw-bold mb-0">Generador de Códigos de Barra</h2>
                         </div>
-                        <button class="btn btn-success" type="button" id="btnImprimirEtiqueta">🖨️ Imprimir Etiqueta</button>
+                        <button class="btn btn-success" type="button" id="btnImprimirEtiqueta">Imprimir Etiqueta</button>
                     </div>
 
                     <div class="row g-4">
                         <div class="col-12 col-lg-6">
-                            <div class="p-3 bg-light rounded-3 border">
+                            <div class="p-3 bg-light rounded border">
                                 <h3 class="h6 fw-bold mb-3">Configurar datos de la etiqueta</h3>
                                 
                                 <div class="mb-3">
@@ -546,7 +615,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     <label class="form-label" for="barcodeInputCodigo">Código de Barras *</label>
                                     <div class="input-group">
                                         <input type="text" id="barcodeInputCodigo" class="form-control" placeholder="Ej: 7791234567890">
-                                        <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoRandom" title="Generar código aleatorio">🎲 Generar</button>
+                                        <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoRandom" title="Generar código aleatorio">Generar</button>
                                     </div>
                                     <small class="text-muted">Admite formatos estándar (EAN-13, CODE128, etc.).</small>
                                 </div>
@@ -587,9 +656,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                 </div>
 
                                 <div class="mt-4 d-flex flex-wrap gap-2 justify-content-center">
-                                    <button class="btn btn-primary btn-sm px-3 fw-bold" type="button" id="btnGuardarCodigoHistorial">💾 Guardar en Historial</button>
-                                    <button class="btn btn-outline-dark btn-sm px-3" type="button" id="btnImprimirEtiqueta">🖨️ Imprimir Etiqueta</button>
-                                    <button class="btn btn-outline-secondary btn-sm px-3" type="button" id="btnCopiarCodigoBarras">📋 Copiar código</button>
+                                    <button class="btn btn-primary btn-sm px-3 fw-bold" type="button" id="btnGuardarCodigoHistorial">Guardar en Historial</button>
+                                    <button class="btn btn-outline-dark btn-sm px-3" type="button" id="btnImprimirEtiqueta">Imprimir Etiqueta</button>
+                                    <button class="btn btn-outline-secondary btn-sm px-3" type="button" id="btnCopiarCodigoBarras">Copiar código</button>
                                 </div>
                             </div>
                         </div>
@@ -600,15 +669,15 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
                             <div>
                                 <p class="etiqueta text-primary mb-1">Registro y Trazabilidad</p>
-                                <h3 class="h5 fw-bold mb-0">📜 Historial de Códigos Creados</h3>
+                                <h3 class="h5 fw-bold mb-0">Historial de Códigos Creados</h3>
                                 <small class="text-muted">Reutilizá, visualizá o reimprimí códigos generados anteriormente.</small>
                             </div>
                             <div class="col-12 col-sm-4">
-                                <input type="text" id="buscadorHistorialCodigos" class="form-control form-control-sm" placeholder="🔍 Buscar código o producto...">
+                                <input type="text" id="buscadorHistorialCodigos" class="form-control form-control-sm" placeholder="Buscar código o producto...">
                             </div>
                         </div>
 
-                        <div class="table-responsive bg-white border rounded-3">
+                        <div class="table-responsive bg-white border rounded">
                             <table class="table table-hover align-middle mb-0" id="tablaHistorialCodigos">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
@@ -636,6 +705,51 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
 
         </div>
     </main>
+
+    <!-- Modal Confirmar Baja de Producto (Auditoría de Bajas de Inventario) -->
+    <div class="modal fade" id="modalConfirmarBaja" tabindex="-1" aria-labelledby="tituloModalBaja" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formConfirmarBaja">
+                    <input type="hidden" name="id" id="bajaProductoId">
+                    <div class="modal-header">
+                        <h2 id="tituloModalBaja" class="modal-title fs-5 fw-bold text-danger">Baja de Producto de Inventario</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="errorBajaProducto" class="alert alert-danger d-none"></div>
+
+                        <p class="text-muted small mb-3">El producto será retirado del catálogo activo y transferido permanentemente al registro histórico de <strong>Bajas de Inventario</strong>.</p>
+
+                        <div class="p-3 bg-light rounded border mb-3">
+                            <div class="fw-bold text-dark" id="bajaProductoNombre">—</div>
+                            <div class="small text-muted" id="bajaProductoDetalles">Stock remanente: 0 un.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="bajaMotivo">Motivo de la Baja *</label>
+                            <select class="form-select" id="bajaMotivo" name="motivo" required>
+                                <option value="Eliminación manual">Eliminación manual</option>
+                                <option value="Vencimiento">Vencimiento del producto</option>
+                                <option value="Merma / Daño">Merma / Rotura / Deterioro</option>
+                                <option value="Ajuste de inventario">Ajuste de inventario</option>
+                                <option value="Discontinuado">Producto discontinuado</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label" for="bajaObservaciones">Observaciones adicionales (opcional)</label>
+                            <textarea class="form-control" id="bajaObservaciones" name="observaciones" rows="2" placeholder="Detalles sobre la causa de la baja..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger" id="btnEjecutarBaja">Confirmar Baja</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Agregar / Modificar Proveedor -->
     <div class="modal fade" id="modalProveedor" tabindex="-1" aria-labelledby="tituloModalProveedor" aria-hidden="true">
@@ -685,7 +799,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         </div>
     </div>
 
-    <!-- Modal Historial de Movimientos de Producto (Auditoría / Trazabilidad) -->
+    <!-- Modal Historial de Movimientos de Producto (Auditoría / Kardex) -->
     <div class="modal fade" id="modalHistorialProducto" tabindex="-1" aria-labelledby="tituloModalHistorialProducto" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content">
@@ -698,7 +812,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 </div>
                 <div class="modal-body">
                     <!-- Resumen del Producto Consultado -->
-                    <div class="p-3 bg-light rounded-3 border mb-4">
+                    <div class="p-3 bg-light rounded border mb-4">
                         <div class="row g-2 align-items-center">
                             <div class="col-12 col-sm-6">
                                 <h3 class="h6 fw-bold mb-1" id="historialProductoNombre">—</h3>
@@ -743,11 +857,11 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 id="tituloModalScanner" class="modal-title fs-5 fw-bold">📷 Escanear Código de Barras</h2>
+                    <h2 id="tituloModalScanner" class="modal-title fs-5 fw-bold">Escanear Código de Barras</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <p class="text-muted small mb-3">Apuntá con la cámara hacia el código de barras del producto para detectarlo automáticamente.</p>
+                    <p class="text-muted small mb-3">Apuntá con la cámara hacia el código de barras para detectarlo automáticamente.</p>
                     <div id="contenedorLectorCamara" class="p-2 mb-3">
                         <div id="qr-reader"></div>
                     </div>
@@ -756,187 +870,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnCerrarScanner">Cancelar</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Carga Masiva de Productos por Lote -->
-    <div class="modal fade" id="modalCargaMasiva" tabindex="-1" aria-labelledby="tituloModalCargaMasiva" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content">
-                <form id="formCargaMasiva" onsubmit="return false;">
-                    <div class="modal-header">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="fs-4">📦</span>
-                            <div>
-                                <h2 id="tituloModalCargaMasiva" class="modal-title fs-5 fw-bold mb-0">Carga Masiva de Productos por Lote / Remito</h2>
-                                <small class="text-muted">Ingresá múltiples productos asociados a un mismo proveedor en un solo clic.</small>
-                            </div>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="errorCargaMasiva" class="alert alert-danger d-none mb-3"></div>
-                        <div id="exitoCargaMasiva" class="alert alert-success d-none mb-3"></div>
-
-                        <!-- Selector de Proveedor y Número de Factura del Lote -->
-                        <div class="p-3 bg-light rounded-3 border mb-3">
-                            <div class="row g-3 align-items-center">
-                                <div class="col-12 col-md-5">
-                                    <label class="form-label fw-bold" for="masivoProveedor">🏢 Proveedor del Lote *</label>
-                                    <select class="form-select" id="masivoProveedor" required>
-                                        <option value="">-- Seleccionar proveedor del remito --</option>
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label" for="masivoNumeroFactura">📄 N° Factura / Remito</label>
-                                    <input type="text" class="form-control" id="masivoNumeroFactura" placeholder="Ej: FC-A-0001-00123456">
-                                </div>
-                                <div class="col-12 col-md-3 d-flex align-items-center pt-md-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="masivoSinFactura">
-                                        <label class="form-check-label small" for="masivoSinFactura">Sin factura</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <label class="form-label text-muted small mb-1" for="masivoProveedorTexto">O escribir nombre de nuevo proveedor (opcional)</label>
-                                <input type="text" class="form-control form-control-sm" id="masivoProveedorTexto" placeholder="Ej: Distribuidora Central SRL">
-                            </div>
-                        </div>
-
-                        <!-- Tabla Dinámica de Productos -->
-                        <div class="table-responsive border rounded-3 mb-3">
-                            <table class="table table-bordered table-hover align-middle mb-0" id="tablaCargaMasiva">
-                                <thead class="table-light">
-                                    <tr class="small text-muted text-uppercase">
-                                        <th style="width: 40px;">#</th>
-                                        <th style="min-width: 200px;">Nombre del Producto *</th>
-                                        <th style="min-width: 170px;">Código de Barras</th>
-                                        <th style="min-width: 120px;">Presentación</th>
-                                        <th style="width: 90px;">Unid/Bulto</th>
-                                        <th style="width: 100px;">Cant. Lote *</th>
-                                        <th style="width: 110px;">Precio ($) *</th>
-                                        <th style="min-width: 140px;">Vencimiento (FIFO)</th>
-                                        <th style="width: 50px;" class="text-center"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cuerpoFilasMasivas">
-                                    <!-- Filas dinámicas -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAgregarFilaMasiva">
-                                ➕ Añadir otro producto al lote
-                            </button>
-                            <div class="p-2 bg-light rounded border small d-flex flex-wrap gap-3 text-secondary" id="resumenLoteMasivo">
-                                <span>Total productos: <strong id="resumenLoteTotalProd" class="text-dark">0</strong></span>
-                                <span>Unidades físicas: <strong id="resumenLoteTotalUnidades" class="text-dark">0 un.</strong></span>
-                                <span>Valor estimado: <strong id="resumenLoteValorTotal" class="text-primary">$ 0,00</strong></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-success" id="btnGuardarLoteMasivo">
-                            ✓ Guardar Todo el Lote
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Agregar Producto -->
-    <div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="tituloModalProducto" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form id="formProducto">
-                    <div class="modal-header">
-                        <h2 id="tituloModalProducto" class="modal-title fs-5 fw-bold">Agregar nuevo producto</h2>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="errorProducto" class="alert alert-danger d-none"></div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label" for="productoNombre">Nombre del producto *</label>
-                            <input class="form-control" id="productoNombre" name="nombre" maxlength="150" placeholder="Ej: Arroz Largo Fino 1kg" required>
-                        </div>
-
-                        <!-- Código de Barras -->
-                        <div class="mb-3">
-                            <label class="form-label" for="productoCodigoBarras">Código de Barras (opcional)</label>
-                            <div class="input-group">
-                                <input class="form-control" id="productoCodigoBarras" name="codigo_barras" maxlength="50" placeholder="Ej: 7791234567890">
-                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearCodigoModalAlta" title="Escanear con cámara">📷</button>
-                                <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoModalAlta" title="Generar código aleatorio">🎲</button>
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="productoPrecio">Precio unitario ($) *</label>
-                                <input class="form-control" id="productoPrecio" name="precio" type="number" min="0.01" step="0.01" placeholder="0.00" required>
-                            </div>
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="productoPresentacion">Tipo de presentación *</label>
-                                <select class="form-select" id="productoPresentacion" name="presentacion" required>
-                                    <option value="unidad">Unidades sueltas</option>
-                                    <option value="caja">Cajas</option>
-                                    <option value="bulto">Bultos cerrados</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-12 col-sm-6 d-none" id="contenedorUnidadesBulto">
-                                <label class="form-label" for="productoUnidadesBulto">Unidades por empaque *</label>
-                                <input class="form-control" id="productoUnidadesBulto" name="unidades_por_bulto" type="number" min="1" value="1">
-                                <small class="text-muted">Unidades dentro de cada caja/bulto.</small>
-                            </div>
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="productoStock">Cantidad a ingresar *</label>
-                                <input class="form-control" id="productoStock" name="stock" type="number" min="0" value="0" required>
-                                <small class="text-muted">En unidades, cajas o bultos según presentación.</small>
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="productoVencimiento">Fecha de vencimiento</label>
-                                <input class="form-control" id="productoVencimiento" name="fecha_vencimiento" type="date">
-                                <small class="text-muted">Para control de rotación FIFO.</small>
-                            </div>
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="productoProveedor">Proveedor</label>
-                                <select class="form-select" id="productoProveedor" name="proveedor">
-                                    <option value="">-- Seleccionar proveedor --</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Número de Factura -->
-                        <div class="row g-3 mb-3">
-                            <div class="col-12 col-sm-8">
-                                <label class="form-label" for="productoNumeroFactura">📄 Número de Factura / Remito</label>
-                                <input class="form-control" id="productoNumeroFactura" name="numero_factura" maxlength="60" placeholder="Ej: FC-A-0001-00023456">
-                            </div>
-                            <div class="col-12 col-sm-4 d-flex align-items-center pt-sm-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="productoSinFactura" name="sin_factura" value="1">
-                                    <label class="form-check-label small" for="productoSinFactura">Sin factura</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar producto</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -964,8 +897,8 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <label class="form-label" for="editarProductoCodigoBarras">Código de Barras</label>
                             <div class="input-group">
                                 <input class="form-control" id="editarProductoCodigoBarras" name="codigo_barras" maxlength="50" placeholder="Ej: 7791234567890">
-                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearCodigoModalEdicion" title="Escanear con cámara">📷</button>
-                                <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoModalEdicion" title="Generar código aleatorio">🎲</button>
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearCodigoModalEdicion" title="Escanear con cámara">Escanear</button>
+                                <button class="btn btn-outline-secondary" type="button" id="btnGenerarCodigoModalEdicion" title="Generar código aleatorio">Generar</button>
                             </div>
                         </div>
 
@@ -1016,7 +949,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <!-- Número de Factura para Ingreso de Stock -->
                         <div class="row g-3 mb-2">
                             <div class="col-12 col-sm-8">
-                                <label class="form-label" for="editarProductoNumeroFactura">📄 N° Factura (si ingresa nuevo stock)</label>
+                                <label class="form-label" for="editarProductoNumeroFactura">N° Factura (si ingresa nuevo stock)</label>
                                 <input class="form-control" id="editarProductoNumeroFactura" name="numero_factura" maxlength="60" placeholder="Ej: FC-A-0001-00023456">
                             </div>
                             <div class="col-12 col-sm-4 d-flex align-items-center pt-sm-4">
@@ -1036,49 +969,42 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         </div>
     </div>
 
-    <!-- Modal Registrar Venta (Carrito Multiproducto, Lector QR de Cliente y Códigos de Barra) -->
+    <!-- Modal Registrar Venta (Carrito Multiproducto) -->
     <div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="tituloModalVenta" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <form id="formVenta" onsubmit="return false;">
                     <div class="modal-header">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="fs-4">🛒</span>
-                            <div>
-                                <h2 id="tituloModalVenta" class="modal-title fs-5 fw-bold mb-0">Registrar Venta / Carrito de Productos</h2>
-                                <small class="text-muted">Añadí uno o más productos al ticket y confirmá la venta en un solo paso.</small>
-                            </div>
-                        </div>
+                        <h2 id="tituloModalVenta" class="modal-title fs-5 fw-bold mb-0">Registrar Venta</h2>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <div id="errorVenta" class="alert alert-danger d-none mb-3"></div>
                         <div id="exitoVenta" class="alert alert-success d-none mb-3"></div>
                         
-                        <!-- 1. Selección de Cliente con Escáner QR y Búsqueda Manual -->
-                        <div class="p-3 bg-light rounded-3 border mb-3">
+                        <!-- Selección de Cliente -->
+                        <div class="p-3 bg-light rounded border mb-3">
                             <div class="row g-2 align-items-center">
                                 <div class="col-12 col-md-7">
-                                    <label class="form-label fw-bold" for="ventaCliente">👤 Cliente *</label>
+                                    <label class="form-label fw-bold" for="ventaCliente">Cliente *</label>
                                     <select class="form-select" id="ventaCliente" name="cliente_id" required>
                                         <option value="">-- Seleccionar cliente o escanear QR --</option>
                                     </select>
                                 </div>
                                 <div class="col-12 col-md-5 d-flex align-items-end pt-md-4">
-                                    <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2" type="button" id="btnEscanearClienteQR" title="Escanear credencial QR del cliente con cámara">
-                                        <span>📷</span>
-                                        <span>Escanear QR de Cliente</span>
+                                    <button class="btn btn-outline-primary w-100" type="button" id="btnEscanearClienteQR">
+                                        Escanear QR de Cliente
                                     </button>
                                 </div>
                             </div>
                             <div id="ventaClienteSeleccionadoBadge" class="mt-2 small text-success fw-semibold d-none">
-                                ✓ Cliente identificado y seleccionado
+                                Cliente identificado y seleccionado
                             </div>
                         </div>
 
-                        <!-- 2. Panel para Agregar Producto al Carrito -->
-                        <div class="p-3 border rounded-3 bg-white mb-3 shadow-sm">
-                            <h3 class="h6 fw-bold text-dark mb-2">➕ Agregar artículo al ticket</h3>
+                        <!-- Panel para Agregar Producto al Carrito -->
+                        <div class="p-3 border rounded bg-white mb-3 shadow-sm">
+                            <h3 class="h6 fw-bold text-dark mb-2">Agregar artículo al ticket</h3>
                             
                             <div class="mb-2">
                                 <label class="form-label small text-muted" for="ventaProducto">Producto *</label>
@@ -1086,7 +1012,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     <select class="form-select form-select-sm" id="ventaProducto">
                                         <option value="">-- Seleccionar producto --</option>
                                     </select>
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btnEscanearProductoVenta" title="Escanear código de barras con cámara">📷</button>
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btnEscanearProductoVenta" title="Escanear código de barras con cámara">Escanear</button>
                                 </div>
                                 <small id="ventaInfoEmpaque" class="text-primary small d-none"></small>
                             </div>
@@ -1127,15 +1053,15 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     <strong id="itemPreviewSubtotal" class="text-primary fs-6">$ 0,00</strong>
                                 </div>
                                 <button type="button" class="btn btn-primary btn-sm" id="btnAgregarAlCarrito">
-                                    ➕ Agregar al carrito
+                                    Agregar al carrito
                                 </button>
                             </div>
                         </div>
 
-                        <!-- 3. Tabla del Carrito de Ventas -->
+                        <!-- Tabla del Carrito de Ventas -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold small text-uppercase text-muted">🛒 Artículos en el Carrito</label>
-                            <div class="table-responsive border rounded-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Artículos en el Carrito</label>
+                            <div class="table-responsive border rounded">
                                 <table class="table table-hover align-middle mb-0" id="tablaCarritoVentas">
                                     <thead class="table-light small text-muted">
                                         <tr>
@@ -1152,7 +1078,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     <tbody id="cuerpoCarritoVentas">
                                         <tr>
                                             <td colspan="8" class="text-center text-muted py-3 empty-state">
-                                                El carrito está vacío. Seleccioná o escaneá un producto arriba.
+                                                El carrito está vacío.
                                             </td>
                                         </tr>
                                     </tbody>
@@ -1160,8 +1086,8 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             </div>
                         </div>
 
-                        <!-- 4. Resumen y Cálculo General -->
-                        <div class="p-3 bg-light rounded-3 border">
+                        <!-- Resumen y Cálculo General -->
+                        <div class="p-3 bg-light rounded border">
                             <div class="d-flex justify-content-between small text-muted mb-1">
                                 <span>Ítems / Unidades físicas:</span>
                                 <strong id="ventaCarritoTotalUnidades" class="text-dark">0 un.</strong>
@@ -1183,7 +1109,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" class="btn btn-success" id="btnConfirmarVentaCarrito">
-                            ✓ Confirmar Venta
+                            Confirmar Venta
                         </button>
                     </div>
                 </form>
@@ -1249,7 +1175,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 id="tituloModalQrCliente" class="modal-title fs-5 fw-bold">🪪 Credencial Digital con QR</h2>
+                    <h2 id="tituloModalQrCliente" class="modal-title fs-5 fw-bold">Credencial Digital QR</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -1267,7 +1193,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-primary" id="btnImprimirQrCliente">🖨️ Imprimir Credencial</button>
+                    <button type="button" class="btn btn-primary" id="btnImprimirQrCliente">Imprimir Credencial</button>
                 </div>
             </div>
         </div>

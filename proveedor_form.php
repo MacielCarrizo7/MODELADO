@@ -49,7 +49,7 @@ $csrf = tokenCsrf();
                 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
                     <div>
                         <a href="<?= $paginaRetorno ?>" class="text-decoration-none text-muted small">← Volver</a>
-                        <h1 class="h3 fw-bold mt-1 mb-0"><?= $esEdicion ? "🏢 Editar Proveedor #{$id}" : "🏢 Nuevo Proveedor" ?></h1>
+                        <h1 class="h3 fw-bold mt-1 mb-0"><?= $esEdicion ? "Editar Proveedor #{$id}" : "Nuevo Proveedor" ?></h1>
                         <p class="text-muted small mb-0">Completá los datos de contacto y facturación del proveedor.</p>
                     </div>
                 </div>
@@ -89,7 +89,7 @@ $csrf = tokenCsrf();
                         <div class="d-flex gap-2 justify-content-end">
                             <a href="<?= $paginaRetorno ?>" class="btn btn-outline-secondary">Cancelar</a>
                             <button type="submit" class="btn btn-primary px-4 fw-bold" id="btnGuardarProveedor">
-                                <?= $esEdicion ? "💾 Guardar Cambios" : "✓ Registrar Proveedor" ?>
+                                <?= $esEdicion ? "Guardar Cambios" : "Registrar Proveedor" ?>
                             </button>
                         </div>
                     </form>

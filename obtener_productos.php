@@ -14,11 +14,27 @@ $codigoBarrasFiltro = trim($_GET["codigo_barras"] ?? "");
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
     $todos = $firestore->obtenerColeccion("productos");
+    $categorias = $firestore->obtenerColeccion("categorias");
+
+    // Construir mapa de umbrales FIFO por categoría
+    $mapaCategorias = [];
+    foreach ($categorias as $c) {
+        $cId = (int)($c["id"] ?? $c["_id"] ?? 0);
+        $cNom = (string)($c["nombre"] ?? "");
+        $dRojo = isset($c["dias_rojo"]) ? max(1, (int)$c["dias_rojo"]) : 45;
+        $dAmarillo = isset($c["dias_amarillo"]) ? max($dRojo + 1, (int)$c["dias_amarillo"]) : 90;
+        
+        $catData = [
+            "id" => $cId,
+            "nombre" => $cNom,
+            "dias_rojo" => $dRojo,
+            "dias_amarillo" => $dAmarillo
+        ];
+        if ($cId > 0) $mapaCategorias[$cId] = $catData;
+        if ($cNom !== "") $mapaCategorias[$cNom] = $catData;
+    }
 
     $hoy = new DateTimeImmutable("today");
-    $limite45 = $hoy->modify("+45 days");
-    $limite90 = $hoy->modify("+90 days");
-
     $productosFiltrados = [];
 
     foreach ($todos as $p) {
@@ -37,6 +53,33 @@ try {
         $categoriaId = isset($p["categoria_id"]) ? (int)$p["categoria_id"] : null;
         $categoriaNombre = (string) ($p["categoria_nombre"] ?? $p["categoria"] ?? "");
         $imagenUrl = (string) ($p["imagen_url"] ?? "");
+
+        // Obtener umbrales FIFO configurados para la categoría del producto
+        $catConfig = ($categoriaId && isset($mapaCategorias[$categoriaId]))
+            ? $mapaCategorias[$categoriaId]
+            : ($categoriaNombre && isset($mapaCategorias[$categoriaNombre]) ? $mapaCategorias[$categoriaNombre] : null);
+
+        $diasRojo = $catConfig ? $catConfig["dias_rojo"] : 45;
+        $diasAmarillo = $catConfig ? $catConfig["dias_amarillo"] : 90;
+
+        // Calcular estado de semáforo del producto
+        $estadoSemaforo = "sin_fecha";
+        $diasRestantes = null;
+        if ($fechaVenc !== null && $fechaVenc !== "") {
+            $dtVenc = DateTimeImmutable::createFromFormat("Y-m-d", substr($fechaVenc, 0, 10));
+            if ($dtVenc) {
+                $diferenciaSegundos = $dtVenc->getTimestamp() - $hoy->getTimestamp();
+                $diasRestantes = (int) ceil($diferenciaSegundos / 86400);
+
+                if ($diasRestantes <= $diasRojo) {
+                    $estadoSemaforo = "rojo";
+                } elseif ($diasRestantes <= $diasAmarillo) {
+                    $estadoSemaforo = "amarillo";
+                } else {
+                    $estadoSemaforo = "verde";
+                }
+            }
+        }
 
         // Filtro por código de barras exacto
         if ($codigoBarrasFiltro !== "" && $codigoBarras !== $codigoBarrasFiltro && $codigo !== $codigoBarrasFiltro) {
@@ -66,34 +109,8 @@ try {
         }
 
         // Filtro de semáforo
-        if ($semaforo !== "") {
-            if ($semaforo === "sin_fecha") {
-                if ($fechaVenc !== null && $fechaVenc !== "") {
-                    continue;
-                }
-            } else {
-                if ($fechaVenc === null || $fechaVenc === "") {
-                    continue;
-                }
-                $dtVenc = DateTimeImmutable::createFromFormat("Y-m-d", substr($fechaVenc, 0, 10));
-                if (!$dtVenc) {
-                    continue;
-                }
-
-                if ($semaforo === "rojo") {
-                    if ($dtVenc > $limite45) {
-                        continue;
-                    }
-                } elseif ($semaforo === "amarillo") {
-                    if ($dtVenc <= $limite45 || $dtVenc > $limite90) {
-                        continue;
-                    }
-                } elseif ($semaforo === "verde") {
-                    if ($dtVenc <= $limite90) {
-                        continue;
-                    }
-                }
-            }
+        if ($semaforo !== "" && $estadoSemaforo !== $semaforo) {
+            continue;
         }
 
         $prodItem = [
@@ -109,6 +126,10 @@ try {
             "permite_venta_unidad" => isset($p["permite_venta_unidad"]) ? (bool)$p["permite_venta_unidad"] : ($pres === "unidad"),
             "unidades_por_bulto" => $unidadesBulto,
             "fecha_vencimiento" => $fechaVenc,
+            "dias_restantes_vencimiento" => $diasRestantes,
+            "semaforo_estado" => $estadoSemaforo,
+            "dias_rojo" => $diasRojo,
+            "dias_amarillo" => $diasAmarillo,
             "proveedor" => $proveedor !== "" ? $proveedor : null,
             "categoria_id" => $categoriaId,
             "categoria" => $categoriaNombre !== "" ? $categoriaNombre : null,

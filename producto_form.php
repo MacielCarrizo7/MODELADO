@@ -63,8 +63,8 @@ $csrf = tokenCsrf();
                 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
                     <div>
                         <a href="admin.php" class="text-decoration-none text-muted small">← Volver a Inventario</a>
-                        <h1 class="h3 fw-bold mt-1 mb-0">📝 Editar Producto #<?= $id ?></h1>
-                        <p class="text-muted small mb-0">Modificá la información comercial, precios, categoría y stock del producto.</p>
+                        <h1 class="h3 fw-bold mt-1 mb-0">Editar Producto #<?= $id ?></h1>
+                        <p class="text-muted small mb-0">Modificación de información comercial, precios, categoría y stock.</p>
                     </div>
                 </div>
 
@@ -96,19 +96,19 @@ $csrf = tokenCsrf();
                                                    (isset($producto['categoria']) && $producto['categoria'] === $cat['nombre']);
                                         ?>
                                         <option value="<?= $cat['id'] ?>" data-nombre="<?= htmlspecialchars($cat['nombre'], ENT_QUOTES, 'UTF-8') ?>" <?= $sel ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars(($cat['icono'] ?? '🏷️') . ' ' . $cat['nombre'], ENT_QUOTES, 'UTF-8') ?>
+                                            <?= htmlspecialchars($cat['nombre'], ENT_QUOTES, 'UTF-8') ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                                 <input type="hidden" id="prodCategoriaNombre" name="categoria_nombre" value="<?= htmlspecialchars($producto['categoria_nombre'] ?? $producto['categoria'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="mt-1">
-                                    <a href="categorias.php" target="_blank" class="small text-decoration-none">➕ Gestionar categorías</a>
+                                    <a href="categorias.php" target="_blank" class="small text-decoration-none">Gestionar categorías</a>
                                 </div>
                             </div>
 
                             <div class="col-12">
-                                <label for="prodDescripcion" class="form-label">Descripción Comercial (para el catálogo visual)</label>
-                                <textarea class="form-control" id="prodDescripcion" name="descripcion" rows="3" placeholder="Detalles de presentación, sabor, contenido neto, etc. Se mostrará en el catálogo de clientes y vendedores."><?= htmlspecialchars($producto['descripcion'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                                <label for="prodDescripcion" class="form-label">Descripción Comercial</label>
+                                <textarea class="form-control" id="prodDescripcion" name="descripcion" rows="3" placeholder="Detalles de presentación, contenido neto, etc."><?= htmlspecialchars($producto['descripcion'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
                             </div>
 
                             <!-- Foto del Producto -->
@@ -121,7 +121,7 @@ $csrf = tokenCsrf();
                                                 <?php if (!empty($producto['imagen_url'])): ?>
                                                     <img id="imgPreview" src="<?= htmlspecialchars($producto['imagen_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Foto" style="max-height: 100%; max-width: 100%; object-fit: contain;">
                                                 <?php else: ?>
-                                                    <span id="imgPlaceholder" class="text-muted small">📷 Sin imagen</span>
+                                                    <span id="imgPlaceholder" class="text-muted small">Sin imagen</span>
                                                     <img id="imgPreview" src="" alt="Foto" class="d-none" style="max-height: 100%; max-width: 100%; object-fit: contain;">
                                                 <?php endif; ?>
                                             </div>
@@ -147,13 +147,13 @@ $csrf = tokenCsrf();
                                 <label for="prodCodigoBarras" class="form-label">Código de Barras (EAN-13 / UPC / Alfanumérico)</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control font-monospace" id="prodCodigoBarras" name="codigo_barras" value="<?= htmlspecialchars($producto['codigo_barras'] ?? '', ENT_QUOTES, 'UTF-8') ?>" placeholder="Ej: 7791234567890">
-                                    <button class="btn btn-outline-secondary" type="button" id="btnEscanearCb" title="Escanear con cámara">📷 Escanear</button>
-                                    <button class="btn btn-outline-secondary" type="button" id="btnGenerarCb" title="Generar código aleatorio">🎲 Generar</button>
+                                    <button class="btn btn-outline-secondary" type="button" id="btnEscanearCb" title="Escanear con cámara">Escanear</button>
+                                    <button class="btn btn-outline-secondary" type="button" id="btnGenerarCb" title="Generar código aleatorio">Generar</button>
                                 </div>
                             </div>
 
                             <div class="col-12 col-md-6">
-                                <label for="prodProveedor" class="form-label">🏢 Proveedor</label>
+                                <label for="prodProveedor" class="form-label">Proveedor</label>
                                 <select class="form-select" id="prodProveedor" name="proveedor">
                                     <option value="">-- Seleccionar Proveedor --</option>
                                     <?php foreach ($proveedores as $prov): ?>
@@ -172,7 +172,7 @@ $csrf = tokenCsrf();
                         <div class="p-3 bg-light rounded-3 border mb-3">
                             <div class="row g-3">
                                 <div class="col-12 col-md-5">
-                                    <label for="prodPrecioCosto" class="form-label fw-bold">💰 Precio de Costo ($) *</label>
+                                    <label for="prodPrecioCosto" class="form-label fw-bold">Precio de Costo ($) *</label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
                                         <input type="number" step="0.01" min="0" class="form-control fw-bold" id="prodPrecioCosto" name="precio_costo" value="<?= htmlspecialchars((string)($producto['precio_costo'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" placeholder="0.00" required>
@@ -181,7 +181,7 @@ $csrf = tokenCsrf();
                                 </div>
 
                                 <div class="col-12 col-md-5">
-                                    <label for="prodPrecioVenta" class="form-label fw-bold text-success">🏷️ Precio de Venta ($) *</label>
+                                    <label for="prodPrecioVenta" class="form-label fw-bold text-success">Precio de Venta ($) *</label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
                                         <input type="number" step="0.01" min="0.01" class="form-control fw-bold text-success fs-5" id="prodPrecioVenta" name="precio_venta" value="<?= htmlspecialchars((string)($producto['precio_venta'] ?? $producto['precio'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" placeholder="0.00" required>
@@ -227,7 +227,7 @@ $csrf = tokenCsrf();
                             </div>
 
                             <div class="col-12 col-md-6">
-                                <label for="prodNumeroFactura" class="form-label">📄 N° Factura / Remito</label>
+                                <label for="prodNumeroFactura" class="form-label">N° Factura / Remito</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="prodNumeroFactura" name="numero_factura" placeholder="Ej: FC-0001-12345678">
                                     <div class="input-group-text">
@@ -266,7 +266,7 @@ $csrf = tokenCsrf();
                     <div class="d-flex align-items-center justify-content-between p-3 bg-white rounded-3 border shadow-sm flex-wrap gap-2 sticky-bottom mb-5">
                         <a href="admin.php" class="btn btn-outline-secondary">Cancelar</a>
                         <button type="submit" class="btn btn-primary px-4 py-2 fs-6 fw-bold" id="btnGuardarProducto">
-                            💾 Guardar Cambios
+                            Guardar Cambios
                         </button>
                     </div>
                 </form>
@@ -281,8 +281,8 @@ $csrf = tokenCsrf();
         <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
             <div>
                 <a href="admin.php" class="text-decoration-none text-muted small">← Volver al Inventario</a>
-                <h1 class="h3 fw-bold mt-1 mb-0">📦 Ingreso y Alta de Productos (1 a 50 ítems)</h1>
-                <p class="text-muted small mb-0">Cargá desde 1 producto individual hasta lotes completos de 50 artículos en la misma pantalla fluida.</p>
+                <h1 class="h3 fw-bold mt-1 mb-0">Ingreso de Productos</h1>
+                <p class="text-muted small mb-0">Alta individual o masiva de artículos al inventario.</p>
             </div>
         </div>
 
@@ -296,7 +296,7 @@ $csrf = tokenCsrf();
             <div class="p-3 bg-light rounded-3 border">
                 <div class="row g-3 align-items-center">
                     <div class="col-12 col-md-5">
-                        <label class="form-label fw-bold" for="masivoProveedor">🏢 Proveedor *</label>
+                        <label class="form-label fw-bold" for="masivoProveedor">Proveedor *</label>
                         <select class="form-select" id="masivoProveedor" required>
                             <option value="">-- Seleccionar Proveedor --</option>
                             <?php foreach ($proveedores as $prov): ?>
@@ -311,7 +311,7 @@ $csrf = tokenCsrf();
                     </div>
 
                     <div class="col-12 col-md-4">
-                        <label class="form-label fw-bold" for="masivoNumeroFactura">📄 N° Factura / Remito</label>
+                        <label class="form-label fw-bold" for="masivoNumeroFactura">N° Factura / Remito</label>
                         <input type="text" class="form-control" id="masivoNumeroFactura" placeholder="Ej: FC-A-0001-00123456">
                     </div>
 
@@ -330,10 +330,10 @@ $csrf = tokenCsrf();
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
                     <h2 class="h5 fw-bold text-primary mb-0">2. Artículos a Ingresar</h2>
-                    <small class="text-muted">Podés ingresar 1 solo producto o pulsar el botón para agregar hasta 50 filas.</small>
+                    <small class="text-muted">Ingreso individual o en lote (hasta 50 filas).</small>
                 </div>
                 <button type="button" class="btn btn-outline-primary fw-bold" id="btnAgregarFila">
-                    ➕ Añadir otro producto a la lista
+                    Añadir fila
                 </button>
             </div>
 
@@ -380,7 +380,7 @@ $csrf = tokenCsrf();
             <div class="d-flex justify-content-between align-items-center pt-2">
                 <a href="admin.php" class="btn btn-outline-secondary">Cancelar</a>
                 <button type="button" class="btn btn-success px-4 py-3 fs-5 fw-bold shadow" id="btnGuardarLote">
-                    💾 Guardar Ingreso en Firestore
+                    Guardar Ingreso
                 </button>
             </div>
         </div>
@@ -392,7 +392,7 @@ $csrf = tokenCsrf();
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 class="modal-title fs-5 fw-bold">📷 Escanear Código de Barras</h2>
+                    <h2 class="modal-title fs-5 fw-bold">Escanear Código de Barras</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -608,7 +608,7 @@ $csrf = tokenCsrf();
 
                 let optCatHtml = `<option value="">-- Categoría --</option>`;
                 categoriasDisponibles.forEach(c => {
-                    optCatHtml += `<option value="${c.id}" data-nombre="${c.nombre}">${c.icono || '🏷️'} ${c.nombre}</option>`;
+                    optCatHtml += `<option value="${c.id}" data-nombre="${c.nombre}">${c.nombre}</option>`;
                 });
 
                 tr.innerHTML = `
@@ -624,8 +624,8 @@ $csrf = tokenCsrf();
                     <td>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control font-monospace masivo-cb" placeholder="EAN-13">
-                            <button class="btn btn-outline-secondary btn-sm btn-gen-cb" type="button" title="Generar código aleatorio">🎲</button>
-                            <button class="btn btn-outline-secondary btn-sm btn-scan-cb" type="button" title="Escanear con cámara">📷</button>
+                            <button class="btn btn-outline-secondary btn-sm btn-gen-cb" type="button" title="Generar código aleatorio">Gen</button>
+                            <button class="btn btn-outline-secondary btn-sm btn-scan-cb" type="button" title="Escanear con cámara">Cam</button>
                         </div>
                     </td>
                     <td>
@@ -873,7 +873,7 @@ $csrf = tokenCsrf();
                     alertErr.textContent = err.message;
                     alertErr.classList.remove("d-none");
                     btnSave.disabled = false;
-                    btnSave.innerHTML = "💾 Guardar Ingreso en Firestore";
+                    btnSave.innerHTML = "Guardar Ingreso";
                     window.scrollTo({ top: 0, behavior: "smooth" });
                 }
             });

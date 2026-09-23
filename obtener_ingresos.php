@@ -26,6 +26,8 @@ try {
     $firestore = FirestoreConexion::obtenerFirestore();
     $todosLosIngresos = $firestore->obtenerColeccion("ingresos_stock");
     $todosLosUsuarios = $firestore->obtenerColeccion("usuarios");
+    $todosLosProductos = $firestore->obtenerColeccion("productos");
+    $todasLasCategorias = $firestore->obtenerColeccion("categorias");
 
     $mapaUsuarios = [];
     foreach ($todosLosUsuarios as $u) {
@@ -35,10 +37,28 @@ try {
         }
     }
 
-    $hoy = new DateTimeImmutable("today");
-    $limite45 = $hoy->modify("+45 days");
-    $limite90 = $hoy->modify("+90 days");
+    $mapaCategorias = [];
+    foreach ($todasLasCategorias as $c) {
+        $cId = (int)($c["id"] ?? $c["_id"] ?? 0);
+        $cNom = (string)($c["nombre"] ?? "");
+        $dRojo = isset($c["dias_rojo"]) ? max(1, (int)$c["dias_rojo"]) : 45;
+        $dAmarillo = isset($c["dias_amarillo"]) ? max($dRojo + 1, (int)$c["dias_amarillo"]) : 90;
+        $catData = ["dias_rojo" => $dRojo, "dias_amarillo" => $dAmarillo];
+        if ($cId > 0) $mapaCategorias[$cId] = $catData;
+        if ($cNom !== "") $mapaCategorias[$cNom] = $catData;
+    }
 
+    $mapaProdCategoria = [];
+    foreach ($todosLosProductos as $p) {
+        $pId = (int)($p["id"] ?? $p["_id"] ?? 0);
+        $catId = isset($p["categoria_id"]) ? (int)$p["categoria_id"] : null;
+        $catNom = (string)($p["categoria_nombre"] ?? $p["categoria"] ?? "");
+        if ($pId > 0) {
+            $mapaProdCategoria[$pId] = ["categoria_id" => $catId, "categoria_nombre" => $catNom];
+        }
+    }
+
+    $hoy = new DateTimeImmutable("today");
     $ingresosFiltrados = [];
 
     foreach ($todosLosIngresos as $i) {
@@ -88,35 +108,38 @@ try {
             }
         }
 
-        // Filtro semáforo
-        if ($semaforo !== "") {
-            if ($semaforo === "sin_fecha") {
-                if ($fechaVenc !== null && $fechaVenc !== "") {
-                    continue;
-                }
-            } else {
-                if ($fechaVenc === null || $fechaVenc === "") {
-                    continue;
-                }
-                $dtVenc = DateTimeImmutable::createFromFormat("Y-m-d", substr($fechaVenc, 0, 10));
-                if (!$dtVenc) {
-                    continue;
-                }
+        // Determinar días del semáforo según categoría
+        $prodInfo = $mapaProdCategoria[$prodId] ?? null;
+        $catId = $prodInfo["categoria_id"] ?? null;
+        $catNom = $prodInfo["categoria_nombre"] ?? "";
+        $catConfig = ($catId && isset($mapaCategorias[$catId]))
+            ? $mapaCategorias[$catId]
+            : ($catNom && isset($mapaCategorias[$catNom]) ? $mapaCategorias[$catNom] : null);
 
-                if ($semaforo === "rojo") {
-                    if ($dtVenc > $limite45) {
-                        continue;
-                    }
-                } elseif ($semaforo === "amarillo") {
-                    if ($dtVenc <= $limite45 || $dtVenc > $limite90) {
-                        continue;
-                    }
-                } elseif ($semaforo === "verde") {
-                    if ($dtVenc <= $limite90) {
-                        continue;
-                    }
+        $diasRojo = $catConfig ? $catConfig["dias_rojo"] : 45;
+        $diasAmarillo = $catConfig ? $catConfig["dias_amarillo"] : 90;
+
+        $estadoSemaforo = "sin_fecha";
+        $diasRestantes = null;
+        if ($fechaVenc !== null && $fechaVenc !== "") {
+            $dtVenc = DateTimeImmutable::createFromFormat("Y-m-d", substr($fechaVenc, 0, 10));
+            if ($dtVenc) {
+                $diferenciaSegundos = $dtVenc->getTimestamp() - $hoy->getTimestamp();
+                $diasRestantes = (int) ceil($diferenciaSegundos / 86400);
+
+                if ($diasRestantes <= $diasRojo) {
+                    $estadoSemaforo = "rojo";
+                } elseif ($diasRestantes <= $diasAmarillo) {
+                    $estadoSemaforo = "amarillo";
+                } else {
+                    $estadoSemaforo = "verde";
                 }
             }
+        }
+
+        // Filtro semáforo
+        if ($semaforo !== "" && $estadoSemaforo !== $semaforo) {
+            continue;
         }
 
         $ingresosFiltrados[] = [
@@ -132,6 +155,10 @@ try {
             "numero_factura" => !empty($i["numero_factura"]) ? (string)$i["numero_factura"] : (!empty($i["sin_factura"]) ? "Sin Factura" : "—"),
             "sin_factura" => !empty($i["sin_factura"]),
             "fecha_vencimiento" => $fechaVenc,
+            "dias_restantes_vencimiento" => $diasRestantes,
+            "semaforo_estado" => $estadoSemaforo,
+            "dias_rojo" => $diasRojo,
+            "dias_amarillo" => $diasAmarillo,
             "usuario_id" => $uId,
             "motivo" => (string) ($i["motivo"] ?? ""),
             "fecha" => $fecha,
@@ -139,15 +166,9 @@ try {
         ];
     }
 
-    usort($ingresosFiltrados, function ($a, $b) {
-        $cmp = strcmp($b["fecha"], $a["fecha"]);
-        if ($cmp !== 0) return $cmp;
-        return $b["id"] <=> $a["id"];
-    });
-
     echo json_encode($ingresosFiltrados, JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("Error en obtener_ingresos (Firestore): " . $e->getMessage());
-    echo json_encode([], JSON_UNESCAPED_UNICODE);
+    error_log("Error al obtener ingresos: " . $e->getMessage());
+    responderJson(["error" => "No se pudieron obtener los ingresos: " . $e->getMessage()], 500);
 }
 ?>

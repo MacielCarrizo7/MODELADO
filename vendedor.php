@@ -29,9 +29,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
             <div class="collapse navbar-collapse" id="menuVendedor">
                 <div class="navbar-nav ms-auto align-items-lg-center gap-lg-1 pt-3 pt-lg-0">
                     <a class="nav-link nav-link-app active" href="vendedor.php">Panel de Ventas</a>
-                    <a class="nav-link nav-link-app" href="catalogo.php">Catálogo Visual</a>
-                    <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código con cámara">📷 Escáner</button>
-                    <a class="btn btn-primary btn-sm ms-lg-1" href="venta_form.php">🛒 Registrar venta</a>
+                    <a class="nav-link nav-link-app" href="catalogo.php">Catálogo</a>
+                    <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código con cámara">Escáner</button>
+                    <a class="btn btn-primary btn-sm ms-lg-1" href="venta_form.php">Registrar venta</a>
                     <a class="btn btn-outline-danger btn-sm ms-lg-1" href="logout.php">Cerrar sesión</a>
                 </div>
             </div>
@@ -49,9 +49,9 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
         <!-- Hero Section -->
         <section class="hero-panel p-4 p-md-5 mb-4">
             <div class="hero-contenido">
-                <p class="etiqueta text-white-50 mb-2">Panel de Ventas y Mostrador</p>
+                <p class="etiqueta text-white-50 mb-2">Panel de Ventas</p>
                 <h1 class="display-6 fw-bold mb-2">Hola, <?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></h1>
-                <p class="lead text-white-50 mb-0">Consultá disponibilidad de productos con código de barras, rotación FIFO (45/90 días), trazabilidad y atención a clientes.</p>
+                <p class="lead text-white-50 mb-0">Gestión de inventario con rotación FIFO, trazabilidad y atención a clientes.</p>
             </div>
         </section>
 
@@ -60,17 +60,17 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
             <ul class="nav nav-tabs-app" id="vendedorTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="tab-vendedor-resumen-btn" data-bs-toggle="tab" data-bs-target="#pestana-resumen" type="button" role="tab" aria-controls="pestana-resumen" aria-selected="true">
-                        <span>📊 Resumen</span>
+                        <span>Resumen</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-vendedor-productos-btn" data-bs-toggle="tab" data-bs-target="#pestana-productos" type="button" role="tab" aria-controls="pestana-productos" aria-selected="false">
-                        <span>📦 Inventario y Vencimientos</span>
+                        <span>Inventario y Vencimientos</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-vendedor-ventas-btn" data-bs-toggle="tab" data-bs-target="#pestana-ventas" type="button" role="tab" aria-controls="pestana-ventas" aria-selected="false">
-                        <span>💳 Registro de Ventas</span>
+                        <span>Registro de Ventas</span>
                     </button>
                 </li>
             </ul>
@@ -103,20 +103,20 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 </div>
 
                 <div class="seccion-card">
-                    <h2 class="h5 fw-bold mb-3">Rotación de Stock (Primeros en Vencer / FIFO)</h2>
-                    <p class="texto-secundario mb-3">Hacé clic en cualquier estado para filtrar los productos según su urgencia:</p>
+                    <h2 class="h5 fw-bold mb-3">Rotación de Stock (FIFO)</h2>
+                    <p class="texto-secundario mb-3">Filtrar productos según urgencia de vencimiento:</p>
                     <div class="d-flex flex-wrap gap-2 small">
                         <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light" data-filtro-semaforo="rojo" title="Filtrar productos próximos a vencer">
-                            <span class="badge-vencimiento vencido">🔴 Rojo: ≤ 45 días</span>
-                            <span class="text-muted">Prioridad urgente de venta</span>
+                            <span class="badge-vencimiento vencido">Rojo: Crítico</span>
+                            <span class="text-muted">Prioridad de venta</span>
                         </div>
                         <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light" data-filtro-semaforo="amarillo" title="Filtrar productos con rotación intermedia">
-                            <span class="badge-vencimiento vence-pronto">🟡 Amarillo: 46 a 90 días</span>
-                            <span class="text-muted">Atención y rotación activa</span>
+                            <span class="badge-vencimiento vence-pronto">Amarillo: Próximo</span>
+                            <span class="text-muted">Rotación activa</span>
                         </div>
                         <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light" data-filtro-semaforo="verde" title="Filtrar productos vigentes">
-                            <span class="badge-vencimiento vigente">🟢 Verde: > 90 días</span>
-                            <span class="text-muted">Stock holgado y vigente</span>
+                            <span class="badge-vencimiento vigente">Verde: Normal</span>
+                            <span class="text-muted">Stock vigente</span>
                         </div>
                     </div>
                 </div>
@@ -127,10 +127,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 <section class="seccion-card" aria-labelledby="titulo-productos">
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
                         <div>
-                            <p class="etiqueta text-primary mb-1">Inventario en tiempo real</p>
-                            <h2 id="titulo-productos" class="h4 fw-bold mb-0">Productos Disponibles (Orden FIFO)</h2>
+                            <p class="etiqueta text-primary mb-1">Inventario</p>
+                            <h2 id="titulo-productos" class="h4 fw-bold mb-0">Productos Disponibles</h2>
                         </div>
-                        <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector o cámara">📷 Escanear código</button>
+                        <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector o cámara">Escanear código</button>
                     </div>
 
                     <!-- Filtros de Inventario con Semáforo FIFO, Proveedor y Código de Barras -->
@@ -138,8 +138,8 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                         <div class="col-12 col-sm-6 col-lg-3">
                             <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código</label>
                             <div class="input-group">
-                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre, código...">
-                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">📷</button>
+                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="Nombre, código...">
+                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">Escanear</button>
                             </div>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-3">
@@ -152,10 +152,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                             <label for="filtroProductoSemaforo" class="form-label">Vencimiento</label>
                             <select id="filtroProductoSemaforo" name="semaforo" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="rojo">🔴 Rojo (≤ 45 d)</option>
-                                <option value="amarillo">🟡 Amarillo (46-90 d)</option>
-                                <option value="verde">🟢 Verde (> 90 d)</option>
-                                <option value="sin_fecha">⚪ Sin fecha</option>
+                                <option value="rojo">Rojo (Crítico)</option>
+                                <option value="amarillo">Amarillo (Próximo)</option>
+                                <option value="verde">Verde (Normal)</option>
+                                <option value="sin_fecha">Sin fecha</option>
                             </select>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-2">
@@ -312,7 +312,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 id="tituloModalScanner" class="modal-title fs-5 fw-bold">📷 Escanear Código de Barras</h2>
+                    <h2 id="tituloModalScanner" class="modal-title fs-5 fw-bold">Escanear Código de Barras</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -387,7 +387,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 id="tituloModalQrCliente" class="modal-title fs-5 fw-bold">🪪 Credencial Digital con QR</h2>
+                    <h2 id="tituloModalQrCliente" class="modal-title fs-5 fw-bold">Credencial Digital con QR</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -405,7 +405,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-primary" id="btnImprimirQrCliente">🖨️ Imprimir Credencial</button>
+                    <button type="button" class="btn btn-primary" id="btnImprimirQrCliente">Imprimir Credencial</button>
                 </div>
             </div>
         </div>

@@ -51,8 +51,8 @@ $csrf = tokenCsrf();
         <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
             <div>
                 <a href="<?= $paginaRetorno ?>" class="text-decoration-none text-muted small">← Volver al Panel</a>
-                <h1 class="h3 fw-bold mt-1 mb-0">🛒 Registrar Venta (Carrito Multiproducto)</h1>
-                <p class="text-muted small mb-0">Buscá por nombre, código de barras o rubro, agregá productos al ticket y confirmá en un solo clic.</p>
+                <h1 class="h3 fw-bold mt-1 mb-0">Registrar Venta</h1>
+                <p class="text-muted small mb-0">Búsqueda rápida por nombre, código de barras o rubro, agregado al ticket y confirmación de venta.</p>
             </div>
         </div>
 
@@ -74,14 +74,13 @@ $csrf = tokenCsrf();
                             </select>
                         </div>
                         <div class="col-12 col-sm-4">
-                            <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-1" type="button" id="btnEscanearClienteQR">
-                                <span>📷</span>
-                                <span>Escanear QR</span>
+                            <button class="btn btn-outline-primary w-100" type="button" id="btnEscanearClienteQR">
+                                Escanear QR
                             </button>
                         </div>
                     </div>
                     <div id="clienteFeedback" class="mt-2 small text-success fw-semibold d-none">
-                        ✓ Cliente seleccionado
+                        Cliente seleccionado
                     </div>
                 </div>
 
@@ -90,11 +89,11 @@ $csrf = tokenCsrf();
                     <h2 class="h5 fw-bold text-primary mb-3">2. Buscar y Agregar Artículo</h2>
                     
                     <div class="mb-3 position-relative">
-                        <label for="buscadorVentaProducto" class="form-label fw-bold">🔍 Buscar Producto *</label>
+                        <label for="buscadorVentaProducto" class="form-label fw-bold">Buscar Producto *</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="buscadorVentaProducto" placeholder="Escribí nombre, categoría, código de barras o descripción..." autocomplete="off">
-                            <button class="btn btn-outline-secondary" type="button" id="btnLimpiarBuscadorProd" title="Limpiar búsqueda">✕</button>
-                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoCb" title="Escanear código con cámara">📷</button>
+                            <input type="text" class="form-control" id="buscadorVentaProducto" placeholder="Nombre, categoría, código de barras o descripción..." autocomplete="off">
+                            <button class="btn btn-outline-secondary" type="button" id="btnLimpiarBuscadorProd" title="Limpiar búsqueda">Limpiar</button>
+                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoCb" title="Escanear código con cámara">Escanear</button>
                         </div>
                         
                         <!-- Lista flotante de sugerencias en vivo -->
@@ -172,7 +171,7 @@ $csrf = tokenCsrf();
                     </div>
 
                     <button type="button" class="btn btn-primary w-100 py-2 fs-6 fw-bold" id="btnAgregarAlCarrito">
-                        ➕ Agregar Artículo al Carrito
+                        Agregar al Carrito
                     </button>
                 </div>
             </div>
@@ -186,7 +185,7 @@ $csrf = tokenCsrf();
                     </div>
 
                     <!-- Tabla de Carrito -->
-                    <div class="table-responsive border rounded-3 mb-3 bg-white">
+                    <div class="table-responsive border rounded mb-3 bg-white">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light small text-muted">
                                 <tr>
@@ -201,7 +200,7 @@ $csrf = tokenCsrf();
                             <tbody id="carritoTablaBody">
                                 <tr>
                                     <td colspan="6" class="text-center text-muted py-4">
-                                        🛒 El carrito está vacío. Buscá y agregá productos desde el panel izquierdo.
+                                        El carrito está vacío. Busque y agregue productos desde el panel izquierdo.
                                     </td>
                                 </tr>
                             </tbody>
@@ -209,7 +208,7 @@ $csrf = tokenCsrf();
                     </div>
 
                     <!-- Resumen Financiero -->
-                    <div class="p-3 bg-light rounded-3 border mb-3">
+                    <div class="p-3 bg-light rounded border mb-3">
                         <div class="d-flex justify-content-between text-muted mb-2">
                             <span>Total unidades físicas:</span>
                             <strong id="resumenTotalUnidades" class="text-dark">0 un.</strong>
@@ -229,9 +228,9 @@ $csrf = tokenCsrf();
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-danger" id="btnVaciarCarrito">🗑️ Vaciar</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnVaciarCarrito">Vaciar Carrito</button>
                         <button type="button" class="btn btn-success flex-grow-1 py-3 fs-5 fw-bold shadow" id="btnConfirmarVenta" disabled>
-                            ✓ Confirmar Venta
+                            Confirmar Venta
                         </button>
                     </div>
                 </div>
@@ -244,7 +243,7 @@ $csrf = tokenCsrf();
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 class="modal-title fs-5 fw-bold">📷 Escanear con Cámara</h2>
+                    <h2 class="modal-title fs-5 fw-bold">Escanear con Cámara</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -294,7 +293,7 @@ $csrf = tokenCsrf();
                 const selProds = document.getElementById("ventaProducto");
                 selProds.replaceChildren(new Option("-- Seleccionar Producto --", ""));
                 productosCache.forEach(p => {
-                    const prov = p.proveedor ? ` [🏢 ${p.proveedor}]` : "";
+                    const prov = p.proveedor ? ` [${p.proveedor}]` : "";
                     const cat = p.categoria_nombre ? ` [${p.categoria_nombre}]` : "";
                     const opt = new Option(`${p.nombre}${cat}${prov} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio_venta)})`, p.id);
                     opt.dataset.precio = p.precio_venta;
@@ -347,7 +346,7 @@ $csrf = tokenCsrf();
             if (filtrados.length === 0) {
                 dropdownResultados.innerHTML = `
                     <div class="p-3 text-muted text-center small">
-                        🔍 No se encontraron productos coincidentes con "<strong>${escapeHtml(query)}</strong>".
+                        No se encontraron productos coincidentes con "<strong>${escapeHtml(query)}</strong>".
                     </div>
                 `;
                 dropdownResultados.classList.remove("d-none");
@@ -377,8 +376,8 @@ $csrf = tokenCsrf();
                         <div class="fw-bold text-dark text-truncate">${escapeHtml(p.nombre)} ${badgePres}</div>
                         <div class="small text-muted text-truncate">
                             <span class="badge text-bg-light border">${escapeHtml(p.categoria_nombre || "General")}</span>
-                            ${p.codigo_barras ? `<span class="font-monospace ms-1">🏷️ ${escapeHtml(p.codigo_barras)}</span>` : ""}
-                            ${p.proveedor ? `<span class="ms-1">🏢 ${escapeHtml(p.proveedor)}</span>` : ""}
+                            ${p.codigo_barras ? `<span class="font-monospace ms-1">${escapeHtml(p.codigo_barras)}</span>` : ""}
+                            ${p.proveedor ? `<span class="ms-1 text-muted">(${escapeHtml(p.proveedor)})</span>` : ""}
                         </div>
                     </div>
                     <div class="text-end text-nowrap">
@@ -430,9 +429,9 @@ $csrf = tokenCsrf();
             // Actualizar tarjeta visual de producto seleccionado
             let badgeRestriccion = "";
             if ((pres === "caja" || pres === "bulto") && !permiteUnidad) {
-                badgeRestriccion = `<span class="badge text-bg-warning ms-1">🚫 Venta exclusiva por ${pres.toUpperCase()} (Fraccionamiento bloqueado)</span>`;
+                badgeRestriccion = `<span class="badge text-bg-warning ms-1">Venta exclusiva por ${pres.toUpperCase()}</span>`;
             } else if ((pres === "caja" || pres === "bulto") && permiteUnidad) {
-                badgeRestriccion = `<span class="badge text-bg-info ms-1">✓ Fraccionable (${pres} y unidad)</span>`;
+                badgeRestriccion = `<span class="badge text-bg-info ms-1">Fraccionable (${pres} y unidad)</span>`;
             }
 
             document.getElementById("selProdCat").textContent = p.categoria_nombre || "General";
@@ -594,12 +593,14 @@ $csrf = tokenCsrf();
             }
 
             return {
+                id: id,
                 producto_id: id,
                 producto_nombre: nombre,
                 proveedor: proveedor,
                 stock_disponible: stock,
                 precio_unitario: precio,
                 tipo_venta: tipoVenta,
+                cantidad: cantidad,
                 cantidad_empaque: cantidad,
                 unidades_por_bulto: unidadesBulto,
                 total_unidades: totalUnidades,
@@ -627,7 +628,7 @@ $csrf = tokenCsrf();
             }
 
             if (calc.tipo_venta === "caja" || calc.tipo_venta === "bulto") {
-                infoEmpaque.textContent = `📦 1 ${calc.tipo_venta} = ${calc.unidades_por_bulto} unidades físicas`;
+                infoEmpaque.textContent = `1 ${calc.tipo_venta} = ${calc.unidades_por_bulto} unidades físicas`;
                 infoEmpaque.classList.remove("d-none");
             } else {
                 infoEmpaque.classList.add("d-none");
@@ -694,7 +695,7 @@ $csrf = tokenCsrf();
             const btnConfirm = document.getElementById("btnConfirmarVenta");
 
             if (carrito.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">🛒 El carrito está vacío. Buscá y agregá productos desde el panel izquierdo.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">El carrito está vacío. Busque y agregue productos desde el panel izquierdo.</td></tr>`;
                 badgeCount.textContent = "0 ítems";
                 resUnid.textContent = "0 un.";
                 resSub.textContent = "$ 0,00";
@@ -811,7 +812,7 @@ $csrf = tokenCsrf();
                     const sel = document.getElementById("ventaCliente");
                     sel.value = encontrado.id;
                     const fb = document.getElementById("clienteFeedback");
-                    fb.textContent = `✓ Cliente escaneado: ${encontrado.nombre} ${encontrado.apellido} (DNI ${encontrado.dni})`;
+                    fb.textContent = `Cliente identificado: ${encontrado.nombre} ${encontrado.apellido} (DNI ${encontrado.dni})`;
                     fb.classList.remove("d-none");
                 } else {
                     alert(`No se encontró ningún cliente para el código escaneado: "${qr}".`);
@@ -908,7 +909,7 @@ $csrf = tokenCsrf();
                     throw new Error(data.error || "Error al procesar la venta.");
                 }
 
-                okBox.innerHTML = `<strong>¡Venta registrada con éxito!</strong> ${data.mensaje || ''} ${data.ticket_id ? `<br><span class="font-monospace small">Ticket: ${data.ticket_id}</span>` : ''}`;
+                okBox.innerHTML = `<strong>Venta registrada con éxito.</strong> ${data.mensaje || ''} ${data.ticket_id ? `<br><span class="font-monospace small">Ticket: ${data.ticket_id}</span>` : ''}`;
                 okBox.classList.remove("d-none");
                 carrito = [];
                 renderizarCarrito();
@@ -922,7 +923,7 @@ $csrf = tokenCsrf();
                 errBox.textContent = err.message;
                 errBox.classList.remove("d-none");
                 btnConfirm.disabled = false;
-                btnConfirm.innerHTML = "✓ Confirmar Venta";
+                btnConfirm.textContent = "Confirmar Venta";
                 window.scrollTo({ top: 0, behavior: "smooth" });
             }
         });

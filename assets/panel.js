@@ -56,11 +56,8 @@ function fechaLegible(valor) {
     return Number.isNaN(fecha.getTime()) ? valor : formatoFecha.format(fecha);
 }
 
-// Política de semáforo FIFO:
-// - Rojo: ≤ 45 días (o vencido)
-// - Amarillo: 46 a 90 días
-// - Verde: > 90 días
-function obtenerCategoriaSemaforo(fechaIso) {
+// Politica de semaforo FIFO por Categoria (configurable por categoria, por defecto: Rojo <= 45d, Amarillo <= 90d, Verde > 90d)
+function obtenerCategoriaSemaforo(fechaIso, prod = null) {
     if (!fechaIso) return "sin_fecha";
     const partes = fechaIso.split("-");
     if (partes.length !== 3) return "sin_fecha";
@@ -72,12 +69,15 @@ function obtenerCategoriaSemaforo(fechaIso) {
     const diferenciaTiempo = vencimiento.getTime() - hoy.getTime();
     const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 60 * 60 * 24));
 
-    if (diferenciaDias <= 45) return "rojo";
-    if (diferenciaDias <= 90) return "amarillo";
+    const diasRojo = (prod && Number(prod.dias_rojo) > 0) ? Number(prod.dias_rojo) : 45;
+    const diasAmarillo = (prod && Number(prod.dias_amarillo) > diasRojo) ? Number(prod.dias_amarillo) : 90;
+
+    if (diferenciaDias <= diasRojo) return "rojo";
+    if (diferenciaDias <= diasAmarillo) return "amarillo";
     return "verde";
 }
 
-function formatearFechaVencimiento(fechaIso) {
+function formatearFechaVencimiento(fechaIso, prod = null) {
     if (!fechaIso) return { texto: "Sin fecha", clase: "sin-vencimiento", dias: null, categoria: "sin_fecha" };
     const partes = fechaIso.split("-");
     if (partes.length !== 3) return { texto: fechaIso, clase: "sin-vencimiento", dias: null, categoria: "sin_fecha" };
@@ -90,21 +90,24 @@ function formatearFechaVencimiento(fechaIso) {
     const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 60 * 60 * 24));
     const fechaTexto = formatoFechaCorta.format(vencimiento);
 
-    if (diferenciaDias <= 45) {
+    const diasRojo = (prod && Number(prod.dias_rojo) > 0) ? Number(prod.dias_rojo) : 45;
+    const diasAmarillo = (prod && Number(prod.dias_amarillo) > diasRojo) ? Number(prod.dias_amarillo) : 90;
+
+    if (diferenciaDias <= diasRojo) {
         if (diferenciaDias < 0) {
             return { texto: `Vencido (${fechaTexto})`, clase: "vencido", dias: diferenciaDias, categoria: "rojo" };
         } else {
             return { texto: `Vence en ${diferenciaDias} d (${fechaTexto})`, clase: "vencido", dias: diferenciaDias, categoria: "rojo" };
         }
-    } else if (diferenciaDias <= 90) {
+    } else if (diferenciaDias <= diasAmarillo) {
         return { texto: `Vence en ${diferenciaDias} d (${fechaTexto})`, clase: "vence-pronto", dias: diferenciaDias, categoria: "amarillo" };
     } else {
         return { texto: fechaTexto, clase: "vigente", dias: diferenciaDias, categoria: "verde" };
     }
 }
 
-function crearBadgeVencimiento(fechaIso) {
-    const info = formatearFechaVencimiento(fechaIso);
+function crearBadgeVencimiento(fechaIso, prod = null) {
+    const info = formatearFechaVencimiento(fechaIso, prod);
     const badge = document.createElement("span");
     badge.className = `badge-vencimiento ${info.clase}`;
     badge.textContent = info.texto;
@@ -152,7 +155,7 @@ function renderizarFilasProductos(productos) {
         if (producto.proveedor) {
             const badgeProv = document.createElement("span");
             badgeProv.className = "badge text-bg-light border text-primary small fw-semibold";
-            badgeProv.textContent = `🏢 ${producto.proveedor}`;
+            badgeProv.textContent = producto.proveedor;
             nombreTitulo.appendChild(badgeProv);
         }
         nombreTd.appendChild(nombreTitulo);
@@ -169,16 +172,16 @@ function renderizarFilasProductos(productos) {
         const presNombre = producto.presentacion ? producto.presentacion.toUpperCase() : "UNIDAD";
         if (producto.presentacion && producto.presentacion.toLowerCase() !== "unidad") {
             const permite = (producto.permite_venta_unidad !== false && producto.permite_venta_unidad !== 0 && producto.permite_venta_unidad !== "0");
-            presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span><small class="d-block ${permite ? 'text-success' : 'text-danger'}" style="font-size:0.75rem;">${permite ? '✓ Venta x unidad' : '🚫 Solo empaque'}</small>`;
+            presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span><small class="d-block ${permite ? 'text-success' : 'text-danger'}" style="font-size:0.75rem;">${permite ? 'Venta x unidad' : 'Solo empaque'}</small>`;
         } else {
             presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span>`;
         }
         fila.appendChild(presTd);
 
-        // 4. Proveedor (Columna destacada)
+        // 4. Proveedor
         const provTd = document.createElement("td");
         if (producto.proveedor) {
-            provTd.innerHTML = `<span class="fw-semibold text-dark">🏢 ${producto.proveedor}</span>`;
+            provTd.innerHTML = `<span class="fw-semibold text-dark">${producto.proveedor}</span>`;
         } else {
             provTd.innerHTML = '<span class="text-muted small">—</span>';
         }
@@ -186,7 +189,7 @@ function renderizarFilasProductos(productos) {
 
         // 5. Vencimiento (FIFO)
         const vencimientoTd = document.createElement("td");
-        vencimientoTd.appendChild(crearBadgeVencimiento(producto.fecha_vencimiento));
+        vencimientoTd.appendChild(crearBadgeVencimiento(producto.fecha_vencimiento, producto));
         fila.appendChild(vencimientoTd);
 
         // 6. Precio
@@ -215,7 +218,7 @@ function renderizarFilasProductos(productos) {
         stockTd.appendChild(badge);
         fila.appendChild(stockTd);
 
-        // 8. Acciones (Historial + Editar + Eliminar)
+        // 8. Acciones (Historial + Editar + Dar de Baja)
         const accion = document.createElement("td");
         accion.className = "text-end";
         const grupo = document.createElement("div");
@@ -225,8 +228,8 @@ function renderizarFilasProductos(productos) {
         const btnHistorial = document.createElement("button");
         btnHistorial.type = "button";
         btnHistorial.className = "btn btn-outline-secondary btn-sm";
-        btnHistorial.title = "Ver historial y trazabilidad de movimientos";
-        btnHistorial.innerHTML = "📜 Historial";
+        btnHistorial.title = "Ver trazabilidad y movimientos";
+        btnHistorial.textContent = "Historial";
         btnHistorial.addEventListener("click", () => abrirModalHistorialProducto(producto.id));
         grupo.appendChild(btnHistorial);
 
@@ -239,8 +242,9 @@ function renderizarFilasProductos(productos) {
             const btnEliminar = document.createElement("button");
             btnEliminar.type = "button";
             btnEliminar.className = "btn btn-outline-danger btn-sm";
-            btnEliminar.textContent = "Eliminar";
-            btnEliminar.addEventListener("click", () => eliminarProducto(producto.id, producto.nombre));
+            btnEliminar.title = "Dar de baja del inventario";
+            btnEliminar.textContent = "Dar de Baja";
+            btnEliminar.addEventListener("click", () => abrirModalBaja(producto));
 
             grupo.append(btnEditar, btnEliminar);
         }
@@ -284,7 +288,7 @@ function filtrarYRenderizarProductos() {
         }
 
         if (semaforoFiltro !== "") {
-            const cat = obtenerCategoriaSemaforo(producto.fecha_vencimiento);
+            const cat = obtenerCategoriaSemaforo(producto.fecha_vencimiento, producto);
             if (cat !== semaforoFiltro) return false;
         }
 
@@ -324,7 +328,7 @@ function llenarSelectoresProductos() {
         const filtroActual = filtroVentas.value;
         filtroVentas.replaceChildren(new Option("Todos los productos", ""));
         productosCache.forEach((producto) => {
-            const provTxt = producto.proveedor ? ` [🏢 ${producto.proveedor}]` : "";
+            const provTxt = producto.proveedor ? ` [${producto.proveedor}]` : "";
             filtroVentas.appendChild(new Option(`${producto.nombre}${provTxt}`, producto.id));
         });
         filtroVentas.value = filtroActual;
@@ -334,7 +338,7 @@ function llenarSelectoresProductos() {
         const filtroActual = filtroIngresos.value;
         filtroIngresos.replaceChildren(new Option("Todos los productos", ""));
         productosCache.forEach((producto) => {
-            const provTxt = producto.proveedor ? ` [🏢 ${producto.proveedor}]` : "";
+            const provTxt = producto.proveedor ? ` [${producto.proveedor}]` : "";
             filtroIngresos.appendChild(new Option(`${producto.nombre}${provTxt}`, producto.id));
         });
         filtroIngresos.value = filtroActual;
@@ -345,7 +349,7 @@ function llenarSelectoresProductos() {
         venta.replaceChildren(new Option("-- Seleccionar producto --", ""));
         productosCache.forEach((producto) => {
             const cbTxt = producto.codigo_barras ? ` [CB: ${producto.codigo_barras}]` : "";
-            const provTxt = producto.proveedor ? ` [🏢 ${producto.proveedor}]` : "";
+            const provTxt = producto.proveedor ? ` [${producto.proveedor}]` : "";
             const opt = new Option(`${producto.nombre}${provTxt}${cbTxt} (Stock: ${producto.stock} un. - ${formatoMoneda.format(producto.precio)})`, producto.id);
             opt.dataset.precio = producto.precio;
             opt.dataset.stock = producto.stock;
@@ -405,34 +409,28 @@ async function abrirModalHistorialProducto(productoId) {
             const tipoTd = document.createElement("td");
             const badge = document.createElement("span");
             let badgeClase = "badge-mov-edicion";
-            let icono = "📝";
 
             switch (m.tipo) {
                 case "ALTA_INICIAL":
                     badgeClase = "badge-mov-alta";
-                    icono = "✨";
                     break;
                 case "INGRESO_STOCK":
                     badgeClase = "badge-mov-ingreso";
-                    icono = "📥";
                     break;
                 case "VENTA":
                     badgeClase = "badge-mov-venta";
-                    icono = "🛒";
                     break;
                 case "VENTA_CANCELADA":
                     badgeClase = "badge-mov-cancelada";
-                    icono = "↩️";
                     break;
                 case "VENTA_MODIFICADA":
                 case "AJUSTE_STOCK":
                     badgeClase = "badge-mov-ajuste";
-                    icono = "⚖️";
                     break;
             }
 
             badge.className = `badge-mov ${badgeClase}`;
-            badge.textContent = `${icono} ${m.tipo.replace(/_/g, " ")}`;
+            badge.textContent = m.tipo.replace(/_/g, " ");
             tipoTd.appendChild(badge);
             fila.appendChild(tipoTd);
 
@@ -600,7 +598,7 @@ function llenarSelectoresProveedores() {
             sel.appendChild(new Option(nom, nom));
         });
 
-        const optNuevo = new Option("➕ Registrar nuevo proveedor...", "__NUEVO__");
+        const optNuevo = new Option("Registrar nuevo proveedor...", "__NUEVO__");
         optNuevo.className = "fw-bold text-primary";
         sel.appendChild(optNuevo);
 
@@ -629,7 +627,7 @@ function llenarSelectoresProveedores() {
             if (nom) provsUnicos.add(nom);
         });
         Array.from(provsUnicos).sort().forEach((nom) => {
-            filtroProv.appendChild(new Option(`🏢 ${nom}`, nom));
+            filtroProv.appendChild(new Option(nom, nom));
         });
         filtroProv.value = valActual;
     }
@@ -641,7 +639,7 @@ function llenarSelectoresProveedores() {
         masivoProv.replaceChildren(new Option("-- Seleccionar proveedor del remito --", ""));
         proveedoresCache.forEach((p) => {
             const nom = p.nombre || p.proveedor;
-            masivoProv.appendChild(new Option(`🏢 ${nom}`, nom));
+            masivoProv.appendChild(new Option(nom, nom));
         });
         masivoProv.value = valActual;
     }
@@ -746,7 +744,7 @@ function crearFilaMasiva(indice, datos = {}) {
     tdNombre.appendChild(inputNombre);
     tr.appendChild(tdNombre);
 
-    // 3. Código de Barras (con botones 📷 y 🎲)
+    // 3. Código de Barras
     const tdCb = document.createElement("td");
     const inputGroupCb = document.createElement("div");
     inputGroupCb.className = "input-group input-group-sm";
@@ -761,7 +759,7 @@ function crearFilaMasiva(indice, datos = {}) {
     btnScan.type = "button";
     btnScan.className = "btn btn-outline-secondary";
     btnScan.title = "Escanear con cámara";
-    btnScan.innerHTML = "📷";
+    btnScan.textContent = "Cam";
     btnScan.addEventListener("click", () => {
         abrirModalScannerCamara((codigo) => {
             inputCb.value = codigo;
@@ -772,7 +770,7 @@ function crearFilaMasiva(indice, datos = {}) {
     btnGen.type = "button";
     btnGen.className = "btn btn-outline-secondary";
     btnGen.title = "Generar código aleatorio";
-    btnGen.innerHTML = "🎲";
+    btnGen.textContent = "Gen";
     btnGen.addEventListener("click", () => {
         inputCb.value = generarCodigoEan13();
     });
@@ -862,7 +860,7 @@ function crearFilaMasiva(indice, datos = {}) {
     btnDel.type = "button";
     btnDel.className = "btn btn-outline-danger btn-sm p-1";
     btnDel.title = "Quitar este producto";
-    btnDel.innerHTML = "🗑️";
+    btnDel.textContent = "Quitar";
     btnDel.addEventListener("click", () => {
         const tbody = document.getElementById("cuerpoFilasMasivas");
         if (tbody && tbody.querySelectorAll("tr").length <= 1) {
@@ -1122,7 +1120,7 @@ function llenarSelectorBarcodeProductos() {
     const valActual = selector.value;
     selector.replaceChildren(new Option("-- Ingreso manual / Nuevo producto --", ""));
     productosCache.forEach((p) => {
-        const provTxt = p.proveedor ? ` [🏢 ${p.proveedor}]` : "";
+        const provTxt = p.proveedor ? ` [${p.proveedor}]` : "";
         const opt = new Option(`${p.nombre}${provTxt} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio)})`, p.id);
         selector.appendChild(opt);
     });
@@ -1274,8 +1272,9 @@ async function cargarHistorialCodigos(busqueda = "") {
             tr.append(celda(fechaLegible(c.fecha), "small text-muted"));
 
             // Código
+            // Código
             const tdCod = document.createElement("td");
-            tdCod.innerHTML = `<span class="badge text-bg-light border font-monospace fs-6">🏷️ ${c.codigo}</span>`;
+            tdCod.innerHTML = `<span class="badge text-bg-light border font-monospace fs-6">${c.codigo}</span>`;
             tr.appendChild(tdCod);
 
             // Producto
@@ -1300,7 +1299,7 @@ async function cargarHistorialCodigos(busqueda = "") {
 
             const btnCargar = document.createElement("button");
             btnCargar.className = "btn btn-outline-primary";
-            btnCargar.innerHTML = "👁️ Cargar";
+            btnCargar.textContent = "Cargar";
             btnCargar.title = "Cargar en el visor y vista previa";
             btnCargar.addEventListener("click", () => {
                 const inCod = document.getElementById("barcodeInputCodigo");
@@ -1318,7 +1317,7 @@ async function cargarHistorialCodigos(busqueda = "") {
 
             const btnCopy = document.createElement("button");
             btnCopy.className = "btn btn-outline-secondary";
-            btnCopy.innerHTML = "📋";
+            btnCopy.textContent = "Copiar";
             btnCopy.title = "Copiar código";
             btnCopy.addEventListener("click", () => {
                 navigator.clipboard.writeText(c.codigo);
@@ -1377,13 +1376,13 @@ async function guardarCodigoEnHistorial() {
         });
 
         await cargarHistorialCodigos();
-        alert("✓ ¡Código de barras guardado en el historial de Firestore!");
+        alert("Código de barras guardado en el historial.");
     } catch (err) {
         alert("Error al guardar código: " + err.message);
     } finally {
         if (btnSave) {
             btnSave.disabled = false;
-            btnSave.innerHTML = "💾 Guardar en Historial";
+            btnSave.innerHTML = "Guardar en Historial";
         }
     }
 }
@@ -1740,7 +1739,7 @@ async function cargarIngresos(filtros = {}) {
             // N° Factura
             const factTd = document.createElement("td");
             if (ing.numero_factura && ing.numero_factura !== "—" && ing.numero_factura !== "Sin Factura") {
-                factTd.innerHTML = `<span class="badge text-bg-light border font-monospace">📄 ${ing.numero_factura}</span>`;
+                factTd.innerHTML = `<span class="badge text-bg-light border font-monospace">${ing.numero_factura}</span>`;
             } else if (ing.sin_factura || ing.numero_factura === "Sin Factura") {
                 factTd.innerHTML = `<span class="badge text-bg-light border text-muted">Sin factura</span>`;
             } else {
@@ -1867,7 +1866,7 @@ async function cargarSolicitudesVendedor() {
                 const btnAtender = document.createElement("button");
                 btnAtender.type = "button";
                 btnAtender.className = "btn btn-success btn-sm";
-                btnAtender.textContent = "✓ Atender";
+                btnAtender.textContent = "Atender";
                 btnAtender.addEventListener("click", () => marcarSolicitudAtendida(sol.id));
                 accionTd.appendChild(btnAtender);
             } else {
@@ -1973,7 +1972,7 @@ function renderizarCarritoVentas() {
     if (!tbody) return;
 
     if (carritoVentas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">🛒 El carrito está vacío. Agregá productos arriba.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">El carrito está vacío. Agregá productos arriba.</td></tr>`;
         if (lblCount) lblCount.textContent = "0 items";
         if (lblTotal) lblTotal.textContent = "$ 0,00";
         if (lblSubtotal) lblSubtotal.textContent = "$ 0,00";
@@ -2005,7 +2004,7 @@ function renderizarCarritoVentas() {
         if (item.proveedor) {
             const smallProv = document.createElement("small");
             smallProv.className = "text-muted d-block";
-            smallProv.textContent = `🏢 ${item.proveedor}`;
+            smallProv.textContent = item.proveedor;
             prodTd.appendChild(smallProv);
         }
 
@@ -2040,7 +2039,7 @@ function renderizarCarritoVentas() {
         const btnEliminar = document.createElement("button");
         btnEliminar.type = "button";
         btnEliminar.className = "btn btn-outline-danger btn-sm";
-        btnEliminar.innerHTML = "🗑️";
+        btnEliminar.textContent = "Quitar";
         btnEliminar.title = "Quitar del carrito";
         btnEliminar.addEventListener("click", () => {
             carritoVentas.splice(index, 1);
@@ -2216,7 +2215,7 @@ function configurarCalculadoraVenta() {
 
         if (calculo.tipo_venta === "caja" || calculo.tipo_venta === "bulto") {
             if (infoEmpaque) {
-                infoEmpaque.textContent = `📦 1 ${calculo.tipo_venta} = ${calculo.unidades_por_bulto} unidades individuales`;
+                infoEmpaque.textContent = `1 ${calculo.tipo_venta} = ${calculo.unidades_por_bulto} unidades individuales`;
                 infoEmpaque.classList.remove("d-none");
             }
         } else {
@@ -2350,13 +2349,13 @@ function seleccionarClientePorCodigoQR(codigoQR) {
             selectCliente.value = clienteEncontrado.id;
         }
         if (feedback) {
-            feedback.innerHTML = `<span class="badge text-bg-success p-2">✅ Cliente escaneado: <strong>${clienteEncontrado.nombre} ${clienteEncontrado.apellido}</strong> (DNI ${clienteEncontrado.dni})</span>`;
+            feedback.innerHTML = `<span class="badge text-bg-success p-2">Cliente escaneado: <strong>${clienteEncontrado.nombre} ${clienteEncontrado.apellido}</strong> (DNI ${clienteEncontrado.dni})</span>`;
             feedback.classList.remove("d-none");
             setTimeout(() => {
                 feedback.classList.add("d-none");
             }, 6000);
         } else {
-            alert(`✅ Cliente detectado: ${clienteEncontrado.nombre} ${clienteEncontrado.apellido}`);
+            alert(`Cliente detectado: ${clienteEncontrado.nombre} ${clienteEncontrado.apellido}`);
         }
     } else {
         alert(`No se encontró ningún cliente en el sistema para el código escaneado: "${codigoQR}". Podés seleccionarlo manualmente de la lista.`);
@@ -2565,7 +2564,7 @@ if (formVenta) {
             await Promise.all([cargarProductos(), cargarVentas()]);
 
             const ticketMsg = respuesta.ticket_id ? ` (Ticket: ${respuesta.ticket_id})` : "";
-            alert(`🎉 ¡Venta registrada con éxito! ${respuesta.total_items || 1} producto(s) procesados.${ticketMsg}`);
+            alert(`Venta registrada con éxito. ${respuesta.total_items || 1} producto(s) procesados.${ticketMsg}`);
 
         } catch (error) {
             errorBox.textContent = error.message || "Error al registrar la venta.";
@@ -2757,6 +2756,184 @@ if (window.visualViewport) {
     });
 }
 
+// -------------------------------------------------------------
+// AUDITORIA Y TRAZABILIDAD DE BAJAS DE INVENTARIO
+// -------------------------------------------------------------
+let bajasCache = [];
+
+function abrirModalBaja(producto) {
+    const modalEl = document.getElementById("modalConfirmarBaja");
+    if (!modalEl) {
+        if (confirm(`¿Confirma dar de baja el producto "${producto.nombre}"? Será transferido permanentemente al registro de Bajas de Inventario.`)) {
+            const fd = new FormData();
+            fd.append("id", producto.id);
+            fd.append("motivo", "Eliminación manual");
+            solicitar("eliminar_producto.php", { method: "POST", body: fd })
+                .then(() => Promise.all([cargarProductos(), cargarBajas(), cargarIngresos()]))
+                .catch(err => alert(err.message));
+        }
+        return;
+    }
+
+    const inputId = document.getElementById("bajaProductoId");
+    const lblNombre = document.getElementById("bajaProductoNombre");
+    const lblDetalles = document.getElementById("bajaProductoDetalles");
+    const selMotivo = document.getElementById("bajaMotivo");
+    const txtObs = document.getElementById("bajaObservaciones");
+    const errBox = document.getElementById("errorBajaProducto");
+
+    if (inputId) inputId.value = producto.id;
+    if (lblNombre) lblNombre.textContent = producto.nombre;
+    const rem = Number(producto.stock) || 0;
+    if (lblDetalles) {
+        lblDetalles.textContent = `Stock remanente: ${rem} unidades | Presentación: ${producto.presentacion || 'unidad'}`;
+    }
+    if (selMotivo) selMotivo.value = "Eliminación manual";
+    if (txtObs) txtObs.value = "";
+    if (errBox) errBox.classList.add("d-none");
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
+
+function eliminarProducto(id, nombre, stock = 0) {
+    const prod = productosCache.find(p => String(p.id) === String(id)) || { id, nombre, stock };
+    abrirModalBaja(prod);
+}
+
+const formConfirmarBaja = document.getElementById("formConfirmarBaja");
+if (formConfirmarBaja) {
+    formConfirmarBaja.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errBox = document.getElementById("errorBajaProducto");
+        if (errBox) errBox.classList.add("d-none");
+        const btnSubmit = document.getElementById("btnEjecutarBaja");
+        if (btnSubmit) btnSubmit.disabled = true;
+
+        try {
+            const formData = new FormData(formConfirmarBaja);
+            const respuesta = await solicitar("eliminar_producto.php", {
+                method: "POST",
+                body: formData
+            });
+
+            const modalInstance = bootstrap.Modal.getInstance(document.getElementById("modalConfirmarBaja"));
+            if (modalInstance) modalInstance.hide();
+            formConfirmarBaja.reset();
+
+            await Promise.all([cargarProductos(), cargarBajas(), cargarIngresos()]);
+            alert(respuesta.mensaje || "Producto dado de baja y transferido a Bajas de Inventario.");
+        } catch (error) {
+            if (errBox) {
+                errBox.textContent = error.message;
+                errBox.classList.remove("d-none");
+            } else {
+                alert(error.message);
+            }
+        } finally {
+            if (btnSubmit) btnSubmit.disabled = false;
+        }
+    });
+}
+
+async function cargarBajas(filtros = {}) {
+    const tbody = document.getElementById("bajasBody");
+    if (!tbody) return;
+    const columnas = 10;
+    try {
+        const queryParams = new URLSearchParams(filtros).toString();
+        const url = queryParams ? `obtener_bajas.php?${queryParams}` : "obtener_bajas.php";
+        const bajas = await solicitar(url);
+        bajasCache = bajas;
+        renderizarBajas(bajas);
+        const resBajas = document.getElementById("resumenBajas");
+        if (resBajas) resBajas.textContent = `${bajas.length} baja(s)`;
+    } catch (error) {
+        mensajeEnTabla(tbody, columnas, "No se pudieron cargar los registros de bajas de inventario.", true);
+    }
+}
+
+function renderizarBajas(bajas) {
+    const tbody = document.getElementById("bajasBody");
+    if (!tbody) return;
+    const columnas = 10;
+    if (bajas.length === 0) {
+        mensajeEnTabla(tbody, columnas, "No se encontraron registros de bajas de inventario.");
+        return;
+    }
+    tbody.replaceChildren();
+
+    bajas.forEach((baja) => {
+        const fila = document.createElement("tr");
+
+        // 1. ID
+        fila.appendChild(celda(`#${baja.id}`, "small text-muted font-monospace"));
+
+        // 2. Fecha
+        fila.appendChild(celda(fechaLegible(baja.fecha_baja), "small text-nowrap"));
+
+        // 3. Producto
+        const tdProd = document.createElement("td");
+        const strong = document.createElement("strong");
+        strong.textContent = baja.nombre;
+        strong.className = "text-dark d-block";
+        tdProd.appendChild(strong);
+        if (baja.codigo_barras || baja.codigo) {
+            const codSmall = document.createElement("small");
+            codSmall.className = "text-muted font-monospace";
+            codSmall.textContent = baja.codigo_barras || baja.codigo;
+            tdProd.appendChild(codSmall);
+        }
+        fila.appendChild(tdProd);
+
+        // 4. Categoría
+        fila.appendChild(celda(baja.categoria || "—", "small"));
+
+        // 5. Motivo
+        const tdMotivo = document.createElement("td");
+        const badgeMot = document.createElement("span");
+        badgeMot.className = "badge bg-danger-subtle text-danger border border-danger-subtle";
+        badgeMot.textContent = baja.motivo_baja || "Eliminación manual";
+        tdMotivo.appendChild(badgeMot);
+        fila.appendChild(tdMotivo);
+
+        // 6. Stock Remanente
+        const tdRem = document.createElement("td");
+        tdRem.className = "fw-bold text-danger";
+        tdRem.textContent = `${baja.stock_remanente} un.`;
+        fila.appendChild(tdRem);
+
+        // 7. Unidades Vendidas Históricas
+        const tdVend = document.createElement("td");
+        tdVend.className = "fw-semibold text-success";
+        tdVend.textContent = `${baja.unidades_vendidas_historicas} un.`;
+        fila.appendChild(tdVend);
+
+        // 8. Pérdida en Costo
+        const tdPerd = document.createElement("td");
+        tdPerd.className = "text-muted small";
+        tdPerd.textContent = formatoMoneda.format(baja.total_perdida_costo || 0);
+        fila.appendChild(tdPerd);
+
+        // 9. Responsable
+        fila.appendChild(celda(baja.usuario_nombre || "Admin", "small"));
+
+        // 10. Observaciones
+        fila.appendChild(celda(baja.observaciones || "—", "small text-muted"));
+
+        tbody.appendChild(fila);
+    });
+}
+
+// Filtros de Bajas
+const formFiltrosBajas = document.getElementById("formFiltrosBajas");
+if (formFiltrosBajas) {
+    formFiltrosBajas.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const datos = Object.fromEntries(new FormData(formFiltrosBajas));
+        cargarBajas(datos);
+    });
+}
+
 // Inicialización general al cargar el DOM
 document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll('[data-bs-target="#pestana-barcodes"]').forEach((btn) => {
@@ -2766,11 +2943,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
+    document.querySelectorAll('[data-bs-target="#pestana-bajas"]').forEach((btn) => {
+        btn.addEventListener("shown.bs.tab", () => {
+            cargarBajas();
+        });
+    });
+
     await Promise.all([
         cargarProductos(),
         cargarProveedores(),
         cargarVentas(),
         cargarIngresos(),
+        cargarBajas(),
         cargarClientes(),
         cargarVendedores(),
         cargarSolicitudesVendedor(),

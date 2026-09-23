@@ -635,6 +635,10 @@ class FirestoreConexion {
         return self::obtenerFirestore()->obtenerSiguienteId("contadores", "movimientos", "ultimo_id");
     }
 
+    public static function obtenerSiguienteIdBaja(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "bajas_inventario", "ultimo_id");
+    }
+
     /**
      * Registra un evento en el historial de trazabilidad de un producto.
      */
@@ -682,6 +686,29 @@ class FirestoreConexion {
         } catch (Throwable $e) {
             error_log("Error al registrar movimiento de producto: " . $e->getMessage());
             return 0;
+        }
+    }
+
+    /**
+     * Registra formalmente una baja de inventario con auditoría completa.
+     */
+    public static function registrarBajaInventario(array $datos): int {
+        try {
+            $firestore = self::obtenerFirestore();
+            $bajaId = self::obtenerSiguienteIdBaja();
+            $fecha = date("Y-m-d H:i:s");
+
+            $doc = array_merge([
+                "id" => $bajaId,
+                "fecha_baja" => $fecha,
+                "creado_el" => $fecha
+            ], $datos);
+
+            $firestore->guardarDocumento("bajas_inventario", (string)$bajaId, $doc);
+            return $bajaId;
+        } catch (Throwable $e) {
+            error_log("Error al registrar baja de inventario: " . $e->getMessage());
+            throw $e;
         }
     }
 }

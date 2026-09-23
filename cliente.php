@@ -79,11 +79,11 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
             <div class="collapse navbar-collapse" id="menuCliente">
                 <div class="navbar-nav ms-auto align-items-sm-center gap-sm-2 pt-3 pt-sm-0">
                     <a class="nav-link nav-link-app active" href="#inicio">Inicio</a>
-                    <a class="nav-link nav-link-app text-primary fw-bold" href="catalogo.php">👁️ Catálogo Visual</a>
+                    <a class="nav-link nav-link-app text-primary fw-bold" href="catalogo.php">Catálogo</a>
                     <a class="nav-link nav-link-app" href="#productos">Productos</a>
                     <a class="nav-link nav-link-app" href="#compras">Mis compras</a>
                     <button class="btn btn-outline-primary btn-sm px-3" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
-                        🤝 Solicitar vendedor
+                        Solicitar vendedor
                     </button>
                     <a href="logout.php" class="btn btn-outline-danger btn-sm px-3 ms-sm-1">Cerrar sesión</a>
                 </div>
@@ -112,13 +112,13 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
                     <p class="lead mb-3 text-white-50">Consultá disponibilidad de productos y solicitá atención directa de nuestro equipo cuando lo necesites.</p>
                     <div class="d-flex flex-wrap gap-2">
                         <a href="catalogo.php" class="btn btn-light btn-sm fw-bold px-3 py-2 text-primary">
-                            👁️ Ver Catálogo Visual / Menú
+                            Ver Catálogo
                         </a>
                         <button class="btn btn-outline-light btn-sm fw-bold px-3 py-2" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
-                            🤝 Solicitar atención
+                            Solicitar atención
                         </button>
                         <button class="btn btn-outline-light btn-sm fw-bold px-3 py-2" type="button" onclick="window.print()">
-                            🖨️ Imprimir credencial
+                            Imprimir credencial
                         </button>
                     </div>
                 </div>
@@ -298,7 +298,7 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
             const icono = document.createElement("span");
             icono.className = "producto-icono";
             icono.setAttribute("aria-hidden", "true");
-            icono.textContent = "📦";
+            icono.textContent = "";
 
             const stock = Number(producto.stock);
             const disponible = Number.isFinite(stock) && stock > 0;
