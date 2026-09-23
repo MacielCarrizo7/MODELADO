@@ -338,20 +338,20 @@ $csrf = tokenCsrf();
             </div>
 
             <div class="table-responsive border rounded-3 mb-3 bg-white" style="min-height: 200px;">
-                <table class="table table-bordered table-hover align-middle mb-0" id="tablaMasiva">
-                    <thead class="table-light small text-muted text-uppercase">
+                <table class="table table-bordered table-hover align-middle mb-0 tabla-ingreso-compacta" id="tablaMasiva">
+                    <thead class="table-light small text-muted text-uppercase text-nowrap" style="font-size: 0.75rem;">
                         <tr>
-                            <th style="width: 35px;">#</th>
-                            <th style="min-width: 190px;">Nombre del Producto *</th>
-                            <th style="min-width: 140px;">Categoría</th>
-                            <th style="min-width: 140px;">Código Barras</th>
-                            <th style="min-width: 115px;">Presentación</th>
-                            <th style="min-width: 90px;" class="text-center">¿Venta x Unid.?</th>
-                            <th style="width: 90px;">Cant. *</th>
-                            <th style="width: 105px;">P. Costo ($)</th>
-                            <th style="width: 105px;">P. Venta ($) *</th>
-                            <th style="width: 135px;">Vencimiento</th>
-                            <th style="width: 45px;" class="text-center"></th>
+                            <th style="width: 28px;" class="text-center">#</th>
+                            <th style="min-width: 140px;">Nombre *</th>
+                            <th style="min-width: 110px;">Categoría</th>
+                            <th style="min-width: 125px;">Código</th>
+                            <th style="min-width: 95px;">Presentación</th>
+                            <th style="width: 75px;" class="text-center">Vta. Unid</th>
+                            <th style="width: 70px;">Cant. *</th>
+                            <th style="width: 80px;">Costo ($)</th>
+                            <th style="width: 80px;">Venta ($) *</th>
+                            <th style="width: 105px;">Vencimiento</th>
+                            <th style="width: 35px;" class="text-center"></th>
                         </tr>
                     </thead>
                     <tbody id="cuerpoFilasMasivas"></tbody>
@@ -612,49 +612,49 @@ $csrf = tokenCsrf();
                 });
 
                 tr.innerHTML = `
-                    <td class="text-muted small text-center">${indice}</td>
-                    <td>
-                        <input type="text" class="form-control form-control-sm masivo-nombre" placeholder="Nombre del artículo *" required>
+                    <td class="text-muted small text-center p-1">${indice}</td>
+                    <td class="p-1">
+                        <input type="text" class="form-control form-control-sm masivo-nombre px-2" placeholder="Nombre *" required>
                     </td>
-                    <td>
-                        <select class="form-select form-select-sm masivo-cat">
+                    <td class="p-1">
+                        <select class="form-select form-select-sm masivo-cat px-1">
                             ${optCatHtml}
                         </select>
                     </td>
-                    <td>
+                    <td class="p-1">
                         <div class="input-group input-group-sm">
-                            <input type="text" class="form-control font-monospace masivo-cb" placeholder="EAN-13">
-                            <button class="btn btn-outline-secondary btn-sm btn-gen-cb" type="button" title="Generar código aleatorio">Gen</button>
-                            <button class="btn btn-outline-secondary btn-sm btn-scan-cb" type="button" title="Escanear con cámara">Cam</button>
+                            <input type="text" class="form-control font-monospace masivo-cb px-1" placeholder="EAN-13">
+                            <button class="btn btn-outline-secondary btn-sm btn-gen-cb px-1" type="button" title="Generar código aleatorio">Gen</button>
+                            <button class="btn btn-outline-secondary btn-sm btn-scan-cb px-1" type="button" title="Escanear con cámara">Cam</button>
                         </div>
                     </td>
-                    <td>
-                        <select class="form-select form-select-sm masivo-pres mb-1">
+                    <td class="p-1">
+                        <select class="form-select form-select-sm masivo-pres px-1 mb-1">
                             <option value="unidad">Unidad</option>
                             <option value="caja">Caja</option>
                             <option value="bulto">Bulto</option>
                         </select>
-                        <input type="number" min="1" class="form-control form-control-sm masivo-unid-bulto d-none" placeholder="Unids/bulto" value="1">
+                        <input type="number" min="1" class="form-control form-control-sm masivo-unid-bulto px-1 d-none" placeholder="Unids/bulto" value="1">
                     </td>
-                    <td class="text-center align-middle">
+                    <td class="text-center align-middle p-1">
                         <div class="form-check form-switch d-inline-block m-0">
                             <input class="form-check-input masivo-venta-unidad" type="checkbox" role="switch" title="¿Se puede vender por unidad suelta?" checked disabled>
                         </div>
                         <small class="d-block text-muted masivo-lbl-unid" style="font-size: 0.72rem;">Sí</small>
                     </td>
-                    <td>
-                        <input type="number" min="0" class="form-control form-control-sm masivo-stock" placeholder="0" value="0">
+                    <td class="p-1">
+                        <input type="number" min="0" class="form-control form-control-sm masivo-stock px-1 text-center" placeholder="0" value="0">
                     </td>
-                    <td>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm masivo-costo" placeholder="0.00" value="0.00">
+                    <td class="p-1">
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm masivo-costo px-1 text-end" placeholder="0.00" value="0.00">
                     </td>
-                    <td>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm masivo-venta" placeholder="0.00" value="0.00">
+                    <td class="p-1">
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm masivo-venta px-1 text-end" placeholder="0.00" value="0.00">
                     </td>
-                    <td>
-                        <input type="date" class="form-control form-control-sm masivo-venc">
+                    <td class="p-1">
+                        <input type="date" class="form-control form-control-sm masivo-venc px-1">
                     </td>
-                    <td class="text-center">
+                    <td class="text-center p-1">
                         <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 btn-del-fila" title="Quitar fila">✕</button>
                     </td>
                 `;

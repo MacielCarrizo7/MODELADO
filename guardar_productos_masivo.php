@@ -99,6 +99,7 @@ try {
             "categoria_nombre" => $categoriaNombre !== "" ? $categoriaNombre : null,
             "unidades_por_bulto" => $unidadesPorBulto,
             "fecha_vencimiento" => $vencimientoParam,
+            "imagen_url" => !empty($prod["imagen_url"]) ? trim($prod["imagen_url"]) : null,
             "proveedor" => $proveedorParam,
             "creado_el" => date("Y-m-d H:i:s")
         ];

@@ -596,7 +596,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="etiqueta text-primary mb-1">Etiquetado y Trazabilidad</p>
                             <h2 id="titulo-barcodes" class="h4 fw-bold mb-0">Generador de Códigos de Barra</h2>
                         </div>
-                        <button class="btn btn-success" type="button" id="btnImprimirEtiqueta">Imprimir Etiqueta</button>
                     </div>
 
                     <div class="row g-4">
@@ -656,9 +655,15 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                 </div>
 
                                 <div class="mt-4 d-flex flex-wrap gap-2 justify-content-center">
-                                    <button class="btn btn-primary btn-sm px-3 fw-bold" type="button" id="btnGuardarCodigoHistorial">Guardar en Historial</button>
                                     <button class="btn btn-outline-dark btn-sm px-3" type="button" id="btnImprimirEtiqueta">Imprimir Etiqueta</button>
+                                    <button class="btn btn-primary btn-sm px-3 fw-bold" type="button" id="btnGuardarCodigoHistorial">Guardar en Historial</button>
                                     <button class="btn btn-outline-secondary btn-sm px-3" type="button" id="btnCopiarCodigoBarras">Copiar código</button>
+                                </div>
+
+                                <div class="mt-3 text-start small text-muted p-2 bg-light rounded border w-100" style="max-width: 440px; font-size: 0.8rem; line-height: 1.45;">
+                                    <div class="mb-1"><strong>Imprimir Etiqueta:</strong> Envía el código a la impresora térmica o estándar.</div>
+                                    <div class="mb-1"><strong>Guardar en Historial:</strong> Registra la etiqueta para uso frecuente y consulta posterior.</div>
+                                    <div><strong>Copiar código:</strong> Copia los dígitos al portapapeles.</div>
                                 </div>
                             </div>
                         </div>

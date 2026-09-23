@@ -181,12 +181,14 @@ $csrf = tokenCsrf();
                 imgWrap.style.height = "190px";
                 imgWrap.style.overflow = "hidden";
 
-                if (prod.imagen_url) {
+                if (prod.imagen_url && prod.imagen_url.trim() !== "") {
                     const img = document.createElement("img");
                     img.src = prod.imagen_url;
-                    img.alt = prod.nombre;
+                    img.alt = prod.nombre || "Producto";
                     img.className = "w-100 h-100";
                     img.style.objectFit = "cover";
+                    img.referrerPolicy = "no-referrer";
+                    img.loading = "lazy";
                     img.onerror = () => {
                         imgWrap.innerHTML = `<span class="small text-muted">Sin imagen</span>`;
                     };
@@ -268,8 +270,9 @@ $csrf = tokenCsrf();
             // Preview imagen
             const imgPreview = document.getElementById("editImgPreview");
             const imgPlaceholder = document.getElementById("editImgPlaceholder");
-            if (prod.imagen_url) {
+            if (prod.imagen_url && prod.imagen_url.trim() !== "") {
                 imgPreview.src = prod.imagen_url;
+                imgPreview.referrerPolicy = "no-referrer";
                 imgPreview.classList.remove("d-none");
                 imgPlaceholder.classList.add("d-none");
             } else {
@@ -334,6 +337,7 @@ $csrf = tokenCsrf();
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         imgEditPreview.src = ev.target.result;
+                        imgEditPreview.referrerPolicy = "no-referrer";
                         imgEditPreview.classList.remove("d-none");
                         imgEditPlaceholder.classList.add("d-none");
                     };
@@ -347,8 +351,13 @@ $csrf = tokenCsrf();
                 const url = inputEditUrl.value.trim();
                 if (url) {
                     imgEditPreview.src = url;
+                    imgEditPreview.referrerPolicy = "no-referrer";
                     imgEditPreview.classList.remove("d-none");
                     imgEditPlaceholder.classList.add("d-none");
+                } else {
+                    imgEditPreview.src = "";
+                    imgEditPreview.classList.add("d-none");
+                    imgEditPlaceholder.classList.remove("d-none");
                 }
             });
         }

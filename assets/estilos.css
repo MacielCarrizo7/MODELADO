@@ -14,12 +14,47 @@
 
 * { box-sizing: border-box; }
 
+html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
     min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     color: var(--cs-ink);
     background: var(--cs-bg);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+}
+
+main, .container, .container-fluid, .tab-content, .tab-pane, .seccion-card {
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+.tabla-ingreso-compacta th,
+.tabla-ingreso-compacta td {
+    padding: 0.35rem 0.4rem !important;
+    vertical-align: middle;
+}
+
+.tabla-ingreso-compacta .form-control-sm,
+.tabla-ingreso-compacta .form-select-sm {
+    min-height: 1.95rem;
+    height: 1.95rem;
+    font-size: 0.82rem;
+    border-radius: 0.4rem;
 }
 
 .texto-secundario { color: var(--cs-muted); }
@@ -522,14 +557,14 @@ body {
     .modal-dialog {
         margin: .5rem auto !important;
         max-width: calc(100% - 1rem) !important;
-        min-height: calc(100% - 1rem) !important;
+        min-height: auto !important;
         display: flex !important;
         align-items: center !important;
     }
 
     .modal-dialog.modal-dialog-centered {
         align-items: center !important;
-        min-height: calc(100% - 1rem) !important;
+        min-height: auto !important;
         margin: .5rem auto !important;
     }
     

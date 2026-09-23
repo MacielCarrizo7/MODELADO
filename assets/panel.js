@@ -1227,11 +1227,23 @@ if (btnRandomCode) {
 
 const btnCopiarCode = document.getElementById("btnCopiarCodigoBarras");
 if (btnCopiarCode) {
-    btnCopiarCode.addEventListener("click", () => {
-        const val = document.getElementById("barcodeInputCodigo").value;
-        if (val) {
-            navigator.clipboard.writeText(val);
+    btnCopiarCode.addEventListener("click", async () => {
+        const input = document.getElementById("barcodeInputCodigo");
+        const val = input ? input.value.trim() : "";
+        if (!val) {
+            alert("No hay ningún código generado para copiar.");
+            return;
+        }
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(val);
+            } else if (input) {
+                input.select();
+                document.execCommand("copy");
+            }
             alert(`Código "${val}" copiado al portapapeles.`);
+        } catch (_) {
+            prompt("Copia el código manualmente:", val);
         }
     });
 }

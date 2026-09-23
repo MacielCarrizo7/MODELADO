@@ -113,27 +113,51 @@ try {
 
     if (isset($_FILES["imagen_archivo"]) && $_FILES["imagen_archivo"]["error"] === UPLOAD_ERR_OK) {
         $file = $_FILES["imagen_archivo"];
-        $allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $file["tmp_name"]);
-        finfo_close($finfo);
+        $allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/svg+xml"];
+        
+        $mimeType = "";
+        if (function_exists("finfo_open")) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mimeType = (string)finfo_file($finfo, $file["tmp_name"]);
+                finfo_close($finfo);
+            }
+        }
+        if ($mimeType === "" && function_exists("mime_content_type")) {
+            $mimeType = (string)mime_content_type($file["tmp_name"]);
+        }
+        if ($mimeType === "" && function_exists("getimagesize")) {
+            $imgInfo = @getimagesize($file["tmp_name"]);
+            if ($imgInfo && !empty($imgInfo["mime"])) {
+                $mimeType = $imgInfo["mime"];
+            }
+        }
+        if ($mimeType === "" && !empty($file["type"])) {
+            $mimeType = $file["type"];
+        }
 
-        if (in_array($mimeType, $allowedTypes, true) && $file["size"] <= 5 * 1024 * 1024) {
+        if (in_array($mimeType, $allowedMimes, true) && $file["size"] <= 5 * 1024 * 1024) {
             $ext = match ($mimeType) {
                 "image/jpeg" => "jpg",
                 "image/png" => "png",
                 "image/webp" => "webp",
                 "image/gif" => "gif",
+                "image/svg+xml" => "svg",
                 default => "jpg"
             };
             $dirUploads = __DIR__ . "/uploads/productos/";
             if (!is_dir($dirUploads)) {
-                @mkdir($dirUploads, 0755, true);
+                @mkdir($dirUploads, 0777, true);
             }
             $nombreArchivo = "prod_" . $id . "_" . time() . "_" . bin2hex(random_bytes(3)) . "." . $ext;
             $destino = $dirUploads . $nombreArchivo;
-            if (move_uploaded_file($file["tmp_name"], $destino)) {
+            if (@move_uploaded_file($file["tmp_name"], $destino)) {
                 $imagenUrl = "uploads/productos/" . $nombreArchivo;
+            } else {
+                $contenido = @file_get_contents($file["tmp_name"]);
+                if ($contenido !== false && strlen($contenido) <= 1500000) {
+                    $imagenUrl = "data:" . $mimeType . ";base64," . base64_encode($contenido);
+                }
             }
         }
     }
