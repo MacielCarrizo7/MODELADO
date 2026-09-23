@@ -141,26 +141,32 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                         <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector o cámara">📷 Escanear código</button>
                     </div>
 
-                    <!-- Filtros de Inventario con Semáforo FIFO y Código de Barras -->
+                    <!-- Filtros de Inventario con Semáforo FIFO, Proveedor y Código de Barras -->
                     <form id="formFiltrosProductos" class="row g-3 align-items-end mb-3 p-3 bg-light rounded-3 border" onsubmit="return false;">
-                        <div class="col-12 col-sm-6 col-lg-4">
-                            <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código / proveedor</label>
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código</label>
                             <div class="input-group">
-                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre, código de barras...">
+                                <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre, código...">
                                 <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">📷</button>
                             </div>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-3">
-                            <label for="filtroProductoSemaforo" class="form-label">Semáforo de vencimiento (FIFO)</label>
+                            <label for="filtroProductoProveedor" class="form-label">Filtrar por Proveedor</label>
+                            <select id="filtroProductoProveedor" name="proveedor" class="form-select">
+                                <option value="">Todos los proveedores</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-2">
+                            <label for="filtroProductoSemaforo" class="form-label">Vencimiento</label>
                             <select id="filtroProductoSemaforo" name="semaforo" class="form-select">
-                                <option value="">Todos los vencimientos</option>
-                                <option value="rojo">🔴 Rojo (≤ 45 días)</option>
-                                <option value="amarillo">🟡 Amarillo (46 a 90 días)</option>
-                                <option value="verde">🟢 Verde (> 90 días)</option>
+                                <option value="">Todos</option>
+                                <option value="rojo">🔴 Rojo (≤ 45 d)</option>
+                                <option value="amarillo">🟡 Amarillo (46-90 d)</option>
+                                <option value="verde">🟢 Verde (> 90 d)</option>
                                 <option value="sin_fecha">⚪ Sin fecha</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="col-12 col-sm-6 col-lg-2">
                             <label for="filtroProductoPresentacion" class="form-label">Presentación</label>
                             <select id="filtroProductoPresentacion" name="presentacion" class="form-select">
                                 <option value="">Todas</option>
@@ -169,7 +175,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                                 <option value="bulto">Bultos</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-2">
+                        <div class="col-12 col-sm-12 col-lg-2">
                             <button type="button" id="limpiarFiltrosProductos" class="btn btn-outline-secondary w-100">Limpiar</button>
                         </div>
                     </form>

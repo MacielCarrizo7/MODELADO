@@ -138,11 +138,17 @@ function renderizarFilasProductos(productos) {
         cbTd.appendChild(cbCont);
         fila.appendChild(cbTd);
 
-        // 2. Nombre
+        // 2. Nombre con Diferenciación de Proveedor
         const nombreTd = document.createElement("td");
         const nombreTitulo = document.createElement("div");
-        nombreTitulo.className = "fw-bold";
+        nombreTitulo.className = "fw-bold d-flex align-items-center flex-wrap gap-1";
         nombreTitulo.textContent = producto.nombre;
+        if (producto.proveedor) {
+            const badgeProv = document.createElement("span");
+            badgeProv.className = "badge text-bg-light border text-primary small fw-semibold";
+            badgeProv.textContent = `🏢 ${producto.proveedor}`;
+            nombreTitulo.appendChild(badgeProv);
+        }
         nombreTd.appendChild(nombreTitulo);
         if (producto.descripcion) {
             const desc = document.createElement("small");
@@ -155,8 +161,14 @@ function renderizarFilasProductos(productos) {
         // 3. Presentación
         fila.append(celda(producto.presentacion ? producto.presentacion.toUpperCase() : "UNIDAD"));
 
-        // 4. Proveedor
-        fila.append(celda(producto.proveedor || "—", "text-secondary"));
+        // 4. Proveedor (Columna destacada)
+        const provTd = document.createElement("td");
+        if (producto.proveedor) {
+            provTd.innerHTML = `<span class="fw-semibold text-dark">🏢 ${producto.proveedor}</span>`;
+        } else {
+            provTd.innerHTML = '<span class="text-muted small">—</span>';
+        }
+        fila.appendChild(provTd);
 
         // 5. Vencimiento (FIFO)
         const vencimientoTd = document.createElement("td");
@@ -230,10 +242,12 @@ function filtrarYRenderizarProductos() {
     const inputBusqueda = document.getElementById("filtroProductoBusqueda");
     const selectSemaforo = document.getElementById("filtroProductoSemaforo");
     const selectPresentacion = document.getElementById("filtroProductoPresentacion");
+    const selectProveedor = document.getElementById("filtroProductoProveedor");
 
     const query = inputBusqueda ? inputBusqueda.value.toLowerCase().trim() : "";
     const semaforoFiltro = selectSemaforo ? selectSemaforo.value : "";
     const presentacionFiltro = selectPresentacion ? selectPresentacion.value : "";
+    const proveedorFiltro = selectProveedor ? selectProveedor.value.toLowerCase().trim() : "";
 
     const filtrados = productosCache.filter((producto) => {
         if (query !== "") {
@@ -244,6 +258,11 @@ function filtrarYRenderizarProductos() {
             if (!nombre.includes(query) && !proveedor.includes(query) && !codigo.includes(query) && !cb.includes(query)) {
                 return false;
             }
+        }
+
+        if (proveedorFiltro !== "") {
+            const prov = (producto.proveedor || "").toLowerCase().trim();
+            if (prov !== proveedorFiltro) return false;
         }
 
         if (presentacionFiltro !== "") {
@@ -292,7 +311,8 @@ function llenarSelectoresProductos() {
         const filtroActual = filtroVentas.value;
         filtroVentas.replaceChildren(new Option("Todos los productos", ""));
         productosCache.forEach((producto) => {
-            filtroVentas.appendChild(new Option(producto.nombre, producto.id));
+            const provTxt = producto.proveedor ? ` [🏢 ${producto.proveedor}]` : "";
+            filtroVentas.appendChild(new Option(`${producto.nombre}${provTxt}`, producto.id));
         });
         filtroVentas.value = filtroActual;
     }
@@ -301,7 +321,8 @@ function llenarSelectoresProductos() {
         const filtroActual = filtroIngresos.value;
         filtroIngresos.replaceChildren(new Option("Todos los productos", ""));
         productosCache.forEach((producto) => {
-            filtroIngresos.appendChild(new Option(producto.nombre, producto.id));
+            const provTxt = producto.proveedor ? ` [🏢 ${producto.proveedor}]` : "";
+            filtroIngresos.appendChild(new Option(`${producto.nombre}${provTxt}`, producto.id));
         });
         filtroIngresos.value = filtroActual;
     }
@@ -311,12 +332,14 @@ function llenarSelectoresProductos() {
         venta.replaceChildren(new Option("-- Seleccionar producto --", ""));
         productosCache.forEach((producto) => {
             const cbTxt = producto.codigo_barras ? ` [CB: ${producto.codigo_barras}]` : "";
-            const opt = new Option(`${producto.nombre}${cbTxt} (Stock: ${producto.stock} un. - ${formatoMoneda.format(producto.precio)})`, producto.id);
+            const provTxt = producto.proveedor ? ` [🏢 ${producto.proveedor}]` : "";
+            const opt = new Option(`${producto.nombre}${provTxt}${cbTxt} (Stock: ${producto.stock} un. - ${formatoMoneda.format(producto.precio)})`, producto.id);
             opt.dataset.precio = producto.precio;
             opt.dataset.stock = producto.stock;
             opt.dataset.presentacion = producto.presentacion || "unidad";
             opt.dataset.unidadesBulto = producto.unidades_por_bulto || 1;
             opt.dataset.codigoBarras = producto.codigo_barras || "";
+            opt.dataset.proveedor = producto.proveedor || "";
             venta.appendChild(opt);
         });
         venta.value = valorActual;
@@ -549,12 +572,12 @@ function renderizarFilasProveedores(proveedores) {
 }
 
 function llenarSelectoresProveedores() {
-    const selects = [
+    const selectsForm = [
         document.getElementById("productoProveedor"),
         document.getElementById("editarProductoProveedor")
     ];
 
-    selects.forEach((sel) => {
+    selectsForm.forEach((sel) => {
         if (!sel) return;
         const valActual = sel.value;
         sel.replaceChildren(new Option("-- Seleccionar proveedor --", ""));
@@ -570,7 +593,6 @@ function llenarSelectoresProveedores() {
 
         sel.value = valActual;
 
-        // Si el usuario selecciona "Registrar nuevo proveedor", abrir modal
         sel.onchange = (e) => {
             if (e.target.value === "__NUEVO__") {
                 abrirModalCrearProveedor();
@@ -578,6 +600,38 @@ function llenarSelectoresProveedores() {
             }
         };
     });
+
+    // Filtro de proveedores en pestaña Inventario
+    const filtroProv = document.getElementById("filtroProductoProveedor");
+    if (filtroProv) {
+        const valActual = filtroProv.value;
+        filtroProv.replaceChildren(new Option("Todos los proveedores", ""));
+        const provsUnicos = new Set();
+        proveedoresCache.forEach((p) => {
+            const nom = (p.nombre || p.proveedor || "").trim();
+            if (nom) provsUnicos.add(nom);
+        });
+        productosCache.forEach((p) => {
+            const nom = (p.proveedor || "").trim();
+            if (nom) provsUnicos.add(nom);
+        });
+        Array.from(provsUnicos).sort().forEach((nom) => {
+            filtroProv.appendChild(new Option(`🏢 ${nom}`, nom));
+        });
+        filtroProv.value = valActual;
+    }
+
+    // Selector de proveedor en Carga Masiva
+    const masivoProv = document.getElementById("masivoProveedor");
+    if (masivoProv) {
+        const valActual = masivoProv.value;
+        masivoProv.replaceChildren(new Option("-- Seleccionar proveedor del remito --", ""));
+        proveedoresCache.forEach((p) => {
+            const nom = p.nombre || p.proveedor;
+            masivoProv.appendChild(new Option(`🏢 ${nom}`, nom));
+        });
+        masivoProv.value = valActual;
+    }
 }
 
 // Buscador en tiempo real de proveedores
@@ -655,6 +709,375 @@ async function eliminarProveedor(id, nombre) {
 }
 
 // -------------------------------------------------------------
+// CARGA MASIVA / INGRESO POR LOTE DE PROVEEDOR
+// -------------------------------------------------------------
+function crearFilaMasiva(indice, datos = {}) {
+    const tr = document.createElement("tr");
+    tr.className = "fila-carga-masiva";
+
+    // 1. Índice
+    const tdIndex = document.createElement("td");
+    tdIndex.className = "text-center fw-bold text-muted small celda-indice-masivo";
+    tdIndex.textContent = String(indice);
+    tr.appendChild(tdIndex);
+
+    // 2. Nombre del Producto *
+    const tdNombre = document.createElement("td");
+    const inputNombre = document.createElement("input");
+    inputNombre.type = "text";
+    inputNombre.className = "form-control form-control-sm masivo-input-nombre";
+    inputNombre.placeholder = "Ej: Coca Cola 1.5L";
+    inputNombre.required = true;
+    inputNombre.value = datos.nombre || "";
+    inputNombre.addEventListener("input", recalcularResumenLoteMasivo);
+    tdNombre.appendChild(inputNombre);
+    tr.appendChild(tdNombre);
+
+    // 3. Código de Barras (con botones 📷 y 🎲)
+    const tdCb = document.createElement("td");
+    const inputGroupCb = document.createElement("div");
+    inputGroupCb.className = "input-group input-group-sm";
+    
+    const inputCb = document.createElement("input");
+    inputCb.type = "text";
+    inputCb.className = "form-control masivo-input-cb font-monospace";
+    inputCb.placeholder = "Opcional / Auto";
+    inputCb.value = datos.codigo_barras || "";
+
+    const btnScan = document.createElement("button");
+    btnScan.type = "button";
+    btnScan.className = "btn btn-outline-secondary";
+    btnScan.title = "Escanear con cámara";
+    btnScan.innerHTML = "📷";
+    btnScan.addEventListener("click", () => {
+        abrirModalScannerCamara((codigo) => {
+            inputCb.value = codigo;
+        });
+    });
+
+    const btnGen = document.createElement("button");
+    btnGen.type = "button";
+    btnGen.className = "btn btn-outline-secondary";
+    btnGen.title = "Generar código aleatorio";
+    btnGen.innerHTML = "🎲";
+    btnGen.addEventListener("click", () => {
+        inputCb.value = generarCodigoEan13();
+    });
+
+    inputGroupCb.append(inputCb, btnScan, btnGen);
+    tdCb.appendChild(inputGroupCb);
+    tr.appendChild(tdCb);
+
+    // 4. Presentación
+    const tdPres = document.createElement("td");
+    const selectPres = document.createElement("select");
+    selectPres.className = "form-select form-select-sm masivo-select-pres";
+    [
+        { val: "unidad", label: "Unidad" },
+        { val: "caja", label: "Caja" },
+        { val: "bulto", label: "Bulto" }
+    ].forEach((opt) => {
+        const o = new Option(opt.label, opt.val);
+        if (datos.presentacion === opt.val) o.selected = true;
+        selectPres.appendChild(o);
+    });
+    tdPres.appendChild(selectPres);
+    tr.appendChild(tdPres);
+
+    // 5. Unidades por Bulto
+    const tdUnidBulto = document.createElement("td");
+    const inputUnidBulto = document.createElement("input");
+    inputUnidBulto.type = "number";
+    inputUnidBulto.className = "form-control form-control-sm text-center masivo-input-unid-bulto";
+    inputUnidBulto.min = "1";
+    inputUnidBulto.value = datos.unidades_por_bulto || 1;
+    inputUnidBulto.disabled = (selectPres.value === "unidad");
+    inputUnidBulto.addEventListener("input", recalcularResumenLoteMasivo);
+    tdUnidBulto.appendChild(inputUnidBulto);
+    tr.appendChild(tdUnidBulto);
+
+    selectPres.addEventListener("change", () => {
+        if (selectPres.value === "unidad") {
+            inputUnidBulto.value = 1;
+            inputUnidBulto.disabled = true;
+        } else {
+            inputUnidBulto.disabled = false;
+            if (Number(inputUnidBulto.value) <= 1) inputUnidBulto.value = 12;
+        }
+        recalcularResumenLoteMasivo();
+    });
+
+    // 6. Cantidad / Stock *
+    const tdStock = document.createElement("td");
+    const inputStock = document.createElement("input");
+    inputStock.type = "number";
+    inputStock.className = "form-control form-control-sm text-end masivo-input-stock";
+    inputStock.min = "0";
+    inputStock.value = datos.stock !== undefined ? datos.stock : 10;
+    inputStock.required = true;
+    inputStock.addEventListener("input", recalcularResumenLoteMasivo);
+    tdStock.appendChild(inputStock);
+    tr.appendChild(tdStock);
+
+    // 7. Precio ($) *
+    const tdPrecio = document.createElement("td");
+    const inputPrecio = document.createElement("input");
+    inputPrecio.type = "number";
+    inputPrecio.step = "0.01";
+    inputPrecio.min = "0";
+    inputPrecio.className = "form-control form-control-sm text-end masivo-input-precio";
+    inputPrecio.placeholder = "0.00";
+    inputPrecio.required = true;
+    inputPrecio.value = datos.precio !== undefined ? datos.precio : "";
+    inputPrecio.addEventListener("input", recalcularResumenLoteMasivo);
+    tdPrecio.appendChild(inputPrecio);
+    tr.appendChild(tdPrecio);
+
+    // 8. Vencimiento FIFO
+    const tdVenc = document.createElement("td");
+    const inputVenc = document.createElement("input");
+    inputVenc.type = "date";
+    inputVenc.className = "form-control form-control-sm masivo-input-venc";
+    inputVenc.value = datos.fecha_vencimiento || "";
+    tdVenc.appendChild(inputVenc);
+    tr.appendChild(tdVenc);
+
+    // 9. Botón Eliminar fila
+    const tdAcc = document.createElement("td");
+    tdAcc.className = "text-center";
+    const btnDel = document.createElement("button");
+    btnDel.type = "button";
+    btnDel.className = "btn btn-outline-danger btn-sm p-1";
+    btnDel.title = "Quitar este producto";
+    btnDel.innerHTML = "🗑️";
+    btnDel.addEventListener("click", () => {
+        const tbody = document.getElementById("cuerpoFilasMasivas");
+        if (tbody && tbody.querySelectorAll("tr").length <= 1) {
+            alert("El lote debe tener al menos una fila de producto.");
+            return;
+        }
+        tr.remove();
+        renumerarFilasMasivas();
+        recalcularResumenLoteMasivo();
+    });
+    tdAcc.appendChild(btnDel);
+    tr.appendChild(tdAcc);
+
+    return tr;
+}
+
+function renumerarFilasMasivas() {
+    const filas = document.querySelectorAll("#cuerpoFilasMasivas tr");
+    filas.forEach((f, idx) => {
+        const celdaIdx = f.querySelector(".celda-indice-masivo");
+        if (celdaIdx) celdaIdx.textContent = String(idx + 1);
+    });
+}
+
+function recalcularResumenLoteMasivo() {
+    const filas = document.querySelectorAll("#cuerpoFilasMasivas tr");
+    let totalItems = 0;
+    let totalUnidadesFisicas = 0;
+    let valorTotal = 0;
+
+    filas.forEach((fila) => {
+        const inputNombre = fila.querySelector(".masivo-input-nombre");
+        const selectPres = fila.querySelector(".masivo-select-pres");
+        const inputUnidBulto = fila.querySelector(".masivo-input-unid-bulto");
+        const inputStock = fila.querySelector(".masivo-input-stock");
+        const inputPrecio = fila.querySelector(".masivo-input-precio");
+
+        const nombre = inputNombre ? inputNombre.value.trim() : "";
+        const pres = selectPres ? selectPres.value : "unidad";
+        const unidBulto = Math.max(1, Number(inputUnidBulto ? inputUnidBulto.value : 1) || 1);
+        const cant = Number(inputStock ? inputStock.value : 0) || 0;
+        const precio = Number(inputPrecio ? inputPrecio.value : 0) || 0;
+
+        if (nombre !== "" || cant > 0 || precio > 0) {
+            totalItems++;
+            const unidsFisicas = (pres === "unidad") ? cant : cant * unidBulto;
+            totalUnidadesFisicas += unidsFisicas;
+            valorTotal += (unidsFisicas * precio);
+        }
+    });
+
+    const elProd = document.getElementById("resumenLoteTotalProd");
+    const elUnid = document.getElementById("resumenLoteTotalUnidades");
+    const elValor = document.getElementById("resumenLoteValorTotal");
+
+    if (elProd) elProd.textContent = totalItems;
+    if (elUnid) elUnid.textContent = `${totalUnidadesFisicas} un.`;
+    if (elValor) elValor.textContent = formatoMoneda.format(valorTotal);
+}
+
+function inicializarModalCargaMasiva() {
+    const tbody = document.getElementById("cuerpoFilasMasivas");
+    if (!tbody) return;
+    tbody.replaceChildren();
+
+    const errBox = document.getElementById("errorCargaMasiva");
+    const okBox = document.getElementById("exitoCargaMasiva");
+    if (errBox) errBox.classList.add("d-none");
+    if (okBox) okBox.classList.add("d-none");
+
+    const selProv = document.getElementById("masivoProveedor");
+    const txtProv = document.getElementById("masivoProveedorTexto");
+    if (selProv) selProv.value = "";
+    if (txtProv) txtProv.value = "";
+
+    // Agregar 3 filas iniciales
+    for (let i = 1; i <= 3; i++) {
+        tbody.appendChild(crearFilaMasiva(i));
+    }
+    recalcularResumenLoteMasivo();
+}
+
+const btnAgregarFilaMasiva = document.getElementById("btnAgregarFilaMasiva");
+if (btnAgregarFilaMasiva) {
+    btnAgregarFilaMasiva.addEventListener("click", () => {
+        const tbody = document.getElementById("cuerpoFilasMasivas");
+        if (!tbody) return;
+        const nuevoIndice = tbody.querySelectorAll("tr").length + 1;
+        const nuevaFila = crearFilaMasiva(nuevoIndice);
+        tbody.appendChild(nuevaFila);
+        const inputNombre = nuevaFila.querySelector(".masivo-input-nombre");
+        if (inputNombre) inputNombre.focus();
+        recalcularResumenLoteMasivo();
+    });
+}
+
+const btnGuardarLoteMasivo = document.getElementById("btnGuardarLoteMasivo");
+if (btnGuardarLoteMasivo) {
+    btnGuardarLoteMasivo.addEventListener("click", async () => {
+        const errBox = document.getElementById("errorCargaMasiva");
+        const okBox = document.getElementById("exitoCargaMasiva");
+        if (errBox) errBox.classList.add("d-none");
+        if (okBox) okBox.classList.add("d-none");
+
+        const selProv = document.getElementById("masivoProveedor");
+        const txtProv = document.getElementById("masivoProveedorTexto");
+        const proveedor = (txtProv && txtProv.value.trim()) ? txtProv.value.trim() : (selProv ? selProv.value.trim() : "");
+
+        const filas = document.querySelectorAll("#cuerpoFilasMasivas tr");
+        const productosLote = [];
+        const erroresValidacion = [];
+
+        filas.forEach((fila, idx) => {
+            const numFila = idx + 1;
+            const inputNombre = fila.querySelector(".masivo-input-nombre");
+            const inputCb = fila.querySelector(".masivo-input-cb");
+            const selectPres = fila.querySelector(".masivo-select-pres");
+            const inputUnidBulto = fila.querySelector(".masivo-input-unid-bulto");
+            const inputStock = fila.querySelector(".masivo-input-stock");
+            const inputPrecio = fila.querySelector(".masivo-input-precio");
+            const inputVenc = fila.querySelector(".masivo-input-venc");
+
+            const nombre = inputNombre ? inputNombre.value.trim() : "";
+            const cb = inputCb ? inputCb.value.trim() : "";
+            const pres = selectPres ? selectPres.value : "unidad";
+            const unidBulto = Math.max(1, Number(inputUnidBulto ? inputUnidBulto.value : 1) || 1);
+            const stock = Number(inputStock ? inputStock.value : 0);
+            const precio = Number(inputPrecio ? inputPrecio.value : 0);
+            const venc = inputVenc ? inputVenc.value.trim() : "";
+
+            // Ignorar filas totalmente vacías
+            if (nombre === "" && stock === 0 && precio === 0 && cb === "") {
+                return;
+            }
+
+            if (nombre === "") {
+                erroresValidacion.push(`Fila #${numFila}: El nombre del producto es obligatorio.`);
+                return;
+            }
+
+            if (precio <= 0) {
+                erroresValidacion.push(`Fila #${numFila} ("${nombre}"): El precio debe ser mayor a 0.`);
+                return;
+            }
+
+            if (stock < 0) {
+                erroresValidacion.push(`Fila #${numFila} ("${nombre}"): La cantidad no puede ser negativa.`);
+                return;
+            }
+
+            productosLote.push({
+                nombre: nombre,
+                codigo_barras: cb,
+                presentacion: pres,
+                unidades_por_bulto: unidBulto,
+                stock: stock,
+                precio: precio,
+                fecha_vencimiento: venc
+            });
+        });
+
+        if (erroresValidacion.length > 0) {
+            if (errBox) {
+                errBox.innerHTML = `<strong>Atención con los siguientes datos:</strong><ul class="mb-0 mt-1">${erroresValidacion.map(e => `<li>${e}</li>`).join("")}</ul>`;
+                errBox.classList.remove("d-none");
+            }
+            return;
+        }
+
+        if (productosLote.length === 0) {
+            if (errBox) {
+                errBox.textContent = "Completá al menos un producto para guardar el lote.";
+                errBox.classList.remove("d-none");
+            }
+            return;
+        }
+
+        btnGuardarLoteMasivo.disabled = true;
+        const textoOriginal = btnGuardarLoteMasivo.innerHTML;
+        btnGuardarLoteMasivo.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> Guardando ${productosLote.length} productos...`;
+
+        try {
+            const respuesta = await solicitar("guardar_productos_masivo.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    proveedor: proveedor,
+                    productos: productosLote
+                })
+            });
+
+            if (okBox) {
+                okBox.innerHTML = `<strong>¡Lote guardado con éxito!</strong> ${respuesta.mensaje || `Se registraron ${respuesta.total_guardados} productos.`}`;
+                okBox.classList.remove("d-none");
+            }
+
+            // Recargar datos en el sistema
+            await Promise.all([cargarProductos(), cargarProveedores(), cargarIngresos()]);
+
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById("modalCargaMasiva"));
+                if (modal) modal.hide();
+                inicializarModalCargaMasiva();
+            }, 1200);
+
+        } catch (error) {
+            if (errBox) {
+                errBox.textContent = error.message || "Error al procesar la carga masiva.";
+                errBox.classList.remove("d-none");
+            }
+        } finally {
+            btnGuardarLoteMasivo.disabled = false;
+            btnGuardarLoteMasivo.innerHTML = textoOriginal;
+        }
+    });
+}
+
+const modalCargaMasivaEl = document.getElementById("modalCargaMasiva");
+if (modalCargaMasivaEl) {
+    modalCargaMasivaEl.addEventListener("show.bs.modal", () => {
+        const tbody = document.getElementById("cuerpoFilasMasivas");
+        if (!tbody || tbody.children.length === 0) {
+            inicializarModalCargaMasiva();
+        }
+    });
+}
+
+// -------------------------------------------------------------
 // GENERADOR E IMPRESIÓN DE CÓDIGOS DE BARRA
 // -------------------------------------------------------------
 function llenarSelectorBarcodeProductos() {
@@ -663,7 +1086,8 @@ function llenarSelectorBarcodeProductos() {
     const valActual = selector.value;
     selector.replaceChildren(new Option("-- Ingreso manual / Nuevo producto --", ""));
     productosCache.forEach((p) => {
-        const opt = new Option(`${p.nombre} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio)})`, p.id);
+        const provTxt = p.proveedor ? ` [🏢 ${p.proveedor}]` : "";
+        const opt = new Option(`${p.nombre}${provTxt} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio)})`, p.id);
         selector.appendChild(opt);
     });
     selector.value = valActual;
@@ -1503,6 +1927,7 @@ if (formCancelarVenta) {
 const inputFiltroProductoBusqueda = document.getElementById("filtroProductoBusqueda");
 const selectFiltroProductoSemaforo = document.getElementById("filtroProductoSemaforo");
 const selectFiltroProductoPresentacion = document.getElementById("filtroProductoPresentacion");
+const selectFiltroProductoProveedor = document.getElementById("filtroProductoProveedor");
 const btnLimpiarFiltrosProductos = document.getElementById("limpiarFiltrosProductos");
 
 function sincronizarBotonesSemaforo(valorSeleccionado) {
@@ -1524,6 +1949,7 @@ if (selectFiltroProductoSemaforo) {
     });
 }
 if (selectFiltroProductoPresentacion) selectFiltroProductoPresentacion.addEventListener("change", filtrarYRenderizarProductos);
+if (selectFiltroProductoProveedor) selectFiltroProductoProveedor.addEventListener("change", filtrarYRenderizarProductos);
 
 document.querySelectorAll("[data-boton-semaforo]").forEach((boton) => {
     boton.addEventListener("click", () => {
@@ -1541,6 +1967,7 @@ if (btnLimpiarFiltrosProductos) {
         if (inputFiltroProductoBusqueda) inputFiltroProductoBusqueda.value = "";
         if (selectFiltroProductoSemaforo) selectFiltroProductoSemaforo.value = "";
         if (selectFiltroProductoPresentacion) selectFiltroProductoPresentacion.value = "";
+        if (selectFiltroProductoProveedor) selectFiltroProductoProveedor.value = "";
         sincronizarBotonesSemaforo("");
         filtrarYRenderizarProductos();
     });

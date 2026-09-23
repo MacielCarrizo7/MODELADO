@@ -167,7 +167,16 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                         <span class="fs-4">➕</span>
                                         <div>
                                             <div class="fw-bold">Alta de producto</div>
-                                            <small class="text-muted">Código de barras, stock y proveedor</small>
+                                            <small class="text-muted">Carga individual con código y proveedor</small>
+                                        </div>
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <button class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" type="button" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">
+                                        <span class="fs-4">📦</span>
+                                        <div>
+                                            <div class="fw-bold">Alta Masiva (Lote)</div>
+                                            <small class="text-muted">Ingreso multiproducto por remito</small>
                                         </div>
                                     </button>
                                 </div>
@@ -186,15 +195,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                         <div>
                                             <div class="fw-bold">Directorio Proveedores</div>
                                             <small class="text-muted">Alta, CUIT, contacto y catálogo</small>
-                                        </div>
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6">
-                                    <button class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3" type="button" onclick="bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-barcodes-btn')).show()">
-                                        <span class="fs-4">🏷️</span>
-                                        <div>
-                                            <div class="fw-bold">Generar Etiquetas</div>
-                                            <small class="text-muted">Códigos de barra e impresión</small>
                                         </div>
                                     </button>
                                 </div>
@@ -232,41 +232,48 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="etiqueta text-primary mb-1">Inventario y Lotes</p>
                             <h2 id="titulo-productos" class="h4 fw-bold mb-0">Listado de Productos (Orden FIFO)</h2>
                         </div>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras o cámara">📷 Escanear código</button>
+                            <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">📦 Alta Masiva (Lote)</button>
                             <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalProducto">+ Agregar producto</button>
                         </div>
                     </div>
 
-                    <!-- Filtros de Inventario con Semáforo FIFO y Código de Barras -->
+                    <!-- Filtros de Inventario con Semáforo FIFO, Proveedor y Código de Barras -->
                     <form id="formFiltrosProductos" class="row g-3 align-items-end mb-3 p-3 bg-light rounded-3 border" onsubmit="return false;">
-                        <div class="col-12 col-sm-6 col-lg-4">
-                            <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código / proveedor</label>
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <label for="filtroProductoBusqueda" class="form-label">Buscar producto / código</label>
                             <div class="input-group">
                                 <input type="text" id="filtroProductoBusqueda" name="busqueda" class="form-control" placeholder="🔍 Nombre, código de barras...">
                                 <button class="btn btn-outline-secondary" type="button" id="btnEscanearFiltro" title="Escanear con cámara">📷</button>
                             </div>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-3">
-                            <label for="filtroProductoSemaforo" class="form-label">Semáforo de vencimiento (FIFO)</label>
-                            <select id="filtroProductoSemaforo" name="semaforo" class="form-select">
-                                <option value="">Todos los vencimientos</option>
-                                <option value="rojo">🔴 Rojo: Próximos a vencer / Vencidos (≤ 45 días)</option>
-                                <option value="amarillo">🟡 Amarillo: Rotación intermedia (46 a 90 días)</option>
-                                <option value="verde">🟢 Verde: Vigentes (> 90 días)</option>
-                                <option value="sin_fecha">⚪ Sin fecha de vencimiento</option>
+                            <label for="filtroProductoProveedor" class="form-label">Filtrar por Proveedor</label>
+                            <select id="filtroProductoProveedor" name="proveedor" class="form-select">
+                                <option value="">Todos los proveedores</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="col-12 col-sm-6 col-lg-2">
+                            <label for="filtroProductoSemaforo" class="form-label">Vencimiento (FIFO)</label>
+                            <select id="filtroProductoSemaforo" name="semaforo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="rojo">🔴 Rojo: ≤ 45 d</option>
+                                <option value="amarillo">🟡 Amarillo: 46-90 d</option>
+                                <option value="verde">🟢 Verde: > 90 d</option>
+                                <option value="sin_fecha">⚪ Sin fecha</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-2">
                             <label for="filtroProductoPresentacion" class="form-label">Presentación</label>
                             <select id="filtroProductoPresentacion" name="presentacion" class="form-select">
-                                <option value="">Todas las presentaciones</option>
+                                <option value="">Todas</option>
                                 <option value="unidad">Unidades</option>
                                 <option value="caja">Cajas</option>
                                 <option value="bulto">Bultos</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-2 d-flex gap-2">
+                        <div class="col-12 col-sm-12 col-lg-2">
                             <button type="button" id="limpiarFiltrosProductos" class="btn btn-outline-secondary w-100">Limpiar</button>
                         </div>
                     </form>
@@ -684,6 +691,85 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnCerrarScanner">Cancelar</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Carga Masiva de Productos por Lote -->
+    <div class="modal fade" id="modalCargaMasiva" tabindex="-1" aria-labelledby="tituloModalCargaMasiva" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formCargaMasiva" onsubmit="return false;">
+                    <div class="modal-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">📦</span>
+                            <div>
+                                <h2 id="tituloModalCargaMasiva" class="modal-title fs-5 fw-bold mb-0">Carga Masiva de Productos por Lote / Remito</h2>
+                                <small class="text-muted">Ingresá múltiples productos asociados a un mismo proveedor en un solo clic.</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="errorCargaMasiva" class="alert alert-danger d-none mb-3"></div>
+                        <div id="exitoCargaMasiva" class="alert alert-success d-none mb-3"></div>
+
+                        <!-- Selector de Proveedor Común -->
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label fw-bold" for="masivoProveedor">🏢 Proveedor del Lote / Remito *</label>
+                                    <select class="form-select" id="masivoProveedor" required>
+                                        <option value="">-- Seleccionar proveedor del remito --</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted" for="masivoProveedorTexto">O escribir nombre de nuevo proveedor</label>
+                                    <input type="text" class="form-control" id="masivoProveedorTexto" placeholder="Ej: Distribuidora Central SRL (opcional)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla Dinámica de Productos -->
+                        <div class="table-responsive border rounded-3 mb-3">
+                            <table class="table table-bordered table-hover align-middle mb-0" id="tablaCargaMasiva">
+                                <thead class="table-light">
+                                    <tr class="small text-muted text-uppercase">
+                                        <th style="width: 40px;">#</th>
+                                        <th style="min-width: 200px;">Nombre del Producto *</th>
+                                        <th style="min-width: 170px;">Código de Barras</th>
+                                        <th style="min-width: 120px;">Presentación</th>
+                                        <th style="width: 90px;">Unid/Bulto</th>
+                                        <th style="width: 100px;">Cant. Lote *</th>
+                                        <th style="width: 110px;">Precio ($) *</th>
+                                        <th style="min-width: 140px;">Vencimiento (FIFO)</th>
+                                        <th style="width: 50px;" class="text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cuerpoFilasMasivas">
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAgregarFilaMasiva">
+                                ➕ Añadir otro producto al lote
+                            </button>
+                            <div class="p-2 bg-light rounded border small d-flex flex-wrap gap-3 text-secondary" id="resumenLoteMasivo">
+                                <span>Total productos: <strong id="resumenLoteTotalProd" class="text-dark">0</strong></span>
+                                <span>Unidades físicas: <strong id="resumenLoteTotalUnidades" class="text-dark">0 un.</strong></span>
+                                <span>Valor estimado: <strong id="resumenLoteValorTotal" class="text-primary">$ 0,00</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-success" id="btnGuardarLoteMasivo">
+                            ✓ Guardar Todo el Lote
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
