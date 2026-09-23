@@ -78,9 +78,15 @@ try {
 
     if ($presentacion === "unidad") {
         $unidadesPorBulto = 1;
+        $permiteVentaUnidad = true;
     } else {
         if ($unidadesPorBulto <= 0) {
             responderJson(["error" => "Debés indicar cuántas unidades contiene cada " . ($presentacion === "caja" ? "caja" : "bulto") . "."], 400);
+        }
+        if (isset($_POST["permite_venta_unidad"])) {
+            $permiteVentaUnidad = ($_POST["permite_venta_unidad"] === "1" || $_POST["permite_venta_unidad"] === "true" || $_POST["permite_venta_unidad"] === "on");
+        } else {
+            $permiteVentaUnidad = isset($productoActual["permite_venta_unidad"]) ? (bool)$productoActual["permite_venta_unidad"] : false;
         }
     }
 
@@ -176,6 +182,7 @@ try {
         "categoria_nombre" => $categoriaNombre !== "" ? $categoriaNombre : null,
         "imagen_url" => $imagenFinal,
         "presentacion" => $presentacion,
+        "permite_venta_unidad" => $permiteVentaUnidad,
         "unidades_por_bulto" => $unidadesPorBulto,
         "fecha_vencimiento" => $vencimientoParam,
         "proveedor" => $proveedorParam,

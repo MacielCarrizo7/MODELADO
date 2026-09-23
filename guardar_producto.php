@@ -45,10 +45,12 @@ if (!in_array($presentacion, $presentacionesValidas, true)) {
 
 if ($presentacion === "unidad") {
     $unidadesPorBulto = 1;
+    $permiteVentaUnidad = true;
 } else {
     if ($unidadesPorBulto <= 0) {
         responderJson(["error" => "Debés indicar cuántas unidades contiene cada " . ($presentacion === "caja" ? "caja" : "bulto") . "."], 400);
     }
+    $permiteVentaUnidad = isset($_POST["permite_venta_unidad"]) && ($_POST["permite_venta_unidad"] === "1" || $_POST["permite_venta_unidad"] === "true" || $_POST["permite_venta_unidad"] === "on");
 }
 
 if ($fechaVencimiento !== "") {
@@ -139,6 +141,7 @@ try {
         "nombre" => $nombre,
         "descripcion" => $descripcionParam,
         "presentacion" => $presentacion,
+        "permite_venta_unidad" => $permiteVentaUnidad,
         "precio" => $precioVenta,
         "precio_venta" => $precioVenta,
         "precio_costo" => $precioCosto,

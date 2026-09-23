@@ -67,6 +67,9 @@ try {
         }
         if ($presentacion === "unidad") {
             $unidadesPorBulto = 1;
+            $permiteVentaUnidad = true;
+        } else {
+            $permiteVentaUnidad = !empty($prod["permite_venta_unidad"]);
         }
 
         $vencimientoParam = ($fechaVencimiento !== "" && fechaIsoValida($fechaVencimiento)) ? $fechaVencimiento : null;
@@ -86,6 +89,7 @@ try {
             "nombre" => $nombre,
             "descripcion" => $descripcion !== "" ? $descripcion : null,
             "presentacion" => $presentacion,
+            "permite_venta_unidad" => $permiteVentaUnidad,
             "precio" => $precioVenta,
             "precio_venta" => $precioVenta,
             "precio_costo" => $precioCosto,

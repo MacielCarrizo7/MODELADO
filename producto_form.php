@@ -237,6 +237,24 @@ $csrf = tokenCsrf();
                                 </div>
                             </div>
 
+                            <div class="col-12" id="contenedorPermiteVentaUnidad">
+                                <div class="p-3 border rounded-3 bg-light d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <label class="form-check-label fw-bold d-block text-dark" for="prodPermiteVentaUnidad">
+                                            ¿Se puede vender por unidad suelta / fraccionada?
+                                        </label>
+                                        <small class="text-muted d-block" id="textoAyudaPermiteUnidad">
+                                            <?= (isset($producto['presentacion']) && $producto['presentacion'] === 'unidad') 
+                                                ? 'Los artículos con presentación "Unidad" se venden siempre por unidad.' 
+                                                : 'Si está desactivado, el Punto de Venta obligará a vender únicamente en presentación empaquetada (Caja/Bulto).' ?>
+                                        </small>
+                                    </div>
+                                    <div class="form-check form-switch m-0">
+                                        <input class="form-check-input fs-4" type="checkbox" role="switch" id="prodPermiteVentaUnidad" name="permite_venta_unidad" value="1" <?= (!isset($producto['permite_venta_unidad']) || $producto['permite_venta_unidad'] ? 'checked' : '') ?> <?= (isset($producto['presentacion']) && $producto['presentacion'] === 'unidad') ? 'disabled' : '' ?>>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="col-12">
                                 <label for="prodMotivo" class="form-label small text-muted">Motivo de la Modificación (para auditoría)</label>
                                 <input type="text" class="form-control form-control-sm" id="prodMotivo" name="motivo" value="Modificación / corrección de producto">
@@ -327,7 +345,8 @@ $csrf = tokenCsrf();
                             <th style="min-width: 190px;">Nombre del Producto *</th>
                             <th style="min-width: 140px;">Categoría</th>
                             <th style="min-width: 140px;">Código Barras</th>
-                            <th style="min-width: 125px;">Presentación</th>
+                            <th style="min-width: 115px;">Presentación</th>
+                            <th style="min-width: 90px;" class="text-center">¿Venta x Unid.?</th>
                             <th style="width: 90px;">Cant. *</th>
                             <th style="width: 105px;">P. Costo ($)</th>
                             <th style="width: 105px;">P. Venta ($) *</th>
@@ -471,13 +490,23 @@ $csrf = tokenCsrf();
             const selPres = document.getElementById("prodPresentacion");
             const contBulto = document.getElementById("contenedorUnidadesBulto");
             const inputUnidBulto = document.getElementById("prodUnidadesBulto");
+            const chkPermiteUnidad = document.getElementById("prodPermiteVentaUnidad");
+            const txtAyudaPermite = document.getElementById("textoAyudaPermiteUnidad");
+
             selPres.addEventListener("change", () => {
                 if (selPres.value === "caja" || selPres.value === "bulto") {
                     contBulto.classList.remove("d-none");
                     if (parseFloat(inputUnidBulto.value) <= 1) inputUnidBulto.value = selPres.value === "caja" ? 12 : 24;
+                    if (chkPermiteUnidad) chkPermiteUnidad.disabled = false;
+                    if (txtAyudaPermite) txtAyudaPermite.textContent = `Si está desactivado, el Punto de Venta obligará a vender únicamente en ${selPres.value === 'caja' ? 'cajas cerradas' : 'bultos cerrados'}.`;
                 } else {
                     contBulto.classList.add("d-none");
                     inputUnidBulto.value = 1;
+                    if (chkPermiteUnidad) {
+                        chkPermiteUnidad.checked = true;
+                        chkPermiteUnidad.disabled = true;
+                    }
+                    if (txtAyudaPermite) txtAyudaPermite.textContent = 'Los artículos con presentación "Unidad" se venden siempre por unidad individual.';
                 }
             });
 
@@ -607,6 +636,12 @@ $csrf = tokenCsrf();
                         </select>
                         <input type="number" min="1" class="form-control form-control-sm masivo-unid-bulto d-none" placeholder="Unids/bulto" value="1">
                     </td>
+                    <td class="text-center align-middle">
+                        <div class="form-check form-switch d-inline-block m-0">
+                            <input class="form-check-input masivo-venta-unidad" type="checkbox" role="switch" title="¿Se puede vender por unidad suelta?" checked disabled>
+                        </div>
+                        <small class="d-block text-muted masivo-lbl-unid" style="font-size: 0.72rem;">Sí</small>
+                    </td>
                     <td>
                         <input type="number" min="0" class="form-control form-control-sm masivo-stock" placeholder="0" value="0">
                     </td>
@@ -626,13 +661,29 @@ $csrf = tokenCsrf();
 
                 const selPres = tr.querySelector(".masivo-pres");
                 const inputUnid = tr.querySelector(".masivo-unid-bulto");
+                const chkVentaUnid = tr.querySelector(".masivo-venta-unidad");
+                const lblVentaUnid = tr.querySelector(".masivo-lbl-unid");
+
+                chkVentaUnid.addEventListener("change", () => {
+                    lblVentaUnid.textContent = chkVentaUnid.checked ? "Sí" : "No";
+                    lblVentaUnid.className = chkVentaUnid.checked ? "d-block text-success fw-bold" : "d-block text-danger fw-bold";
+                });
+
                 selPres.addEventListener("change", () => {
                     if (selPres.value === "caja" || selPres.value === "bulto") {
                         inputUnid.classList.remove("d-none");
                         if (parseInt(inputUnid.value) <= 1) inputUnid.value = selPres.value === "caja" ? 12 : 24;
+                        chkVentaUnid.disabled = false;
+                        chkVentaUnid.checked = true;
+                        lblVentaUnid.textContent = "Sí";
+                        lblVentaUnid.className = "d-block text-success fw-bold";
                     } else {
                         inputUnid.classList.add("d-none");
                         inputUnid.value = 1;
+                        chkVentaUnid.checked = true;
+                        chkVentaUnid.disabled = true;
+                        lblVentaUnid.textContent = "Sí";
+                        lblVentaUnid.className = "d-block text-muted";
                     }
                     recalcularResumen();
                 });
@@ -734,6 +785,8 @@ $csrf = tokenCsrf();
                     const catNom = selCat.selectedOptions[0]?.dataset?.nombre || "";
                     const cb = tr.querySelector(".masivo-cb").value.trim();
                     const pres = tr.querySelector(".masivo-pres").value;
+                    const chkUnid = tr.querySelector(".masivo-venta-unidad");
+                    const permiteUnid = (pres === "unidad") ? true : (chkUnid ? chkUnid.checked : true);
                     const unidBulto = Math.max(1, parseInt(tr.querySelector(".masivo-unid-bulto").value) || 1);
                     const stock = parseInt(tr.querySelector(".masivo-stock").value) || 0;
                     const costo = parseFloat(tr.querySelector(".masivo-costo").value) || 0;
@@ -761,6 +814,7 @@ $csrf = tokenCsrf();
                         categoria_nombre: catNom,
                         codigo_barras: cb,
                         presentacion: pres,
+                        permite_venta_unidad: permiteUnid,
                         unidades_por_bulto: unidBulto,
                         stock: stock,
                         precio_costo: costo,

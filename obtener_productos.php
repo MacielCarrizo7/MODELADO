@@ -106,6 +106,7 @@ try {
             "precio_venta" => $precioVenta,
             "stock" => $stock,
             "presentacion" => $pres,
+            "permite_venta_unidad" => isset($p["permite_venta_unidad"]) ? (bool)$p["permite_venta_unidad"] : ($pres === "unidad"),
             "unidades_por_bulto" => $unidadesBulto,
             "fecha_vencimiento" => $fechaVenc,
             "proveedor" => $proveedor !== "" ? $proveedor : null,

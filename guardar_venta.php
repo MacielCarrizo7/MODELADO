@@ -92,12 +92,25 @@ try {
             throw new DomainException("Ítem #{$numItem}: Producto no encontrado en la base de datos.");
         }
 
+        $nombreProd = (string) ($producto["nombre"] ?? "Producto #{$prodId}");
+        $presProducto = (string) ($producto["presentacion"] ?? "unidad");
+        $permiteVentaUnidad = isset($producto["permite_venta_unidad"]) ? (bool)$producto["permite_venta_unidad"] : ($presProducto === "unidad");
+
+        // Validar que no se intente vender por unidad si está deshabilitado
+        if ($tipoVenta === "unidad" && $presProducto !== "unidad" && !$permiteVentaUnidad) {
+            throw new DomainException("Ítem #{$numItem} ('{$nombreProd}'): No se permite la venta por unidad suelta. Debe venderse en su presentación empaquetada ({$presProducto}).");
+        }
+
+        // Validar que no se intente vender en una presentación empaquetada que no corresponde
+        if ($tipoVenta !== "unidad" && $tipoVenta !== $presProducto) {
+            throw new DomainException("Ítem #{$numItem} ('{$nombreProd}'): Presentación '{$tipoVenta}' no permitida. Este producto está configurado como '{$presProducto}'.");
+        }
+
         $unidadesPorEmpaque = max(1, (int) ($producto["unidades_por_bulto"] ?? 1));
         $totalUnidades = ($tipoVenta === "caja" || $tipoVenta === "bulto") ? ($cant * $unidadesPorEmpaque) : $cant;
         $stockActual = (int) ($producto["stock"] ?? 0);
 
         if ($stockActual < $totalUnidades) {
-            $nombreProd = (string) ($producto["nombre"] ?? "Producto #{$prodId}");
             throw new DomainException("Stock insuficiente para '{$nombreProd}'. Disponible: {$stockActual} un. (solicitadas: {$totalUnidades} un.).");
         }
 

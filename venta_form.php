@@ -299,6 +299,8 @@ $csrf = tokenCsrf();
                     const opt = new Option(`${p.nombre}${cat}${prov} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio_venta)})`, p.id);
                     opt.dataset.precio = p.precio_venta;
                     opt.dataset.stock = p.stock;
+                    opt.dataset.presentacion = p.presentacion || "unidad";
+                    opt.dataset.permiteVentaUnidad = (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0") ? "1" : "0";
                     opt.dataset.unidadesBulto = p.unidades_por_bulto || 1;
                     opt.dataset.proveedor = p.proveedor || "";
                     opt.dataset.categoria = p.categoria_nombre || "";
@@ -361,9 +363,18 @@ $csrf = tokenCsrf();
                 const stockClass = p.stock > 10 ? "text-bg-success" : (p.stock > 0 ? "text-bg-warning" : "text-bg-danger");
                 const stockText = p.stock > 0 ? `${p.stock} un.` : "Sin stock";
 
+                const presNom = (p.presentacion || "unidad").toLowerCase();
+                const permiteUnid = (presNom === "unidad") || (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0");
+                let badgePres = "";
+                if (presNom === "caja" || presNom === "bulto") {
+                    badgePres = permiteUnid 
+                        ? `<span class="badge text-bg-info ms-1">${presNom.toUpperCase()} / UNID</span>` 
+                        : `<span class="badge text-bg-warning ms-1">SOLO ${presNom.toUpperCase()}</span>`;
+                }
+
                 itemDiv.innerHTML = `
                     <div class="me-2 text-truncate">
-                        <div class="fw-bold text-dark text-truncate">${escapeHtml(p.nombre)}</div>
+                        <div class="fw-bold text-dark text-truncate">${escapeHtml(p.nombre)} ${badgePres}</div>
                         <div class="small text-muted text-truncate">
                             <span class="badge text-bg-light border">${escapeHtml(p.categoria_nombre || "General")}</span>
                             ${p.codigo_barras ? `<span class="font-monospace ms-1">🏷️ ${escapeHtml(p.codigo_barras)}</span>` : ""}
@@ -391,10 +402,42 @@ $csrf = tokenCsrf();
             const selProds = document.getElementById("ventaProducto");
             selProds.value = p.id;
 
+            const pres = (p.presentacion || "unidad").toLowerCase();
+            const permiteUnidad = (pres === "unidad") || (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0");
+            const unidEmpaque = Math.max(1, parseInt(p.unidades_por_bulto) || 1);
+
+            // Reconstruir selector de presentación estrictamente para este producto
+            const selTipo = document.getElementById("ventaTipoVenta");
+            selTipo.replaceChildren();
+
+            if (pres === "caja") {
+                selTipo.appendChild(new Option(`Caja (${unidEmpaque} un.)`, "caja"));
+                if (permiteUnidad) {
+                    selTipo.appendChild(new Option("Unidad individual", "unidad"));
+                }
+                selTipo.value = "caja";
+            } else if (pres === "bulto") {
+                selTipo.appendChild(new Option(`Bulto (${unidEmpaque} un.)`, "bulto"));
+                if (permiteUnidad) {
+                    selTipo.appendChild(new Option("Unidad individual", "unidad"));
+                }
+                selTipo.value = "bulto";
+            } else {
+                selTipo.appendChild(new Option("Unidad", "unidad"));
+                selTipo.value = "unidad";
+            }
+
             // Actualizar tarjeta visual de producto seleccionado
+            let badgeRestriccion = "";
+            if ((pres === "caja" || pres === "bulto") && !permiteUnidad) {
+                badgeRestriccion = `<span class="badge text-bg-warning ms-1">🚫 Venta exclusiva por ${pres.toUpperCase()} (Fraccionamiento bloqueado)</span>`;
+            } else if ((pres === "caja" || pres === "bulto") && permiteUnidad) {
+                badgeRestriccion = `<span class="badge text-bg-info ms-1">✓ Fraccionable (${pres} y unidad)</span>`;
+            }
+
             document.getElementById("selProdCat").textContent = p.categoria_nombre || "General";
             document.getElementById("selProdNombre").textContent = p.nombre;
-            document.getElementById("selProdDetalles").textContent = `Cód: ${p.codigo_barras || p.id} | Proveedor: ${p.proveedor || "General"}`;
+            document.getElementById("selProdDetalles").innerHTML = `Cód: ${escapeHtml(p.codigo_barras || p.id)} | Proveedor: ${escapeHtml(p.proveedor || "General")} ${badgeRestriccion}`;
             document.getElementById("selProdPrecio").textContent = formatoMoneda.format(p.precio_venta);
             document.getElementById("selProdStock").textContent = `Stock disponible: ${p.stock} un.`;
             tarjetaSeleccionado.classList.remove("d-none");
@@ -543,6 +586,13 @@ $csrf = tokenCsrf();
             const montoDesc = subtotal * (descPorc / 100);
             const total = Math.max(0, subtotal - montoDesc);
 
+            const presProd = (opt.dataset.presentacion || "unidad").toLowerCase();
+            const permiteUnid = (presProd === "unidad") || (opt.dataset.permiteVentaUnidad === "1");
+
+            if (tipoVenta === "unidad" && presProd !== "unidad" && !permiteUnid) {
+                return { error: `El producto "${nombre}" está configurado para venta exclusiva por ${presProd.toUpperCase()}. No se permite la venta por unidad suelta.` };
+            }
+
             return {
                 producto_id: id,
                 producto_nombre: nombre,
@@ -567,7 +617,7 @@ $csrf = tokenCsrf();
             const lblSub = document.getElementById("itemPreSubtotal");
             const lblTot = document.getElementById("itemPreTotal");
 
-            if (!calc) {
+            if (!calc || calc.error) {
                 lblUnid.textContent = "0 un.";
                 lblPrecio.textContent = "$ 0,00";
                 lblSub.textContent = "$ 0,00";
@@ -599,6 +649,11 @@ $csrf = tokenCsrf();
                 errBox.textContent = "Buscá y seleccioná un producto antes de agregarlo.";
                 errBox.classList.remove("d-none");
                 inputBuscador.focus();
+                return;
+            }
+            if (calc.error) {
+                errBox.textContent = calc.error;
+                errBox.classList.remove("d-none");
                 return;
             }
 

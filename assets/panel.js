@@ -19,6 +19,12 @@ function celda(texto, clase = "") {
     return td;
 }
 
+function escapeHtml(texto) {
+    const div = document.createElement("div");
+    div.textContent = texto || "";
+    return div.innerHTML;
+}
+
 function mensajeEnTabla(tbody, columnas, mensaje, esError = false) {
     if (!tbody) return;
     tbody.replaceChildren();
@@ -159,7 +165,15 @@ function renderizarFilasProductos(productos) {
         fila.appendChild(nombreTd);
 
         // 3. Presentación
-        fila.append(celda(producto.presentacion ? producto.presentacion.toUpperCase() : "UNIDAD"));
+        const presTd = document.createElement("td");
+        const presNombre = producto.presentacion ? producto.presentacion.toUpperCase() : "UNIDAD";
+        if (producto.presentacion && producto.presentacion.toLowerCase() !== "unidad") {
+            const permite = (producto.permite_venta_unidad !== false && producto.permite_venta_unidad !== 0 && producto.permite_venta_unidad !== "0");
+            presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span><small class="d-block ${permite ? 'text-success' : 'text-danger'}" style="font-size:0.75rem;">${permite ? '✓ Venta x unidad' : '🚫 Solo empaque'}</small>`;
+        } else {
+            presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span>`;
+        }
+        fila.appendChild(presTd);
 
         // 4. Proveedor (Columna destacada)
         const provTd = document.createElement("td");
@@ -336,6 +350,7 @@ function llenarSelectoresProductos() {
             opt.dataset.precio = producto.precio;
             opt.dataset.stock = producto.stock;
             opt.dataset.presentacion = producto.presentacion || "unidad";
+            opt.dataset.permiteVentaUnidad = (producto.permite_venta_unidad !== false && producto.permite_venta_unidad !== 0 && producto.permite_venta_unidad !== "0") ? "1" : "0";
             opt.dataset.unidadesBulto = producto.unidades_por_bulto || 1;
             opt.dataset.codigoBarras = producto.codigo_barras || "";
             opt.dataset.proveedor = producto.proveedor || "";
@@ -2065,8 +2080,14 @@ function obtenerCalculoItemActual() {
     const precioUnitario = Number(opt.dataset.precio) || 0;
     const unidadesPorEmpaque = Math.max(1, Number(opt.dataset.unidadesBulto) || 1);
     const proveedor = opt.dataset.proveedor || "";
+    const presProd = (opt.dataset.presentacion || "unidad").toLowerCase();
+    const permiteUnid = (presProd === "unidad") || (opt.dataset.permiteVentaUnidad === "1");
     const tipoVenta = selectTipoVenta ? selectTipoVenta.value : "unidad";
     const cantidad = Math.max(1, Number(inputCantidad.value) || 1);
+
+    if (tipoVenta === "unidad" && presProd !== "unidad" && !permiteUnid) {
+        return null;
+    }
 
     let totalUnidades = cantidad;
     if (tipoVenta === "caja" || tipoVenta === "bulto") {
@@ -2145,6 +2166,34 @@ function configurarCalculadoraVenta() {
         });
     }
 
+    const actualizarPresentacionesProducto = () => {
+        if (!selectTipoVenta) return;
+        const opt = selectProducto.selectedOptions[0];
+        if (!opt || !selectProducto.value) {
+            selectTipoVenta.replaceChildren(new Option("Unidad", "unidad"));
+            selectTipoVenta.value = "unidad";
+            return;
+        }
+
+        const pres = (opt.dataset.presentacion || "unidad").toLowerCase();
+        const permite = (pres === "unidad") || (opt.dataset.permiteVentaUnidad === "1");
+        const unid = Math.max(1, parseInt(opt.dataset.unidadesBulto) || 1);
+
+        selectTipoVenta.replaceChildren();
+        if (pres === "caja") {
+            selectTipoVenta.appendChild(new Option(`Caja (${unid} un.)`, "caja"));
+            if (permite) selectTipoVenta.appendChild(new Option("Unidad individual", "unidad"));
+            selectTipoVenta.value = "caja";
+        } else if (pres === "bulto") {
+            selectTipoVenta.appendChild(new Option(`Bulto (${unid} un.)`, "bulto"));
+            if (permite) selectTipoVenta.appendChild(new Option("Unidad individual", "unidad"));
+            selectTipoVenta.value = "bulto";
+        } else {
+            selectTipoVenta.appendChild(new Option("Unidad", "unidad"));
+            selectTipoVenta.value = "unidad";
+        }
+    };
+
     const recalcular = () => {
         if (selectDescuento && selectDescuento.value === "custom") {
             if (inputDescuentoCustom) {
@@ -2180,7 +2229,10 @@ function configurarCalculadoraVenta() {
         if (lblTotal) lblTotal.textContent = formatoMoneda.format(calculo.total);
     };
 
-    selectProducto.addEventListener("change", recalcular);
+    selectProducto.addEventListener("change", () => {
+        actualizarPresentacionesProducto();
+        recalcular();
+    });
     if (selectTipoVenta) selectTipoVenta.addEventListener("change", recalcular);
     inputCantidad.addEventListener("input", recalcular);
     if (selectDescuento) selectDescuento.addEventListener("change", recalcular);
