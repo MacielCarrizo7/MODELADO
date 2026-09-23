@@ -42,7 +42,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                     <a class="nav-link nav-link-app" href="registro.php">Usuarios</a>
                     <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras con cámara">📷 Escáner</button>
                     <a class="btn btn-outline-primary btn-sm ms-lg-1" href="venta_form.php">🛒 Punto de Venta</a>
-                    <a class="btn btn-primary btn-sm ms-lg-1" href="producto_form.php">+ Nuevo Producto</a>
+                    <a class="btn btn-primary btn-sm ms-lg-1" href="producto_form.php">📦 + Ingreso de Productos</a>
                     <a class="btn btn-outline-danger btn-sm ms-lg-2" href="logout.php">Cerrar sesión</a>
                 </div>
             </div>
@@ -168,10 +168,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <div class="row g-3">
                                 <div class="col-12 col-sm-6">
                                     <a class="btn btn-outline-primary w-100 p-3 text-start d-flex align-items-center gap-3" href="producto_form.php">
-                                        <span class="fs-4">➕</span>
+                                        <span class="fs-4">📦</span>
                                         <div>
-                                            <div class="fw-bold">Alta de producto</div>
-                                            <small class="text-muted">Con foto, categoría, costo y venta</small>
+                                            <div class="fw-bold">Ingreso de Productos (1 a 50)</div>
+                                            <small class="text-muted">Carga individual o multiproducto en lote</small>
                                         </div>
                                     </a>
                                 </div>
@@ -198,7 +198,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                         <span class="fs-4">👁️</span>
                                         <div>
                                             <div class="fw-bold">Catálogo Visual / Menú</div>
-                                            <small class="text-muted">Fotos y fichas sin precios</small>
+                                            <small class="text-muted">Fichas con fotos y edición rápida</small>
                                         </div>
                                     </a>
                                 </div>
@@ -212,11 +212,11 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
-                                    <a class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" href="alta_masiva.php">
-                                        <span class="fs-4">📦</span>
+                                    <a class="btn btn-outline-warning w-100 p-3 text-start d-flex align-items-center gap-3" href="registro.php">
+                                        <span class="fs-4">👥</span>
                                         <div>
-                                            <div class="fw-bold">Alta Masiva (Lote)</div>
-                                            <small class="text-muted">Ingreso multiproducto por remito</small>
+                                            <div class="fw-bold">Usuarios y Permisos</div>
+                                            <small class="text-muted">Límites de descuento y roles</small>
                                         </div>
                                     </a>
                                 </div>
@@ -256,8 +256,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras o cámara">📷 Escanear código</button>
-                            <a class="btn btn-outline-success" href="alta_masiva.php">📦 Alta Masiva (Lote)</a>
-                            <a class="btn btn-primary" href="producto_form.php">+ Agregar producto</a>
+                            <a class="btn btn-primary" href="producto_form.php">📦 + Ingreso de Productos (1 a 50)</a>
                         </div>
                     </div>
 
@@ -338,7 +337,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="etiqueta text-primary mb-1">Actividad Comercial</p>
                             <h2 id="titulo-ventas" class="h4 fw-bold mb-0">Historial de Ventas</h2>
                         </div>
-                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalVenta">+ Registrar venta</button>
+                        <a class="btn btn-primary" href="venta_form.php">+ Registrar venta</a>
                     </div>
 
                     <!-- Filtros avanzados con Filtro de Cliente y Vendedor -->

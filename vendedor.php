@@ -30,7 +30,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 <div class="navbar-nav ms-auto align-items-lg-center gap-lg-1 pt-3 pt-lg-0">
                     <a class="nav-link nav-link-app active" href="vendedor.php">Panel de Ventas</a>
                     <a class="nav-link nav-link-app" href="catalogo.php">Catálogo Visual</a>
-                    <a class="nav-link nav-link-app" href="proveedor_form.php">Nuevo Proveedor</a>
                     <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código con cámara">📷 Escáner</button>
                     <a class="btn btn-primary btn-sm ms-lg-1" href="venta_form.php">🛒 Registrar venta</a>
                     <a class="btn btn-outline-danger btn-sm ms-lg-1" href="logout.php">Cerrar sesión</a>
@@ -72,16 +71,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-vendedor-ventas-btn" data-bs-toggle="tab" data-bs-target="#pestana-ventas" type="button" role="tab" aria-controls="pestana-ventas" aria-selected="false">
                         <span>💳 Registro de Ventas</span>
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-vendedor-ingresos-btn" data-bs-toggle="tab" data-bs-target="#pestana-ingresos" type="button" role="tab" aria-controls="pestana-ingresos" aria-selected="false">
-                        <span>📋 Ingresos de Mercadería</span>
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-vendedor-proveedores-btn" data-bs-toggle="tab" data-bs-target="#pestana-proveedores" type="button" role="tab" aria-controls="pestana-proveedores" aria-selected="false">
-                        <span>🏢 Proveedores</span>
                     </button>
                 </li>
             </ul>
@@ -211,7 +200,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                             <p class="etiqueta text-primary mb-1">Actividad Comercial</p>
                             <h2 id="titulo-ventas" class="h4 fw-bold mb-0">Historial de Ventas</h2>
                         </div>
-                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalVenta">+ Registrar venta</button>
+                        <a class="btn btn-primary" href="venta_form.php">+ Registrar venta</a>
                     </div>
 
                     <!-- Filtros -->
@@ -259,66 +248,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                                 </tr>
                             </thead>
                             <tbody id="ventasBody"></tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-
-            <!-- Pestaña 4: Ingresos -->
-            <div class="tab-pane fade" id="pestana-ingresos" role="tabpanel" aria-labelledby="tab-vendedor-ingresos-btn">
-                <section class="seccion-card" aria-labelledby="titulo-ingresos">
-                    <div class="mb-3">
-                        <p class="etiqueta text-primary mb-1">Auditoría de Entradas</p>
-                        <h2 id="titulo-ingresos" class="h4 fw-bold mb-0">Ingresos de Mercadería y Lotes</h2>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Fecha</th>
-                                    <th>N° Factura</th>
-                                    <th>Producto</th>
-                                    <th>Empaque / Unidades</th>
-                                    <th>Proveedor</th>
-                                    <th>Vencimiento</th>
-                                    <th>Responsable</th>
-                                    <th>Motivo</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ingresosBody"></tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-
-            <!-- Pestaña 5: Directorio de Proveedores -->
-            <div class="tab-pane fade" id="pestana-proveedores" role="tabpanel" aria-labelledby="tab-vendedor-proveedores-btn">
-                <section class="seccion-card" aria-labelledby="titulo-proveedores">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
-                        <div>
-                            <p class="etiqueta text-primary mb-1">Cadena de Suministro</p>
-                            <h2 id="titulo-proveedores" class="h4 fw-bold mb-0">Directorio de Proveedores</h2>
-                        </div>
-                        <div class="col-12 col-sm-4">
-                            <input type="text" id="buscadorProveedores" class="form-control" placeholder="🔍 Buscar proveedor...">
-                        </div>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Proveedor / Empresa</th>
-                                    <th>CUIT / CUIL</th>
-                                    <th>Teléfono</th>
-                                    <th>Correo Electrónico</th>
-                                    <th>Dirección</th>
-                                    <th>Catálogo</th>
-                                </tr>
-                            </thead>
-                            <tbody id="proveedoresBody"></tbody>
                         </table>
                     </div>
                 </section>
@@ -396,161 +325,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnCerrarScanner">Cancelar</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Registrar Venta (Carrito Multiproducto, Lector QR de Cliente y Códigos de Barra) -->
-    <div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="tituloModalVenta" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="formVenta" onsubmit="return false;">
-                    <div class="modal-header">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="fs-4">🛒</span>
-                            <div>
-                                <h2 id="tituloModalVenta" class="modal-title fs-5 fw-bold mb-0">Registrar Venta / Carrito de Productos</h2>
-                                <small class="text-muted">Añadí uno o más productos al ticket y confirmá la venta en un solo paso.</small>
-                            </div>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="errorVenta" class="alert alert-danger d-none mb-3"></div>
-                        <div id="exitoVenta" class="alert alert-success d-none mb-3"></div>
-                        
-                        <!-- 1. Selección de Cliente con Escáner QR y Búsqueda Manual -->
-                        <div class="p-3 bg-light rounded-3 border mb-3">
-                            <div class="row g-2 align-items-center">
-                                <div class="col-12 col-md-7">
-                                    <label class="form-label fw-bold" for="ventaCliente">👤 Cliente *</label>
-                                    <select class="form-select" id="ventaCliente" name="cliente_id" required>
-                                        <option value="">-- Seleccionar cliente o escanear QR --</option>
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-5 d-flex align-items-end pt-md-4">
-                                    <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2" type="button" id="btnEscanearClienteQR" title="Escanear credencial QR del cliente con cámara">
-                                        <span>📷</span>
-                                        <span>Escanear QR de Cliente</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="ventaClienteSeleccionadoBadge" class="mt-2 small text-success fw-semibold d-none">
-                                ✓ Cliente identificado y seleccionado
-                            </div>
-                        </div>
-
-                        <!-- 2. Panel para Agregar Producto al Carrito -->
-                        <div class="p-3 border rounded-3 bg-white mb-3 shadow-sm">
-                            <h3 class="h6 fw-bold text-dark mb-2">➕ Agregar artículo al ticket</h3>
-                            
-                            <div class="mb-2">
-                                <label class="form-label small text-muted" for="ventaProducto">Producto *</label>
-                                <div class="input-group">
-                                    <select class="form-select form-select-sm" id="ventaProducto">
-                                        <option value="">-- Seleccionar producto --</option>
-                                    </select>
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btnEscanearProductoVenta" title="Escanear código de barras con cámara">📷</button>
-                                </div>
-                                <small id="ventaInfoEmpaque" class="text-primary small d-none"></small>
-                            </div>
-
-                            <div class="row g-2 align-items-end">
-                                <div class="col-12 col-sm-4">
-                                    <label class="form-label small text-muted" for="ventaTipoVenta">Presentación</label>
-                                    <select class="form-select form-select-sm" id="ventaTipoVenta">
-                                        <option value="unidad">Unidad</option>
-                                        <option value="caja">Caja</option>
-                                        <option value="bulto">Bulto</option>
-                                    </select>
-                                </div>
-                                <div class="col-6 col-sm-3">
-                                    <label class="form-label small text-muted" for="ventaCantidad">Cantidad</label>
-                                    <input class="form-control form-control-sm" id="ventaCantidad" type="number" min="1" value="1">
-                                </div>
-                                <div class="col-6 col-sm-5">
-                                    <label class="form-label small text-muted" for="ventaDescuentoPorcentaje">Descuento (%)</label>
-                                    <div class="input-group input-group-sm">
-                                        <select class="form-select form-select-sm" id="ventaDescuentoPorcentaje">
-                                            <option value="0" selected>0%</option>
-                                            <option value="5">5%</option>
-                                            <option value="10">10%</option>
-                                            <option value="15">15%</option>
-                                            <option value="20">20%</option>
-                                            <option value="25">25%</option>
-                                            <option value="custom">Otro...</option>
-                                        </select>
-                                        <input class="form-control form-control-sm d-none" id="ventaDescuentoCustom" type="number" min="0" max="100" step="0.5" placeholder="%">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                <div class="small">
-                                    <span class="text-muted">Subtotal ítem:</span>
-                                    <strong id="itemPreviewSubtotal" class="text-primary fs-6">$ 0,00</strong>
-                                </div>
-                                <button type="button" class="btn btn-primary btn-sm" id="btnAgregarAlCarrito">
-                                    ➕ Agregar al carrito
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- 3. Tabla del Carrito de Ventas -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-uppercase text-muted">🛒 Artículos en el Carrito</label>
-                            <div class="table-responsive border rounded-3">
-                                <table class="table table-hover align-middle mb-0" id="tablaCarritoVentas">
-                                    <thead class="table-light small text-muted">
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Producto</th>
-                                            <th>Empaque</th>
-                                            <th>Cant.</th>
-                                            <th>Precio Unit.</th>
-                                            <th>Desc.</th>
-                                            <th>Subtotal</th>
-                                            <th class="text-center" style="width: 40px;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cuerpoCarritoVentas">
-                                        <tr>
-                                            <td colspan="8" class="text-center text-muted py-3 empty-state">
-                                                El carrito está vacío. Seleccioná o escaneá un producto arriba.
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- 4. Resumen y Cálculo General -->
-                        <div class="p-3 bg-light rounded-3 border">
-                            <div class="d-flex justify-content-between small text-muted mb-1">
-                                <span>Ítems / Unidades físicas:</span>
-                                <strong id="ventaCarritoTotalUnidades" class="text-dark">0 un.</strong>
-                            </div>
-                            <div class="d-flex justify-content-between small text-muted mb-1">
-                                <span>Subtotal general:</span>
-                                <span id="ventaCarritoSubtotal">$ 0,00</span>
-                            </div>
-                            <div class="d-flex justify-content-between small text-muted mb-2">
-                                <span>Descuentos totales:</span>
-                                <span id="ventaCarritoDescuento" class="text-danger">$ 0,00</span>
-                            </div>
-                            <div class="d-flex justify-content-between fs-5 fw-bold text-success pt-2 border-top">
-                                <span>TOTAL A PAGAR:</span>
-                                <span id="ventaCarritoTotal">$ 0,00</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-success" id="btnConfirmarVentaCarrito">
-                            ✓ Confirmar Venta
-                        </button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>

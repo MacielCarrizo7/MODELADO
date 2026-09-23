@@ -231,11 +231,72 @@ $csrf = tokenCsrf();
                 presBadge.textContent = prod.presentacion || "Unidad";
                 footerDiv.appendChild(presBadge);
 
+                // Botón Editar exclusivo para Administradores
+                const esAdmin = document.body.getAttribute("data-rol") === "admin";
+                if (esAdmin) {
+                    const btnEditar = document.createElement("button");
+                    btnEditar.type = "button";
+                    btnEditar.className = "btn btn-outline-primary btn-sm py-1 px-2 d-flex align-items-center gap-1";
+                    btnEditar.innerHTML = `<span>✏️</span><span>Editar</span>`;
+                    btnEditar.title = "Modificar foto, categoría o descripción";
+                    btnEditar.addEventListener("click", () => {
+                        abrirModalEditarCatalogo(prod);
+                    });
+                    footerDiv.appendChild(btnEditar);
+                }
+
                 body.appendChild(footerDiv);
                 card.appendChild(body);
                 col.appendChild(card);
                 grid.appendChild(col);
             });
+        }
+
+        // Modal de Edición Rápida de Catálogo (Solo Admin)
+        function abrirModalEditarCatalogo(prod) {
+            document.getElementById("editProdId").value = prod.id;
+            document.getElementById("editProdNombre").value = prod.nombre;
+            document.getElementById("editProdDesc").value = prod.descripcion || "";
+            document.getElementById("editProdImgUrl").value = prod.imagen_url || "";
+            document.getElementById("editProdImgArchivo").value = "";
+
+            // Link a edición completa
+            const linkAvanzado = document.getElementById("linkEdicionAvanzada");
+            if (linkAvanzado) {
+                linkAvanzado.href = `producto_form.php?id=${encodeURIComponent(prod.id)}`;
+            }
+
+            // Preview imagen
+            const imgPreview = document.getElementById("editImgPreview");
+            const imgPlaceholder = document.getElementById("editImgPlaceholder");
+            if (prod.imagen_url) {
+                imgPreview.src = prod.imagen_url;
+                imgPreview.classList.remove("d-none");
+                imgPlaceholder.classList.add("d-none");
+            } else {
+                imgPreview.src = "";
+                imgPreview.classList.add("d-none");
+                imgPlaceholder.classList.remove("d-none");
+            }
+
+            // Categorías select
+            const selCat = document.getElementById("editProdCat");
+            selCat.replaceChildren(new Option("-- Seleccionar Categoría --", ""));
+            catalogoData.categorias.forEach(c => {
+                const opt = new Option(`${c.icono || '🏷️'} ${c.nombre}`, c.id);
+                opt.dataset.nombre = c.nombre;
+                if ((prod.categoria_id && String(prod.categoria_id) === String(c.id)) || prod.categoria_nombre === c.nombre) {
+                    opt.selected = true;
+                }
+                selCat.appendChild(opt);
+            });
+
+            document.getElementById("editAlertaError").classList.add("d-none");
+            document.getElementById("editAlertaExito").classList.add("d-none");
+
+            const modalEl = document.getElementById("modalEditarProductoCatalogo");
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modalInstance.show();
         }
 
         // Eventos
@@ -261,7 +322,190 @@ $csrf = tokenCsrf();
             filtrarYRenderizarCatalogo();
         });
 
+        // Previsualización de imagen en modal de edición
+        const inputEditArchivo = document.getElementById("editProdImgArchivo");
+        const inputEditUrl = document.getElementById("editProdImgUrl");
+        const imgEditPreview = document.getElementById("editImgPreview");
+        const imgEditPlaceholder = document.getElementById("editImgPlaceholder");
+
+        if (inputEditArchivo) {
+            inputEditArchivo.addEventListener("change", (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        imgEditPreview.src = ev.target.result;
+                        imgEditPreview.classList.remove("d-none");
+                        imgEditPlaceholder.classList.add("d-none");
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        if (inputEditUrl) {
+            inputEditUrl.addEventListener("input", () => {
+                const url = inputEditUrl.value.trim();
+                if (url) {
+                    imgEditPreview.src = url;
+                    imgEditPreview.classList.remove("d-none");
+                    imgEditPlaceholder.classList.add("d-none");
+                }
+            });
+        }
+
+        // Guardar edición rápida de producto
+        const formEditar = document.getElementById("formEditarProductoCatalogo");
+        if (formEditar) {
+            formEditar.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const errBox = document.getElementById("editAlertaError");
+                const okBox = document.getElementById("editAlertaExito");
+                const btnSave = document.getElementById("btnGuardarEdicionCatalogo");
+
+                errBox.classList.add("d-none");
+                okBox.classList.add("d-none");
+
+                btnSave.disabled = true;
+                const originalText = btnSave.innerHTML;
+                btnSave.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Guardando...`;
+
+                try {
+                    const formData = new FormData(formEditar);
+                    const selCat = document.getElementById("editProdCat");
+                    const optSel = selCat.selectedOptions[0];
+                    if (optSel && optSel.dataset.nombre) {
+                        formData.set("categoria_nombre", optSel.dataset.nombre);
+                    }
+
+                    const resp = await fetch("modificar_producto.php", {
+                        method: "POST",
+                        headers: {
+                            "X-CSRF-Token": document.body.dataset.csrf
+                        },
+                        body: formData
+                    });
+
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) {
+                        throw new Error(data.error || "No se pudo actualizar el producto.");
+                    }
+
+                    okBox.textContent = "✓ ¡Producto actualizado correctamente!";
+                    okBox.classList.remove("d-none");
+
+                    // Actualizar en memoria y volver a renderizar
+                    const idMod = parseInt(formData.get("id"));
+                    const prodEncontrado = catalogoData.productos.find(p => p.id === idMod);
+                    if (prodEncontrado) {
+                        prodEncontrado.nombre = formData.get("nombre");
+                        prodEncontrado.descripcion = formData.get("descripcion");
+                        if (optSel && optSel.dataset.nombre) {
+                            prodEncontrado.categoria_nombre = optSel.dataset.nombre;
+                            prodEncontrado.categoria_id = optSel.value;
+                        }
+                        if (data.imagen_url) {
+                            prodEncontrado.imagen_url = data.imagen_url;
+                        }
+                    }
+
+                    filtrarYRenderizarCatalogo();
+
+                    setTimeout(() => {
+                        const modalEl = document.getElementById("modalEditarProductoCatalogo");
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = originalText;
+                    }, 800);
+
+                } catch (err) {
+                    errBox.textContent = err.message;
+                    errBox.classList.remove("d-none");
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = originalText;
+                }
+            });
+        }
+
         document.addEventListener("DOMContentLoaded", cargarCatalogo);
     </script>
+
+    <?php if ($rol === "admin"): ?>
+    <!-- Modal de Edición Rápida para Administradores -->
+    <div class="modal fade" id="modalEditarProductoCatalogo" tabindex="-1" aria-labelledby="tituloModalEditarCatalogo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <form id="formEditarProductoCatalogo" enctype="multipart/form-data">
+                    <input type="hidden" name="id" id="editProdId">
+                    <div class="modal-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">✏️</span>
+                            <div>
+                                <h2 id="tituloModalEditarCatalogo" class="modal-title fs-5 fw-bold mb-0">Editar Ficha del Producto</h2>
+                                <small class="text-muted">Modificá foto, categoría y descripción para el catálogo visual.</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="editAlertaError" class="alert alert-danger d-none mb-3"></div>
+                        <div id="editAlertaExito" class="alert alert-success d-none mb-3"></div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-8">
+                                <label for="editProdNombre" class="form-label fw-bold">Nombre del Producto *</label>
+                                <input type="text" class="form-control" id="editProdNombre" name="nombre" required>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label for="editProdCat" class="form-label fw-bold">Categoría *</label>
+                                <select class="form-select" id="editProdCat" name="categoria_id" required></select>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="editProdDesc" class="form-label">Descripción Comercial</label>
+                                <textarea class="form-control" id="editProdDesc" name="descripcion" rows="3" placeholder="Detalles de presentación, características, sabor..."></textarea>
+                            </div>
+
+                            <!-- Foto del Producto -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Foto o Imagen del Producto</label>
+                                <div class="p-3 border rounded-3 bg-light">
+                                    <div class="row align-items-center g-3">
+                                        <div class="col-12 col-sm-4 text-center">
+                                            <div class="border rounded-3 bg-white p-2 d-flex align-items-center justify-content-center" style="height: 120px; overflow: hidden;">
+                                                <span id="editImgPlaceholder" class="text-muted small">📷 Sin imagen</span>
+                                                <img id="editImgPreview" src="" alt="Foto" class="d-none" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-sm-8">
+                                            <label for="editProdImgArchivo" class="form-label small text-muted">Subir imagen desde el dispositivo (JPG, PNG, WebP)</label>
+                                            <input type="file" class="form-control form-control-sm mb-2" id="editProdImgArchivo" name="imagen_archivo" accept="image/*">
+                                            
+                                            <label for="editProdImgUrl" class="form-label small text-muted">O ingresar enlace / URL de imagen web</label>
+                                            <input type="url" class="form-control form-control-sm" id="editProdImgUrl" name="imagen_url" placeholder="https://ejemplo.com/foto.jpg">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer d-flex justify-content-between">
+                        <a href="#" id="linkEdicionAvanzada" class="btn btn-outline-secondary btn-sm">
+                            ⚙️ Edición avanzada (costos, stock, códigos)
+                        </a>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-4" id="btnGuardarEdicionCatalogo">
+                                💾 Guardar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </body>
 </html>

@@ -31,74 +31,6 @@ $presentacionesValidas = ["unidad", "caja", "bulto"];
 if ($id <= 0) {
     responderJson(["error" => "ID de producto inválido."], 400);
 }
-if ($nombre === "" || mb_strlen($nombre) > 150) {
-    responderJson(["error" => "Ingresá un nombre de producto válido (máx. 150 caracteres)."], 400);
-}
-if ($precioVenta <= 0) {
-    responderJson(["error" => "El precio de venta debe ser mayor a 0."], 400);
-}
-if ($stock === null || $stock < 0) {
-    responderJson(["error" => "El stock no puede ser negativo."], 400);
-}
-if (!in_array($presentacion, $presentacionesValidas, true)) {
-    responderJson(["error" => "La presentación seleccionada no es válida."], 400);
-}
-
-if ($presentacion === "unidad") {
-    $unidadesPorBulto = 1;
-} else {
-    if ($unidadesPorBulto <= 0) {
-        responderJson(["error" => "Debés indicar cuántas unidades contiene cada " . ($presentacion === "caja" ? "caja" : "bulto") . "."], 400);
-    }
-}
-
-if ($fechaVencimiento !== "") {
-    if (!fechaIsoValida($fechaVencimiento)) {
-        responderJson(["error" => "La fecha de vencimiento ingresada no es válida."], 400);
-    }
-    $vencimientoParam = $fechaVencimiento;
-} else {
-    $vencimientoParam = null;
-}
-
-$codigoBarrasParam = $codigoBarras !== "" ? $codigoBarras : null;
-
-if (mb_strlen($proveedor) > 150) {
-    responderJson(["error" => "El nombre del proveedor supera los 150 caracteres."], 400);
-}
-$proveedorParam = $proveedor !== "" ? $proveedor : null;
-$usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
-$usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
-
-// Procesar imagen (archivo o URL)
-$imagenUrl = trim($_POST["imagen_url"] ?? "");
-
-if (isset($_FILES["imagen_archivo"]) && $_FILES["imagen_archivo"]["error"] === UPLOAD_ERR_OK) {
-    $file = $_FILES["imagen_archivo"];
-    $allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mimeType = finfo_file($finfo, $file["tmp_name"]);
-    finfo_close($finfo);
-
-    if (in_array($mimeType, $allowedTypes, true) && $file["size"] <= 5 * 1024 * 1024) {
-        $ext = match ($mimeType) {
-            "image/jpeg" => "jpg",
-            "image/png" => "png",
-            "image/webp" => "webp",
-            "image/gif" => "gif",
-            default => "jpg"
-        };
-        $dirUploads = __DIR__ . "/uploads/productos/";
-        if (!is_dir($dirUploads)) {
-            @mkdir($dirUploads, 0755, true);
-        }
-        $nombreArchivo = "prod_" . $id . "_" . time() . "_" . bin2hex(random_bytes(3)) . "." . $ext;
-        $destino = $dirUploads . $nombreArchivo;
-        if (move_uploaded_file($file["tmp_name"], $destino)) {
-            $imagenUrl = "uploads/productos/" . $nombreArchivo;
-        }
-    }
-}
 
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
@@ -106,6 +38,98 @@ try {
 
     if (!$productoActual) {
         responderJson(["error" => "El producto no existe."], 404);
+    }
+
+    $nombre = isset($_POST["nombre"]) && trim($_POST["nombre"]) !== "" ? trim($_POST["nombre"]) : ($productoActual["nombre"] ?? "");
+    $descripcion = isset($_POST["descripcion"]) ? trim($_POST["descripcion"]) : ($productoActual["descripcion"] ?? "");
+
+    // Precios
+    $precioCosto = isset($_POST["precio_costo"]) && $_POST["precio_costo"] !== "" ? floatval($_POST["precio_costo"]) : floatval($productoActual["precio_costo"] ?? 0);
+    $precioVenta = isset($_POST["precio_venta"]) && $_POST["precio_venta"] !== "" ? floatval($_POST["precio_venta"]) : (isset($_POST["precio"]) && $_POST["precio"] !== "" ? floatval($_POST["precio"]) : floatval($productoActual["precio_venta"] ?? $productoActual["precio"] ?? 0));
+    $precio = $precioVenta;
+
+    $stock = isset($_POST["stock"]) && $_POST["stock"] !== "" ? filter_input(INPUT_POST, "stock", FILTER_VALIDATE_INT) : (int)($productoActual["stock"] ?? 0);
+    $presentacion = trim($_POST["presentacion"] ?? ($productoActual["presentacion"] ?? "unidad"));
+    $unidadesPorBulto = isset($_POST["unidades_por_bulto"]) && $_POST["unidades_por_bulto"] !== "" ? intval($_POST["unidades_por_bulto"]) : intval($productoActual["unidades_por_bulto"] ?? 1);
+
+    // Categoría
+    $categoriaId = isset($_POST["categoria_id"]) && $_POST["categoria_id"] !== "" ? (int)$_POST["categoria_id"] : (isset($productoActual["categoria_id"]) ? (int)$productoActual["categoria_id"] : null);
+    $categoriaNombre = trim($_POST["categoria_nombre"] ?? ($_POST["categoria"] ?? ($productoActual["categoria_nombre"] ?? $productoActual["categoria"] ?? "")));
+
+    $fechaVencimiento = isset($_POST["fecha_vencimiento"]) ? trim($_POST["fecha_vencimiento"]) : ($productoActual["fecha_vencimiento"] ?? "");
+    $proveedor = isset($_POST["proveedor"]) ? trim($_POST["proveedor"]) : ($productoActual["proveedor"] ?? "");
+    $codigoBarras = isset($_POST["codigo_barras"]) ? trim($_POST["codigo_barras"]) : ($productoActual["codigo_barras"] ?? "");
+    $motivo = trim($_POST["motivo"] ?? "Modificación / corrección de producto");
+
+    $presentacionesValidas = ["unidad", "caja", "bulto"];
+
+    if ($nombre === "" || mb_strlen($nombre) > 150) {
+        responderJson(["error" => "Ingresá un nombre de producto válido (máx. 150 caracteres)."], 400);
+    }
+    if ($precioVenta <= 0) {
+        responderJson(["error" => "El precio de venta debe ser mayor a 0."], 400);
+    }
+    if ($stock === null || $stock < 0) {
+        responderJson(["error" => "El stock no puede ser negativo."], 400);
+    }
+    if (!in_array($presentacion, $presentacionesValidas, true)) {
+        responderJson(["error" => "La presentación seleccionada no es válida."], 400);
+    }
+
+    if ($presentacion === "unidad") {
+        $unidadesPorBulto = 1;
+    } else {
+        if ($unidadesPorBulto <= 0) {
+            responderJson(["error" => "Debés indicar cuántas unidades contiene cada " . ($presentacion === "caja" ? "caja" : "bulto") . "."], 400);
+        }
+    }
+
+    if ($fechaVencimiento !== "") {
+        if (!fechaIsoValida($fechaVencimiento)) {
+            responderJson(["error" => "La fecha de vencimiento ingresada no es válida."], 400);
+        }
+        $vencimientoParam = $fechaVencimiento;
+    } else {
+        $vencimientoParam = null;
+    }
+
+    $codigoBarrasParam = $codigoBarras !== "" ? $codigoBarras : null;
+
+    if (mb_strlen($proveedor) > 150) {
+        responderJson(["error" => "El nombre del proveedor supera los 150 caracteres."], 400);
+    }
+    $proveedorParam = $proveedor !== "" ? $proveedor : null;
+    $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
+    $usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
+
+    // Procesar imagen (archivo o URL)
+    $imagenUrl = trim($_POST["imagen_url"] ?? "");
+
+    if (isset($_FILES["imagen_archivo"]) && $_FILES["imagen_archivo"]["error"] === UPLOAD_ERR_OK) {
+        $file = $_FILES["imagen_archivo"];
+        $allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file["tmp_name"]);
+        finfo_close($finfo);
+
+        if (in_array($mimeType, $allowedTypes, true) && $file["size"] <= 5 * 1024 * 1024) {
+            $ext = match ($mimeType) {
+                "image/jpeg" => "jpg",
+                "image/png" => "png",
+                "image/webp" => "webp",
+                "image/gif" => "gif",
+                default => "jpg"
+            };
+            $dirUploads = __DIR__ . "/uploads/productos/";
+            if (!is_dir($dirUploads)) {
+                @mkdir($dirUploads, 0755, true);
+            }
+            $nombreArchivo = "prod_" . $id . "_" . time() . "_" . bin2hex(random_bytes(3)) . "." . $ext;
+            $destino = $dirUploads . $nombreArchivo;
+            if (move_uploaded_file($file["tmp_name"], $destino)) {
+                $imagenUrl = "uploads/productos/" . $nombreArchivo;
+            }
+        }
     }
 
     // Si se especificó categoría_id y no se pasó nombre, buscarlo
