@@ -15,6 +15,9 @@ if (!is_array($datosJson)) {
 }
 
 $proveedor = trim($datosJson["proveedor"] ?? "");
+$sinFacturaLote = !empty($datosJson["sin_factura"]);
+$numeroFacturaLote = trim($datosJson["numero_factura"] ?? "");
+$facturaFinalLote = ($sinFacturaLote || $numeroFacturaLote === "") ? ($sinFacturaLote ? "Sin Factura" : null) : $numeroFacturaLote;
 $productos = $datosJson["productos"] ?? [];
 
 if (!is_array($productos) || empty($productos)) {
@@ -103,8 +106,10 @@ try {
                 "precio_unitario" => $precio,
                 "proveedor" => $proveedorParam,
                 "fecha_vencimiento" => $vencimientoParam,
+                "numero_factura" => $facturaFinalLote,
+                "sin_factura" => $sinFacturaLote,
                 "usuario_id" => $usuarioId,
-                "motivo" => "Alta masiva por lote (" . ($proveedorParam ? "Proveedor: {$proveedorParam}" : "Lote proveedor") . ")",
+                "motivo" => "Alta masiva por lote (" . ($proveedorParam ? "Proveedor: {$proveedorParam}" : "Lote proveedor") . ")" . ($facturaFinalLote ? " (Factura: {$facturaFinalLote})" : ""),
                 "fecha" => date("Y-m-d H:i:s")
             ];
             $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDoc);

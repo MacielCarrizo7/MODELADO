@@ -11,9 +11,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
     <title>Panel de ventas | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
-    <!-- Librerías para Códigos de Barra y Escáner -->
+    <!-- Librerías para Códigos de Barra, Escáner y Códigos QR -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body data-rol="vendedor" data-csrf="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, "UTF-8") ?>" data-limite-descuento="<?= htmlspecialchars((string)($_SESSION['usuario_limite_descuento'] ?? 15), ENT_QUOTES, 'UTF-8') ?>">
     <nav class="navbar navbar-expand-lg app-navbar sticky-top py-3">
@@ -275,6 +276,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                                 <tr>
                                     <th>ID</th>
                                     <th>Fecha</th>
+                                    <th>N° Factura</th>
                                     <th>Producto</th>
                                     <th>Empaque / Unidades</th>
                                     <th>Proveedor</th>
@@ -396,89 +398,155 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
         </div>
     </div>
 
-    <!-- Modal Registrar Venta -->
+    <!-- Modal Registrar Venta (Carrito Multiproducto, Lector QR de Cliente y Códigos de Barra) -->
     <div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="tituloModalVenta" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <form id="formVenta">
+                <form id="formVenta" onsubmit="return false;">
                     <div class="modal-header">
-                        <h2 id="tituloModalVenta" class="modal-title fs-5 fw-bold">Registrar venta</h2>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">🛒</span>
+                            <div>
+                                <h2 id="tituloModalVenta" class="modal-title fs-5 fw-bold mb-0">Registrar Venta / Carrito de Productos</h2>
+                                <small class="text-muted">Añadí uno o más productos al ticket y confirmá la venta en un solo paso.</small>
+                            </div>
+                        </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
-                        <div id="errorVenta" class="alert alert-danger d-none"></div>
+                        <div id="errorVenta" class="alert alert-danger d-none mb-3"></div>
+                        <div id="exitoVenta" class="alert alert-success d-none mb-3"></div>
                         
+                        <!-- 1. Selección de Cliente con Escáner QR y Búsqueda Manual -->
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-12 col-md-7">
+                                    <label class="form-label fw-bold" for="ventaCliente">👤 Cliente *</label>
+                                    <select class="form-select" id="ventaCliente" name="cliente_id" required>
+                                        <option value="">-- Seleccionar cliente o escanear QR --</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-5 d-flex align-items-end pt-md-4">
+                                    <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2" type="button" id="btnEscanearClienteQR" title="Escanear credencial QR del cliente con cámara">
+                                        <span>📷</span>
+                                        <span>Escanear QR de Cliente</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="ventaClienteSeleccionadoBadge" class="mt-2 small text-success fw-semibold d-none">
+                                ✓ Cliente identificado y seleccionado
+                            </div>
+                        </div>
+
+                        <!-- 2. Panel para Agregar Producto al Carrito -->
+                        <div class="p-3 border rounded-3 bg-white mb-3 shadow-sm">
+                            <h3 class="h6 fw-bold text-dark mb-2">➕ Agregar artículo al ticket</h3>
+                            
+                            <div class="mb-2">
+                                <label class="form-label small text-muted" for="ventaProducto">Producto *</label>
+                                <div class="input-group">
+                                    <select class="form-select form-select-sm" id="ventaProducto">
+                                        <option value="">-- Seleccionar producto --</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btnEscanearProductoVenta" title="Escanear código de barras con cámara">📷</button>
+                                </div>
+                                <small id="ventaInfoEmpaque" class="text-primary small d-none"></small>
+                            </div>
+
+                            <div class="row g-2 align-items-end">
+                                <div class="col-12 col-sm-4">
+                                    <label class="form-label small text-muted" for="ventaTipoVenta">Presentación</label>
+                                    <select class="form-select form-select-sm" id="ventaTipoVenta">
+                                        <option value="unidad">Unidad</option>
+                                        <option value="caja">Caja</option>
+                                        <option value="bulto">Bulto</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <label class="form-label small text-muted" for="ventaCantidad">Cantidad</label>
+                                    <input class="form-control form-control-sm" id="ventaCantidad" type="number" min="1" value="1">
+                                </div>
+                                <div class="col-6 col-sm-5">
+                                    <label class="form-label small text-muted" for="ventaDescuentoPorcentaje">Descuento (%)</label>
+                                    <div class="input-group input-group-sm">
+                                        <select class="form-select form-select-sm" id="ventaDescuentoPorcentaje">
+                                            <option value="0" selected>0%</option>
+                                            <option value="5">5%</option>
+                                            <option value="10">10%</option>
+                                            <option value="15">15%</option>
+                                            <option value="20">20%</option>
+                                            <option value="25">25%</option>
+                                            <option value="custom">Otro...</option>
+                                        </select>
+                                        <input class="form-control form-control-sm d-none" id="ventaDescuentoCustom" type="number" min="0" max="100" step="0.5" placeholder="%">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                <div class="small">
+                                    <span class="text-muted">Subtotal ítem:</span>
+                                    <strong id="itemPreviewSubtotal" class="text-primary fs-6">$ 0,00</strong>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm" id="btnAgregarAlCarrito">
+                                    ➕ Agregar al carrito
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 3. Tabla del Carrito de Ventas -->
                         <div class="mb-3">
-                            <label class="form-label" for="ventaCliente">Cliente *</label>
-                            <select class="form-select" id="ventaCliente" name="cliente_id" required></select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label" for="ventaProducto">Producto *</label>
-                            <div class="input-group">
-                                <select class="form-select" id="ventaProducto" name="producto_id" required></select>
-                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearProductoVenta" title="Escanear con cámara">📷</button>
-                            </div>
-                            <small id="ventaInfoEmpaque" class="text-primary small d-none"></small>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="ventaTipoVenta">Tipo de venta *</label>
-                                <select class="form-select" id="ventaTipoVenta" name="tipo_venta">
-                                    <option value="unidad">Unidades sueltas</option>
-                                    <option value="caja">Cajas</option>
-                                    <option value="bulto">Bultos</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-sm-6">
-                                <label class="form-label" for="ventaCantidad">Cantidad *</label>
-                                <input class="form-control" id="ventaCantidad" name="cantidad" type="number" min="1" value="1" required>
+                            <label class="form-label fw-bold small text-uppercase text-muted">🛒 Artículos en el Carrito</label>
+                            <div class="table-responsive border rounded-3">
+                                <table class="table table-hover align-middle mb-0" id="tablaCarritoVentas">
+                                    <thead class="table-light small text-muted">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Producto</th>
+                                            <th>Empaque</th>
+                                            <th>Cant.</th>
+                                            <th>Precio Unit.</th>
+                                            <th>Desc.</th>
+                                            <th>Subtotal</th>
+                                            <th class="text-center" style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoCarritoVentas">
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-3 empty-state">
+                                                El carrito está vacío. Seleccioná o escaneá un producto arriba.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
-                        <!-- Selector de Descuentos Opcionales -->
-                        <div class="row g-3 mb-3">
-                            <div class="col-12 col-sm-7">
-                                <label class="form-label" for="ventaDescuentoPorcentaje">Descuento al cliente</label>
-                                <select class="form-select" id="ventaDescuentoPorcentaje" name="descuento_porcentaje">
-                                    <option value="0" selected>0% (Sin descuento)</option>
-                                    <option value="5">5% de descuento</option>
-                                    <option value="10">10% de descuento</option>
-                                    <option value="15">15% de descuento</option>
-                                    <option value="20">20% de descuento</option>
-                                    <option value="25">25% de descuento</option>
-                                    <option value="custom">Personalizado...</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-sm-5">
-                                <label class="form-label" for="ventaDescuentoCustom">% Descuento</label>
-                                <input class="form-control d-none" id="ventaDescuentoCustom" type="number" min="0" max="100" step="0.5" placeholder="Ej: 12">
-                            </div>
-                        </div>
-
+                        <!-- 4. Resumen y Cálculo General -->
                         <div class="p-3 bg-light rounded-3 border">
                             <div class="d-flex justify-content-between small text-muted mb-1">
-                                <span>Unidades a descontar:</span>
-                                <strong id="ventaResumenUnidades" class="text-dark">1 un.</strong>
+                                <span>Ítems / Unidades físicas:</span>
+                                <strong id="ventaCarritoTotalUnidades" class="text-dark">0 un.</strong>
                             </div>
                             <div class="d-flex justify-content-between small text-muted mb-1">
-                                <span>Subtotal:</span>
-                                <span id="ventaResumenSubtotal">$ 0,00</span>
+                                <span>Subtotal general:</span>
+                                <span id="ventaCarritoSubtotal">$ 0,00</span>
                             </div>
                             <div class="d-flex justify-content-between small text-muted mb-2">
-                                <span>Descuento aplicado:</span>
-                                <span id="ventaResumenDescuento" class="text-danger">$ 0,00</span>
+                                <span>Descuentos totales:</span>
+                                <span id="ventaCarritoDescuento" class="text-danger">$ 0,00</span>
                             </div>
-                            <div class="d-flex justify-content-between fs-5 fw-bold text-primary pt-2 border-top">
-                                <span>Total a cobrar:</span>
-                                <span id="ventaResumenTotal">$ 0,00</span>
+                            <div class="d-flex justify-content-between fs-5 fw-bold text-success pt-2 border-top">
+                                <span>TOTAL A PAGAR:</span>
+                                <span id="ventaCarritoTotal">$ 0,00</span>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Registrar venta</button>
+                        <button type="button" class="btn btn-success" id="btnConfirmarVentaCarrito">
+                            ✓ Confirmar Venta
+                        </button>
                     </div>
                 </form>
             </div>
@@ -534,6 +602,35 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                         <button type="submit" class="btn btn-danger">Confirmar cancelación</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Credencial QR del Cliente -->
+    <div class="modal fade" id="modalQrCliente" tabindex="-1" aria-labelledby="tituloModalQrCliente" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="tituloModalQrCliente" class="modal-title fs-5 fw-bold">🪪 Credencial Digital con QR</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="tarjeta-credencial-qr mx-auto" style="max-width: 340px;">
+                        <div class="small text-uppercase tracking-wide opacity-75">Control Stock - Cliente</div>
+                        <h3 class="h5 fw-bold mt-1 mb-0" id="qrClienteNombreModal">Nombre del Cliente</h3>
+                        <p class="small text-white-50 mb-2" id="qrClienteDniModal">DNI: —</p>
+                        
+                        <div class="qr-box">
+                            <div id="contenedorQrCanvasCliente"></div>
+                        </div>
+
+                        <div class="small font-monospace opacity-75" id="qrClienteCodigoTexto">CLIENTE:0</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" id="btnImprimirQrCliente">🖨️ Imprimir Credencial</button>
+                </div>
             </div>
         </div>
     </div>

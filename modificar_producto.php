@@ -100,13 +100,17 @@ try {
 
     // Si hubo incremento de stock, registrar en Kardex de ingresos
     if ($diferenciaStock > 0) {
+        $sinFacturaMod = isset($_POST["sin_factura"]) && ($_POST["sin_factura"] === "1" || $_POST["sin_factura"] === "true" || $_POST["sin_factura"] === "on");
+        $numeroFacturaMod = trim($_POST["numero_factura"] ?? "");
+        $facturaFinalMod = ($sinFacturaMod || $numeroFacturaMod === "") ? ($sinFacturaMod ? "Sin Factura" : null) : $numeroFacturaMod;
+
         $cantidadBultosIngresados = ($unidadesPorBulto > 1) ? intdiv($diferenciaStock, $unidadesPorBulto) : $diferenciaStock;
         if ($cantidadBultosIngresados === 0) {
             $cantidadBultosIngresados = 1;
         }
 
         $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
-        $motivoIngreso = "Ajuste de inventario (+" . $diferenciaStock . " un.): " . $motivo;
+        $motivoIngreso = "Ajuste de inventario (+" . $diferenciaStock . " un.): " . $motivo . ($facturaFinalMod ? " [Factura: {$facturaFinalMod}]" : "");
 
         $ingresoDatos = [
             "id" => $ingresoId,
@@ -119,6 +123,8 @@ try {
             "precio_unitario" => $precio,
             "proveedor" => $proveedorParam,
             "fecha_vencimiento" => $vencimientoParam,
+            "numero_factura" => $facturaFinalMod,
+            "sin_factura" => $sinFacturaMod,
             "usuario_id" => $usuarioId,
             "motivo" => $motivoIngreso,
             "fecha" => date("Y-m-d H:i:s")

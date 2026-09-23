@@ -13,6 +13,7 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
     <title>Mi cuenta | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --color-primary: #2563eb;
@@ -101,15 +102,40 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
         <div id="alertaSolicitudVendedor" class="d-none mb-4"></div>
 
         <section id="inicio" class="hero-panel p-4 p-md-5 mb-5" aria-labelledby="saludo-cliente">
-            <div class="hero-contenido">
-                <p class="etiqueta text-white-50 mb-2">Portal de Clientes</p>
-                <h1 id="saludo-cliente" class="display-6 fw-bold mb-2">
-                    Hola, <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, "UTF-8") ?>
-                </h1>
-                <p class="lead mb-3 text-white-50">Consultá disponibilidad de productos y solicitá atención directa de nuestro equipo cuando lo necesites.</p>
-                <button class="btn btn-light btn-sm fw-bold px-4 py-2 text-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
-                    🤝 Solicitar atención de un vendedor
-                </button>
+            <div class="row align-items-center g-4">
+                <div class="col-12 col-lg-7">
+                    <p class="etiqueta text-white-50 mb-2">Portal de Clientes</p>
+                    <h1 id="saludo-cliente" class="display-6 fw-bold mb-2">
+                        Hola, <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, "UTF-8") ?>
+                    </h1>
+                    <p class="lead mb-3 text-white-50">Consultá disponibilidad de productos y solicitá atención directa de nuestro equipo cuando lo necesites.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-light btn-sm fw-bold px-3 py-2 text-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
+                            🤝 Solicitar atención de un vendedor
+                        </button>
+                        <button class="btn btn-outline-light btn-sm fw-bold px-3 py-2" type="button" onclick="window.print()">
+                            🖨️ Imprimir credencial
+                        </button>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-5 text-center text-lg-end">
+                    <div class="tarjeta-credencial-qr d-inline-block text-start" style="max-width: 320px; width: 100%;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-uppercase tracking-wide text-white-50">Credencial Digital</span>
+                            <span class="badge text-bg-primary">Cliente</span>
+                        </div>
+                        <h2 class="h6 fw-bold mb-0 text-white"><?= htmlspecialchars($nombreUsuario, ENT_QUOTES, "UTF-8") ?></h2>
+                        <p class="small text-white-50 mb-2">DNI: <?= htmlspecialchars((string)($_SESSION["usuario_dni"] ?? "—"), ENT_QUOTES, "UTF-8") ?></p>
+                        
+                        <div class="qr-box w-100 text-center">
+                            <div id="clienteQrBox" class="d-flex justify-content-center"></div>
+                        </div>
+
+                        <div class="small font-monospace text-center text-white-50 mt-1">
+                            CLIENTE:<?= (int)($_SESSION["usuario_id"] ?? 0) ?>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -502,6 +528,21 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
         cargarProductos();
         cargarCompras();
         cargarEstadoSolicitudes();
+
+        // Renderizar Código QR de Credencial Digital
+        const qrContainer = document.getElementById("clienteQrBox");
+        if (qrContainer && typeof QRCode === "function") {
+            const clienteId = "<?= (int)($_SESSION['usuario_id'] ?? 0) ?>";
+            const clienteDni = "<?= htmlspecialchars((string)($_SESSION['usuario_dni'] ?? ''), ENT_QUOTES, 'UTF-8') ?>";
+            new QRCode(qrContainer, {
+                text: `CLIENTE:${clienteId}:DNI:${clienteDni}`,
+                width: 140,
+                height: 140,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
     </script>
 </body>
 </html>

@@ -58,6 +58,10 @@ if (mb_strlen($proveedor) > 150) {
 }
 $proveedorParam = $proveedor !== "" ? $proveedor : null;
 
+$sinFactura = isset($_POST["sin_factura"]) && ($_POST["sin_factura"] === "1" || $_POST["sin_factura"] === "true" || $_POST["sin_factura"] === "on");
+$numeroFactura = trim($_POST["numero_factura"] ?? "");
+$numeroFacturaFinal = ($sinFactura || $numeroFactura === "") ? ($sinFactura ? "Sin Factura" : null) : $numeroFactura;
+
 $totalUnidades = $stock * $unidadesPorBulto;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
 $usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
@@ -109,8 +113,10 @@ try {
             "precio_unitario" => $precio,
             "proveedor" => $proveedorParam,
             "fecha_vencimiento" => $vencimientoParam,
+            "numero_factura" => $numeroFacturaFinal,
+            "sin_factura" => $sinFactura,
             "usuario_id" => $usuarioId,
-            "motivo" => "Alta inicial de producto",
+            "motivo" => "Alta inicial de producto" . ($numeroFacturaFinal ? " (Factura: {$numeroFacturaFinal})" : ""),
             "fecha" => date("Y-m-d H:i:s")
         ];
         $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);

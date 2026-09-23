@@ -114,6 +114,8 @@ try {
             "total_unidades" => (int) ($i["total_unidades"] ?? 0),
             "precio_unitario" => (float) ($i["precio_unitario"] ?? 0),
             "proveedor" => $prov !== "" ? $prov : null,
+            "numero_factura" => !empty($i["numero_factura"]) ? (string)$i["numero_factura"] : (!empty($i["sin_factura"]) ? "Sin Factura" : "—"),
+            "sin_factura" => !empty($i["sin_factura"]),
             "fecha_vencimiento" => $fechaVenc,
             "usuario_id" => $uId,
             "motivo" => (string) ($i["motivo"] ?? ""),

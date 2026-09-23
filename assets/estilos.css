@@ -508,12 +508,11 @@ body {
         padding: .5rem .85rem;
     }
 
-    /* Scroll fluido y adaptable en ventanas modales para móviles */
+    /* Scroll fluido, responsive y ergonómico en modales para móviles */
     .modal {
         position: fixed !important;
         inset: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+        padding: 0 !important;
         overflow-x: hidden !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
@@ -521,56 +520,98 @@ body {
     }
 
     .modal-dialog {
-        margin: .75rem auto 9rem auto !important;
+        margin: .5rem auto !important;
         max-width: calc(100% - 1rem) !important;
-        min-height: auto !important;
-        display: block !important;
+        min-height: calc(100% - 1rem) !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
     .modal-dialog.modal-dialog-centered {
-        align-items: flex-start !important;
-        min-height: auto !important;
-        margin-top: .75rem !important;
-        margin-bottom: 9rem !important;
+        align-items: center !important;
+        min-height: calc(100% - 1rem) !important;
+        margin: .5rem auto !important;
     }
     
     .modal-content {
         border-radius: 1.15rem;
-        max-height: none !important;
-        display: block !important;
-        overflow: visible !important;
-        box-shadow: 0 1rem 3rem rgba(15, 23, 42, .25);
+        max-height: calc(100dvh - 1.25rem) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, .3);
+        width: 100%;
     }
 
     .modal-header {
-        position: sticky;
-        top: 0;
-        z-index: 15;
+        position: relative;
+        flex-shrink: 0;
+        z-index: 10;
         background: #ffffff;
-        padding: .95rem 1.25rem;
-        border-top-left-radius: 1.15rem;
-        border-top-right-radius: 1.15rem;
+        padding: 1rem 1.25rem;
         border-bottom: 1px solid var(--cs-border);
     }
 
     .modal-body {
+        flex: 1 1 auto;
         padding: 1.25rem;
-        overflow: visible !important;
-        max-height: none !important;
-        -webkit-overflow-scrolling: touch;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+        max-height: calc(100dvh - 11rem) !important;
     }
 
     .modal-footer {
-        position: sticky;
-        bottom: 0;
-        z-index: 15;
+        position: relative;
+        flex-shrink: 0;
+        z-index: 10;
         background: #ffffff;
         padding: .85rem 1.25rem;
-        border-bottom-left-radius: 1.15rem;
-        border-bottom-right-radius: 1.15rem;
         border-top: 1px solid var(--cs-border);
-        box-shadow: 0 -4px 14px rgba(15, 23, 42, .06);
+        box-shadow: 0 -4px 14px rgba(15, 23, 42, .05);
     }
+}
+
+/* Tarjeta Credencial QR de Cliente */
+.tarjeta-credencial-qr {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 1.25rem;
+    color: #ffffff;
+    padding: 1.75rem;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, .25);
+    text-align: center;
+}
+
+.tarjeta-credencial-qr .qr-box {
+    background: #ffffff;
+    padding: 1rem;
+    border-radius: 1rem;
+    display: inline-block;
+    margin: 1rem 0;
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .2);
+}
+
+.tarjeta-credencial-qr .qr-box img,
+.tarjeta-credencial-qr .qr-box canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Estilos de Carrito de Compras en Ventas */
+.carrito-item-row {
+    transition: background-color .15s ease;
+}
+
+.carrito-item-row:hover {
+    background-color: #f8fafc;
+}
+
+.badge-item-subtotal {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--cs-primary);
 }
 
 @media (max-width: 575.98px) {
@@ -600,3 +641,4 @@ body {
         padding: .35em .55em;
     }
 }
+
