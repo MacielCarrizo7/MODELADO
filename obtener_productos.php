@@ -81,19 +81,37 @@ try {
             }
         }
 
-        // Filtro por código de barras exacto
-        if ($codigoBarrasFiltro !== "" && $codigoBarras !== $codigoBarrasFiltro && $codigo !== $codigoBarrasFiltro) {
-            continue;
+        // Normalizar valores para coincidencia flexible y robusta
+        $cbNorm = trim(strval($codigoBarras));
+        $codNorm = trim(strval($codigo));
+        $idStr = strval($id);
+        $cbFiltroNorm = trim(strval($codigoBarrasFiltro));
+
+        // Filtro por código de barras exacto o ID
+        if ($cbFiltroNorm !== "") {
+            $coincideCb = ($cbNorm !== "" && (strcasecmp($cbNorm, $cbFiltroNorm) === 0 || ltrim($cbNorm, "0") === ltrim($cbFiltroNorm, "0")));
+            $coincideCod = ($codNorm !== "" && (strcasecmp($codNorm, $cbFiltroNorm) === 0 || ltrim($codNorm, "0") === ltrim($cbFiltroNorm, "0")));
+            $coincideId = ($idStr === $cbFiltroNorm);
+            if (!$coincideCb && !$coincideCod && !$coincideId) {
+                continue;
+            }
         }
 
         // Filtro de búsqueda general
         if ($busqueda !== "") {
             $nomLower = mb_strtolower($nombre);
             $provLower = mb_strtolower($proveedor);
-            $codLower = mb_strtolower($codigo);
-            $cbLower = mb_strtolower($codigoBarras);
+            $codLower = mb_strtolower($codNorm);
+            $cbLower = mb_strtolower($cbNorm);
             $catLower = mb_strtolower($categoriaNombre);
-            if (!str_contains($nomLower, $busqueda) && !str_contains($provLower, $busqueda) && !str_contains($codLower, $busqueda) && !str_contains($cbLower, $busqueda) && !str_contains($catLower, $busqueda)) {
+            $descLower = mb_strtolower($descripcion);
+            if (!str_contains($nomLower, $busqueda) && 
+                !str_contains($provLower, $busqueda) && 
+                !str_contains($codLower, $busqueda) && 
+                !str_contains($cbLower, $busqueda) && 
+                !str_contains($catLower, $busqueda) &&
+                !str_contains($descLower, $busqueda) &&
+                $idStr !== $busqueda) {
                 continue;
             }
         }

@@ -1529,11 +1529,40 @@ if (btnEscanearProductoTabla) {
     });
 }
 
+async function buscarProductoFlexible(codigoRaw) {
+    const clean = String(codigoRaw || "").trim();
+    if (!clean) return null;
+    const cleanLower = clean.toLowerCase();
+    const cleanSinCeros = clean.replace(/^0+/, "");
+
+    let encontrado = productosCache.find((p) => {
+        const cb = String(p.codigo_barras || "").trim().toLowerCase();
+        const cod = String(p.codigo || "").trim().toLowerCase();
+        const id = String(p.id || "").trim().toLowerCase();
+        const cbSinCeros = cb.replace(/^0+/, "");
+
+        return cb === cleanLower || cod === cleanLower || id === cleanLower || (cleanSinCeros !== "" && cbSinCeros === cleanSinCeros);
+    });
+
+    if (!encontrado) {
+        try {
+            const resp = await solicitar(`obtener_productos.php?codigo_barras=${encodeURIComponent(clean)}`);
+            if (Array.isArray(resp) && resp.length > 0) {
+                encontrado = resp[0];
+                if (!productosCache.some(p => p.id === encontrado.id)) {
+                    productosCache.push(encontrado);
+                }
+            }
+        } catch (_) {}
+    }
+
+    return encontrado;
+}
+
 if (btnAbrirScannerGlobal) {
     btnAbrirScannerGlobal.addEventListener("click", () => {
-        abrirModalScannerCamara((codigo) => {
-            // Buscar producto por código de barras
-            const encontrado = productosCache.find((p) => (p.codigo_barras === codigo || p.codigo === codigo));
+        abrirModalScannerCamara(async (codigo) => {
+            const encontrado = await buscarProductoFlexible(codigo);
             if (encontrado) {
                 abrirModalHistorialProducto(encontrado.id);
             } else {
@@ -1585,8 +1614,8 @@ if (btnGenEdicion) {
 const btnScanVenta = document.getElementById("btnEscanearProductoVenta");
 if (btnScanVenta) {
     btnScanVenta.addEventListener("click", () => {
-        abrirModalScannerCamara((codigo) => {
-            const encontrado = productosCache.find((p) => (p.codigo_barras === codigo || p.codigo === codigo));
+        abrirModalScannerCamara(async (codigo) => {
+            const encontrado = await buscarProductoFlexible(codigo);
             if (encontrado) {
                 const sel = document.getElementById("ventaProducto");
                 if (sel) {
@@ -1601,11 +1630,10 @@ if (btnScanVenta) {
 }
 
 // Detección de lector de código de barras físico USB / Bluetooth (Enter tras lectura rápida)
-document.addEventListener("keydown", (e) => {
-    // Si el usuario presiona Enter en el buscador de productos y coincide con un código de barras
+document.addEventListener("keydown", async (e) => {
     if (e.key === "Enter" && document.activeElement && document.activeElement.id === "filtroProductoBusqueda") {
         const val = document.activeElement.value.trim();
-        const prod = productosCache.find((p) => p.codigo_barras === val || p.codigo === val);
+        const prod = await buscarProductoFlexible(val);
         if (prod) {
             filtrarYRenderizarProductos();
         }

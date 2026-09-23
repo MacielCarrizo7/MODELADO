@@ -86,24 +86,48 @@ $csrf = tokenCsrf();
 
                 <!-- 2. Buscador Inteligente y Rápido de Producto -->
                 <div class="seccion-card mb-4">
-                    <h2 class="h5 fw-bold text-primary mb-3">2. Buscar y Agregar Artículo</h2>
+                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                        <h2 class="h5 fw-bold text-primary mb-0">2. Buscar y Agregar Artículo</h2>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" id="btnSincronizarProds" title="Actualizar lista de productos en tiempo real">
+                                Sincronizar
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" type="button" id="btnToggleQuickPick" title="Abrir catálogo rápido de productos">
+                                Selección Rápida
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtros Rápidos por Categoría -->
+                    <div class="d-flex gap-1 overflow-x-auto pb-2 mb-2" id="pillsCategoriasPOS" style="scrollbar-width: thin;">
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 text-nowrap pill-pos active" data-categoria="">Todos</button>
+                    </div>
                     
                     <div class="mb-3 position-relative">
                         <label for="buscadorVentaProducto" class="form-label fw-bold">Buscar Producto *</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="buscadorVentaProducto" placeholder="Nombre, categoría, código de barras o descripción..." autocomplete="off">
+                            <input type="text" class="form-control" id="buscadorVentaProducto" placeholder="Escanear código de barras o escribir nombre, categoría..." autocomplete="off">
                             <button class="btn btn-outline-secondary" type="button" id="btnLimpiarBuscadorProd" title="Limpiar búsqueda">Limpiar</button>
                             <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoCb" title="Escanear código con cámara">Escanear</button>
                         </div>
                         
                         <!-- Lista flotante de sugerencias en vivo -->
-                        <div id="dropdownResultadosBusqueda" class="position-absolute w-100 bg-white border rounded-3 shadow-lg mt-1 d-none" style="z-index: 1050; max-height: 280px; overflow-y: auto;">
+                        <div id="dropdownResultadosBusqueda" class="position-absolute w-100 bg-white border rounded-3 shadow-lg mt-1 d-none" style="z-index: 1050; max-height: 300px; overflow-y: auto;">
                         </div>
 
                         <!-- Selector sincronizado interno -->
                         <select class="form-select d-none" id="ventaProducto">
                             <option value="">Cargando productos...</option>
                         </select>
+                    </div>
+
+                    <!-- Panel Colapsable de Selección Rápida (Quick-Pick Grid) -->
+                    <div id="panelQuickPick" class="border rounded-3 p-2 mb-3 bg-light d-none" style="max-height: 260px; overflow-y: auto;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                            <span class="small fw-bold text-muted" id="quickPickTitulo">Catálogo Rápido</span>
+                            <small class="text-muted">Clic para agregar</small>
+                        </div>
+                        <div class="row g-2" id="gridQuickPick"></div>
                     </div>
 
                     <!-- Ficha del Producto Seleccionado -->
@@ -267,20 +291,25 @@ $csrf = tokenCsrf();
         const csrfToken = document.body.dataset.csrf;
 
         let productosCache = [];
+        let categoriasCache = [];
         let clientesCache = [];
         let carrito = [];
         let callbackScanActivo = null;
+        let categoriaFiltroActiva = "";
+        let indiceFocoResultado = -1;
 
-        // Cargar clientes y productos
+        // Cargar clientes, categorías y productos
         async function inicializarPOS() {
             try {
-                const [prods, clients] = await Promise.all([
-                    fetch("obtener_productos.php").then(r => r.json()),
-                    fetch("obtener_clientes.php").then(r => r.json())
+                const [prods, clients, cats] = await Promise.all([
+                    fetch("obtener_productos.php").then(r => r.json()).catch(() => []),
+                    fetch("obtener_clientes.php").then(r => r.json()).catch(() => []),
+                    fetch("obtener_categorias.php").then(r => r.json()).catch(() => [])
                 ]);
 
-                productosCache = prods || [];
-                clientesCache = clients || [];
+                productosCache = Array.isArray(prods) ? prods : [];
+                clientesCache = Array.isArray(clients) ? clients : [];
+                categoriasCache = Array.isArray(cats) ? cats : [];
 
                 // Poblar select clientes
                 const selClientes = document.getElementById("ventaCliente");
@@ -290,24 +319,13 @@ $csrf = tokenCsrf();
                 });
 
                 // Poblar select productos (interno)
-                const selProds = document.getElementById("ventaProducto");
-                selProds.replaceChildren(new Option("-- Seleccionar Producto --", ""));
-                productosCache.forEach(p => {
-                    const prov = p.proveedor ? ` [${p.proveedor}]` : "";
-                    const cat = p.categoria_nombre ? ` [${p.categoria_nombre}]` : "";
-                    const opt = new Option(`${p.nombre}${cat}${prov} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio_venta)})`, p.id);
-                    opt.dataset.precio = p.precio_venta;
-                    opt.dataset.stock = p.stock;
-                    opt.dataset.presentacion = p.presentacion || "unidad";
-                    opt.dataset.permiteVentaUnidad = (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0") ? "1" : "0";
-                    opt.dataset.unidadesBulto = p.unidades_por_bulto || 1;
-                    opt.dataset.proveedor = p.proveedor || "";
-                    opt.dataset.categoria = p.categoria_nombre || "";
-                    opt.dataset.nombre = p.nombre;
-                    opt.dataset.codigo = p.codigo_barras || "";
-                    opt.dataset.descripcion = p.descripcion || "";
-                    selProds.appendChild(opt);
-                });
+                actualizarSelectorProductosInterno();
+
+                // Poblar pills de categorías para filtro rápido
+                renderizarPillsCategorias();
+
+                // Renderizar Quick Pick inicial
+                renderizarQuickPick();
 
                 recalcularPrevisualizacion();
 
@@ -316,31 +334,252 @@ $csrf = tokenCsrf();
             }
         }
 
+        function actualizarSelectorProductosInterno() {
+            const selProds = document.getElementById("ventaProducto");
+            selProds.replaceChildren(new Option("-- Seleccionar Producto --", ""));
+            productosCache.forEach(p => {
+                const prov = p.proveedor ? ` [${p.proveedor}]` : "";
+                const cat = p.categoria_nombre ? ` [${p.categoria_nombre}]` : "";
+                const opt = new Option(`${p.nombre}${cat}${prov} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio_venta)})`, p.id);
+                opt.dataset.precio = p.precio_venta;
+                opt.dataset.stock = p.stock;
+                opt.dataset.presentacion = p.presentacion || "unidad";
+                opt.dataset.permiteVentaUnidad = (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0") ? "1" : "0";
+                opt.dataset.unidadesBulto = p.unidades_por_bulto || 1;
+                opt.dataset.proveedor = p.proveedor || "";
+                opt.dataset.categoria = p.categoria_nombre || "";
+                opt.dataset.nombre = p.nombre;
+                opt.dataset.codigo = p.codigo_barras || "";
+                opt.dataset.descripcion = p.descripcion || "";
+                selProds.appendChild(opt);
+            });
+        }
+
+        function renderizarPillsCategorias() {
+            const cont = document.getElementById("pillsCategoriasPOS");
+            if (!cont) return;
+
+            cont.innerHTML = `
+                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 text-nowrap pill-pos active" data-categoria="">
+                    Todos
+                </button>
+            `;
+
+            // Extraer categorías de productosCache y categoriasCache
+            const nombresCats = new Set();
+            categoriasCache.forEach(c => { if (c.nombre) nombresCats.add(c.nombre.trim()); });
+            productosCache.forEach(p => {
+                const cNom = p.categoria_nombre || p.categoria;
+                if (cNom && cNom.trim() !== "") nombresCats.add(cNom.trim());
+            });
+
+            nombresCats.forEach(catNom => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 text-nowrap pill-pos";
+                btn.setAttribute("data-categoria", catNom);
+                btn.textContent = catNom;
+                cont.appendChild(btn);
+            });
+
+            cont.querySelectorAll(".pill-pos").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    cont.querySelectorAll(".pill-pos").forEach(b => {
+                        b.classList.remove("btn-primary", "active");
+                        b.classList.add("btn-outline-secondary");
+                    });
+                    btn.classList.remove("btn-outline-secondary");
+                    btn.classList.add("btn-primary", "active");
+                    categoriaFiltroActiva = btn.getAttribute("data-categoria") || "";
+                    
+                    const query = inputBuscador.value.trim();
+                    if (query !== "") {
+                        renderizarResultadosBusqueda(query);
+                    } else if (categoriaFiltroActiva !== "") {
+                        renderizarResultadosBusqueda(categoriaFiltroActiva);
+                    } else {
+                        dropdownResultados.classList.add("d-none");
+                    }
+                    renderizarQuickPick();
+                });
+            });
+        }
+
+        function renderizarQuickPick() {
+            const grid = document.getElementById("gridQuickPick");
+            const lblTitulo = document.getElementById("quickPickTitulo");
+            if (!grid) return;
+
+            let prodsMostrar = productosCache;
+            if (categoriaFiltroActiva !== "") {
+                const cLower = categoriaFiltroActiva.toLowerCase();
+                prodsMostrar = prodsMostrar.filter(p => (p.categoria_nombre || p.categoria || "").toLowerCase() === cLower);
+                lblTitulo.textContent = `Artículos en "${categoriaFiltroActiva}" (${prodsMostrar.length})`;
+            } else {
+                lblTitulo.textContent = `Artículos Rápidos (${prodsMostrar.length})`;
+            }
+
+            if (prodsMostrar.length === 0) {
+                grid.innerHTML = `<div class="col-12 text-center text-muted small py-2">No hay artículos para esta categoría.</div>`;
+                return;
+            }
+
+            grid.replaceChildren();
+            prodsMostrar.slice(0, 12).forEach(p => {
+                const col = document.createElement("div");
+                col.className = "col-6 col-sm-4 col-md-3";
+
+                const card = document.createElement("div");
+                card.className = "p-2 bg-white border rounded-3 h-100 d-flex flex-column justify-content-between shadow-xs";
+                card.style.cursor = "pointer";
+
+                const stockBadge = p.stock > 0 ? `<span class="badge text-bg-light text-muted small">${p.stock} un.</span>` : `<span class="badge text-bg-danger small">Agotado</span>`;
+
+                card.innerHTML = `
+                    <div class="mb-1">
+                        <span class="badge bg-secondary bg-opacity-25 text-dark small mb-1 text-truncate d-inline-block" style="max-width: 100%; font-size: 0.7rem;">${escapeHtml(p.categoria_nombre || "General")}</span>
+                        <div class="fw-bold text-dark small text-truncate" title="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top">
+                        <span class="fw-bold text-success small">${formatoMoneda.format(p.precio_venta)}</span>
+                        ${stockBadge}
+                    </div>
+                `;
+
+                card.addEventListener("click", () => {
+                    seleccionarProducto(p);
+                });
+
+                col.appendChild(card);
+                grid.appendChild(col);
+            });
+        }
+
         // ==============================================================
-        // BUSCADOR INTELIGENTE Y RÁPIDO DE PRODUCTOS (AUTO-COMPLETE)
+        // BÚSQUEDA ROBUSTA POR CÓDIGO DE BARRAS (LOCAL + SERVIDOR EN VIVO)
+        // ==============================================================
+        async function buscarYSeleccionarPorCodigo(codigoRaw) {
+            const clean = String(codigoRaw || "").trim();
+            if (!clean) return false;
+
+            const cleanLower = clean.toLowerCase();
+            const cleanSinCeros = clean.replace(/^0+/, "");
+
+            // 1. Búsqueda local con conversión estricta y flexible
+            let prod = productosCache.find(p => {
+                const cb = String(p.codigo_barras || "").trim().toLowerCase();
+                const cod = String(p.codigo || "").trim().toLowerCase();
+                const id = String(p.id || "").trim().toLowerCase();
+                const cbSinCeros = cb.replace(/^0+/, "");
+
+                return cb === cleanLower || 
+                       cod === cleanLower || 
+                       id === cleanLower || 
+                       (cleanSinCeros !== "" && cbSinCeros === cleanSinCeros);
+            });
+
+            // 2. Si no se encontró en caché local (ej. producto creado hace segundos), consultar al servidor en tiempo real
+            if (!prod) {
+                try {
+                    const resp = await fetch(`obtener_productos.php?codigo_barras=${encodeURIComponent(clean)}`);
+                    const lista = await resp.json().catch(() => []);
+                    if (Array.isArray(lista) && lista.length > 0) {
+                        prod = lista[0];
+                        // Actualizar cache local
+                        if (!productosCache.some(p => p.id === prod.id)) {
+                            productosCache.push(prod);
+                            actualizarSelectorProductosInterno();
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Fallo búsqueda remota de código de barras:", e);
+                }
+            }
+
+            if (prod) {
+                seleccionarProducto(prod);
+                return true;
+            } else {
+                alert(`No se encontró ningún producto con el código de barras "${clean}".`);
+                return false;
+            }
+        }
+
+        // Sincronizar Catálogo en Tiempo Real
+        const btnSync = document.getElementById("btnSincronizarProds");
+        if (btnSync) {
+            btnSync.addEventListener("click", async () => {
+                btnSync.disabled = true;
+                const originalHtml = btnSync.innerHTML;
+                btnSync.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+
+                try {
+                    const resp = await fetch("obtener_productos.php");
+                    const prods = await resp.json();
+                    if (Array.isArray(prods)) {
+                        productosCache = prods;
+                        actualizarSelectorProductosInterno();
+                        renderizarPillsCategorias();
+                        renderizarQuickPick();
+                        const query = inputBuscador.value.trim();
+                        if (query) renderizarResultadosBusqueda(query);
+                    }
+                } catch (e) {
+                    console.error("Error al sincronizar productos:", e);
+                } finally {
+                    btnSync.disabled = false;
+                    btnSync.innerHTML = originalHtml;
+                }
+            });
+        }
+
+        // Toggle Panel Quick Pick
+        const btnToggleQP = document.getElementById("btnToggleQuickPick");
+        const panelQP = document.getElementById("panelQuickPick");
+        if (btnToggleQP && panelQP) {
+            btnToggleQP.addEventListener("click", () => {
+                panelQP.classList.toggle("d-none");
+                if (!panelQP.classList.contains("d-none")) {
+                    renderizarQuickPick();
+                }
+            });
+        }
+
+        // ==============================================================
+        // BUSCADOR PREDICTIVO INTELIGENTE (AUTO-COMPLETE & KEYBOARD NAV)
         // ==============================================================
         const inputBuscador = document.getElementById("buscadorVentaProducto");
         const dropdownResultados = document.getElementById("dropdownResultadosBusqueda");
         const tarjetaSeleccionado = document.getElementById("tarjetaProductoSeleccionado");
         const btnLimpiarBuscador = document.getElementById("btnLimpiarBuscadorProd");
-        let indiceFocoResultado = -1;
 
         function renderizarResultadosBusqueda(query) {
             const q = query.trim().toLowerCase();
-            if (!q) {
+            if (!q && categoriaFiltroActiva === "") {
                 dropdownResultados.classList.add("d-none");
                 dropdownResultados.replaceChildren();
                 return;
             }
 
+            const catFiltroLower = categoriaFiltroActiva.toLowerCase();
+
             const filtrados = productosCache.filter(p => {
+                if (catFiltroLower !== "") {
+                    const cNom = (p.categoria_nombre || p.categoria || "").toLowerCase();
+                    if (cNom !== catFiltroLower) return false;
+                }
+
+                if (!q) return true;
+
                 const nom = (p.nombre || "").toLowerCase();
                 const cat = (p.categoria_nombre || p.categoria || "").toLowerCase();
-                const cb = (p.codigo_barras || p.codigo || "").toLowerCase();
+                const cb = String(p.codigo_barras || "").toLowerCase();
+                const cod = String(p.codigo || "").toLowerCase();
                 const desc = (p.descripcion || "").toLowerCase();
                 const prov = (p.proveedor || "").toLowerCase();
+                const idStr = String(p.id);
 
-                return nom.includes(q) || cat.includes(q) || cb.includes(q) || desc.includes(q) || prov.includes(q);
+                return nom.includes(q) || cat.includes(q) || cb.includes(q) || cod.includes(q) || desc.includes(q) || prov.includes(q) || idStr === q;
             });
 
             if (filtrados.length === 0) {
@@ -358,6 +597,7 @@ $csrf = tokenCsrf();
                 const itemDiv = document.createElement("div");
                 itemDiv.className = "p-2 border-bottom item-resultado-busqueda d-flex justify-content-between align-items-center";
                 itemDiv.dataset.id = p.id;
+                itemDiv.dataset.index = index;
 
                 const stockClass = p.stock > 10 ? "text-bg-success" : (p.stock > 0 ? "text-bg-warning" : "text-bg-danger");
                 const stockText = p.stock > 0 ? `${p.stock} un.` : "Sin stock";
@@ -376,7 +616,7 @@ $csrf = tokenCsrf();
                         <div class="fw-bold text-dark text-truncate">${escapeHtml(p.nombre)} ${badgePres}</div>
                         <div class="small text-muted text-truncate">
                             <span class="badge text-bg-light border">${escapeHtml(p.categoria_nombre || "General")}</span>
-                            ${p.codigo_barras ? `<span class="font-monospace ms-1">${escapeHtml(p.codigo_barras)}</span>` : ""}
+                            ${p.codigo_barras ? `<span class="font-monospace ms-1 text-primary">${escapeHtml(p.codigo_barras)}</span>` : ""}
                             ${p.proveedor ? `<span class="ms-1 text-muted">(${escapeHtml(p.proveedor)})</span>` : ""}
                         </div>
                     </div>
@@ -821,14 +1061,54 @@ $csrf = tokenCsrf();
         });
 
         document.getElementById("btnEscanearProductoCb").addEventListener("click", () => {
-            abrirLector((cb) => {
-                const encontrado = productosCache.find(p => p.codigo_barras === cb || p.codigo === cb);
-                if (encontrado) {
-                    seleccionarProducto(encontrado);
-                } else {
-                    alert(`No se encontró producto con código "${cb}".`);
-                }
+            abrirLector(async (cb) => {
+                await buscarYSeleccionarPorCodigo(cb);
             });
+        });
+
+        // Detección de tecla Enter en el buscador de productos
+        inputBuscador.addEventListener("keydown", async (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const val = inputBuscador.value.trim();
+                if (val) {
+                    const exito = await buscarYSeleccionarPorCodigo(val);
+                    if (!exito) {
+                        const primerItem = dropdownResultados.querySelector(".item-resultado-busqueda");
+                        if (primerItem) {
+                            primerItem.click();
+                        }
+                    }
+                }
+            }
+        });
+
+        // Detección automática para pistolas de código de barras USB/Bluetooth
+        let bufferTeclasBarcode = "";
+        let tiempoUltimaTecla = Date.now();
+
+        document.addEventListener("keydown", async (e) => {
+            // No interferir si el usuario está editando otros campos como cantidad o cliente
+            const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+            if (activeTag === "textarea" || (activeTag === "input" && document.activeElement.id === "ventaCantidad")) {
+                return;
+            }
+
+            const ahora = Date.now();
+            if (ahora - tiempoUltimaTecla > 80) {
+                bufferTeclasBarcode = "";
+            }
+            tiempoUltimaTecla = ahora;
+
+            if (e.key === "Enter") {
+                if (bufferTeclasBarcode.length >= 4) {
+                    const barcodeScanned = bufferTeclasBarcode.trim();
+                    bufferTeclasBarcode = "";
+                    await buscarYSeleccionarPorCodigo(barcodeScanned);
+                }
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                bufferTeclasBarcode += e.key;
+            }
         });
 
         function abrirLector(callback) {
