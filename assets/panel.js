@@ -217,11 +217,10 @@ function renderizarFilasProductos(productos) {
         grupo.appendChild(btnHistorial);
 
         if (esAdmin) {
-            const btnEditar = document.createElement("button");
-            btnEditar.type = "button";
+            const btnEditar = document.createElement("a");
+            btnEditar.href = `producto_form.php?id=${producto.id}`;
             btnEditar.className = "btn btn-outline-primary btn-sm";
             btnEditar.textContent = "Editar";
-            btnEditar.addEventListener("click", () => abrirModalEditarProducto(producto));
 
             const btnEliminar = document.createElement("button");
             btnEliminar.type = "button";
@@ -550,11 +549,10 @@ function renderizarFilasProveedores(proveedores) {
             const divAcc = document.createElement("div");
             divAcc.className = "d-inline-flex gap-1";
 
-            const btnEdit = document.createElement("button");
-            btnEdit.type = "button";
+            const btnEdit = document.createElement("a");
+            btnEdit.href = `proveedor_form.php?id=${prov.id}`;
             btnEdit.className = "btn btn-outline-primary btn-sm";
             btnEdit.textContent = "Editar";
-            btnEdit.addEventListener("click", () => abrirModalEditarProveedor(prov));
 
             const btnDel = document.createElement("button");
             btnDel.type = "button";

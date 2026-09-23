@@ -620,6 +620,10 @@ class FirestoreConexion {
         return self::obtenerFirestore()->obtenerSiguienteId("contadores", "proveedores", "ultimo_id");
     }
 
+    public static function obtenerSiguienteIdCategoria(): int {
+        return self::obtenerFirestore()->obtenerSiguienteId("contadores", "categorias", "ultimo_id");
+    }
+
     public static function obtenerSiguienteIdMovimiento(): int {
         return self::obtenerFirestore()->obtenerSiguienteId("contadores", "movimientos", "ultimo_id");
     }

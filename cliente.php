@@ -79,6 +79,7 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
             <div class="collapse navbar-collapse" id="menuCliente">
                 <div class="navbar-nav ms-auto align-items-sm-center gap-sm-2 pt-3 pt-sm-0">
                     <a class="nav-link nav-link-app active" href="#inicio">Inicio</a>
+                    <a class="nav-link nav-link-app text-primary fw-bold" href="catalogo.php">👁️ Catálogo Visual</a>
                     <a class="nav-link nav-link-app" href="#productos">Productos</a>
                     <a class="nav-link nav-link-app" href="#compras">Mis compras</a>
                     <button class="btn btn-outline-primary btn-sm px-3" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
@@ -110,8 +111,11 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
                     </h1>
                     <p class="lead mb-3 text-white-50">Consultá disponibilidad de productos y solicitá atención directa de nuestro equipo cuando lo necesites.</p>
                     <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-light btn-sm fw-bold px-3 py-2 text-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
-                            🤝 Solicitar atención de un vendedor
+                        <a href="catalogo.php" class="btn btn-light btn-sm fw-bold px-3 py-2 text-primary">
+                            👁️ Ver Catálogo Visual / Menú
+                        </a>
+                        <button class="btn btn-outline-light btn-sm fw-bold px-3 py-2" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarVendedor">
+                            🤝 Solicitar atención
                         </button>
                         <button class="btn btn-outline-light btn-sm fw-bold px-3 py-2" type="button" onclick="window.print()">
                             🖨️ Imprimir credencial

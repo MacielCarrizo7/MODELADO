@@ -7,9 +7,20 @@ requerirCsrfJson();
 $id = filter_input(INPUT_POST, "id", FILTER_VALIDATE_INT) ?: 0;
 $codigoBarras = trim($_POST["codigo_barras"] ?? "");
 $nombre = trim($_POST["nombre"] ?? "");
-$precio = floatval($_POST["precio"] ?? 0);
+$descripcion = trim($_POST["descripcion"] ?? "");
+
+// Precios de costo y venta
+$precioCosto = isset($_POST["precio_costo"]) ? floatval($_POST["precio_costo"]) : null;
+$precioVenta = floatval($_POST["precio_venta"] ?? ($_POST["precio"] ?? 0));
+$precio = $precioVenta;
+
 $stock = filter_input(INPUT_POST, "stock", FILTER_VALIDATE_INT);
 $presentacion = trim($_POST["presentacion"] ?? "unidad");
+
+// Categoría
+$categoriaId = isset($_POST["categoria_id"]) && $_POST["categoria_id"] !== "" ? (int)$_POST["categoria_id"] : null;
+$categoriaNombre = trim($_POST["categoria_nombre"] ?? ($_POST["categoria"] ?? ""));
+
 $unidadesPorBulto = intval($_POST["unidades_por_bulto"] ?? 1);
 $fechaVencimiento = trim($_POST["fecha_vencimiento"] ?? "");
 $proveedor = trim($_POST["proveedor"] ?? "");
@@ -23,8 +34,8 @@ if ($id <= 0) {
 if ($nombre === "" || mb_strlen($nombre) > 150) {
     responderJson(["error" => "Ingresá un nombre de producto válido (máx. 150 caracteres)."], 400);
 }
-if ($precio <= 0) {
-    responderJson(["error" => "El precio debe ser mayor a 0."], 400);
+if ($precioVenta <= 0) {
+    responderJson(["error" => "El precio de venta debe ser mayor a 0."], 400);
 }
 if ($stock === null || $stock < 0) {
     responderJson(["error" => "El stock no puede ser negativo."], 400);
@@ -59,12 +70,50 @@ $proveedorParam = $proveedor !== "" ? $proveedor : null;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
 $usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
 
+// Procesar imagen (archivo o URL)
+$imagenUrl = trim($_POST["imagen_url"] ?? "");
+
+if (isset($_FILES["imagen_archivo"]) && $_FILES["imagen_archivo"]["error"] === UPLOAD_ERR_OK) {
+    $file = $_FILES["imagen_archivo"];
+    $allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file["tmp_name"]);
+    finfo_close($finfo);
+
+    if (in_array($mimeType, $allowedTypes, true) && $file["size"] <= 5 * 1024 * 1024) {
+        $ext = match ($mimeType) {
+            "image/jpeg" => "jpg",
+            "image/png" => "png",
+            "image/webp" => "webp",
+            "image/gif" => "gif",
+            default => "jpg"
+        };
+        $dirUploads = __DIR__ . "/uploads/productos/";
+        if (!is_dir($dirUploads)) {
+            @mkdir($dirUploads, 0755, true);
+        }
+        $nombreArchivo = "prod_" . $id . "_" . time() . "_" . bin2hex(random_bytes(3)) . "." . $ext;
+        $destino = $dirUploads . $nombreArchivo;
+        if (move_uploaded_file($file["tmp_name"], $destino)) {
+            $imagenUrl = "uploads/productos/" . $nombreArchivo;
+        }
+    }
+}
+
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
     $productoActual = $firestore->obtenerDocumento("productos", (string)$id);
 
     if (!$productoActual) {
         responderJson(["error" => "El producto no existe."], 404);
+    }
+
+    // Si se especificó categoría_id y no se pasó nombre, buscarlo
+    if ($categoriaId !== null && $categoriaNombre === "") {
+        $catDoc = $firestore->obtenerDocumento("categorias", (string)$categoriaId);
+        if ($catDoc) {
+            $categoriaNombre = $catDoc["nombre"] ?? "";
+        }
     }
 
     // Validar código de barras no duplicado en otro producto
@@ -84,11 +133,24 @@ try {
     $precioAnterior = (float) ($productoActual["precio"] ?? 0);
     $diferenciaStock = $stock - $stockAnterior;
 
+    // Si no se proporcionó nuevo precio de costo, mantener el actual
+    $precioCostoFinal = $precioCosto !== null ? $precioCosto : floatval($productoActual["precio_costo"] ?? 0);
+
+    // Si no se subió nueva imagen ni se envió URL, conservar la anterior
+    $imagenFinal = $imagenUrl !== "" ? $imagenUrl : ($productoActual["imagen_url"] ?? null);
+
     $camposActualizados = [
         "nombre" => $nombre,
+        "descripcion" => $descripcion !== "" ? $descripcion : null,
         "codigo_barras" => $codigoBarrasParam,
-        "precio" => $precio,
+        "precio" => $precioVenta,
+        "precio_venta" => $precioVenta,
+        "precio_costo" => $precioCostoFinal,
         "stock" => $stock,
+        "categoria_id" => $categoriaId,
+        "categoria" => $categoriaNombre !== "" ? $categoriaNombre : null,
+        "categoria_nombre" => $categoriaNombre !== "" ? $categoriaNombre : null,
+        "imagen_url" => $imagenFinal,
         "presentacion" => $presentacion,
         "unidades_por_bulto" => $unidadesPorBulto,
         "fecha_vencimiento" => $vencimientoParam,
@@ -120,7 +182,9 @@ try {
             "presentacion" => $presentacion,
             "unidades_por_bulto" => $unidadesPorBulto,
             "total_unidades" => $diferenciaStock,
-            "precio_unitario" => $precio,
+            "precio_unitario" => $precioVenta,
+            "precio_costo" => $precioCostoFinal,
+            "precio_venta" => $precioVenta,
             "proveedor" => $proveedorParam,
             "fecha_vencimiento" => $vencimientoParam,
             "numero_factura" => $facturaFinalMod,
@@ -133,40 +197,37 @@ try {
         $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
 
-    // Determinar tipo de movimiento para el historial
-    $tipoMovimiento = "EDICION_DATOS";
-    $detallesCambio = [];
-
+    // Registrar en trazabilidad de movimientos
+    $tipoMovimiento = ($diferenciaStock !== 0) ? "AJUSTE_STOCK" : "EDICION_DATOS";
+    $descripcionMov = "Modificación: Costo: $" . number_format($precioCostoFinal, 2) . " | Venta: $" . number_format($precioVenta, 2);
     if ($diferenciaStock !== 0) {
-        $tipoMovimiento = $diferenciaStock > 0 ? "INGRESO_STOCK" : "AJUSTE_STOCK";
-        $signo = $diferenciaStock > 0 ? "+{$diferenciaStock}" : (string)$diferenciaStock;
-        $detallesCambio[] = "Stock: {$stockAnterior} → {$stock} ({$signo} un.)";
+        $descripcionMov .= " | Variación: " . ($diferenciaStock > 0 ? "+{$diferenciaStock}" : "{$diferenciaStock}") . " un. ($motivo)";
     }
-    if (abs($precio - $precioAnterior) > 0.001) {
-        $detallesCambio[] = "Precio: $" . number_format($precioAnterior, 2) . " → $" . number_format($precio, 2);
-    }
-    if ($motivo !== "") {
-        $detallesCambio[] = "Motivo: {$motivo}";
-    }
-
-    $descMov = !empty($detallesCambio) ? implode(" | ", $detallesCambio) : "Actualización de datos del producto";
 
     FirestoreConexion::registrarMovimientoProducto(
         productoId: $id,
         tipo: $tipoMovimiento,
-        descripcion: $descMov,
+        descripcion: $descripcionMov,
         cantidadAnterior: $stockAnterior,
         cantidadNueva: $stock,
-        diferencia: $diferenciaStock,
+        diferencia: $diferenciaStock !== 0 ? $diferenciaStock : null,
         precioAnterior: $precioAnterior,
-        precioNuevo: $precio,
+        precioNuevo: $precioVenta,
         usuarioId: $usuarioId,
         usuarioNombre: $usuarioNombre
     );
 
-    responderJson(["success" => true, "mensaje" => "Producto modificado correctamente."]);
+    responderJson([
+        "success" => true,
+        "id" => $id,
+        "nombre" => $nombre,
+        "precio_costo" => $precioCostoFinal,
+        "precio_venta" => $precioVenta,
+        "imagen_url" => $imagenFinal,
+        "mensaje" => "Producto modificado exitosamente."
+    ]);
 } catch (Throwable $e) {
-    error_log("Error al modificar producto en Firestore: " . $e->getMessage());
-    responderJson(["error" => "No se pudo modificar el producto: " . $e->getMessage()], 500);
+    error_log("Error al modificar producto: " . $e->getMessage());
+    responderJson(["error" => "No se pudo actualizar el producto: " . $e->getMessage()], 500);
 }
 ?>

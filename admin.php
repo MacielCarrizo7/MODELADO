@@ -37,9 +37,12 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
             <div class="collapse navbar-collapse" id="menuAdmin">
                 <div class="navbar-nav ms-auto align-items-lg-center gap-lg-1 pt-3 pt-lg-0">
                     <a class="nav-link nav-link-app active" href="admin.php">Panel Principal</a>
-                    <a class="nav-link nav-link-app" href="registro.php">Gestión de Usuarios</a>
+                    <a class="nav-link nav-link-app" href="catalogo.php">Catálogo Visual</a>
+                    <a class="nav-link nav-link-app" href="categorias.php">Categorías</a>
+                    <a class="nav-link nav-link-app" href="registro.php">Usuarios</a>
                     <button class="btn btn-outline-primary btn-sm ms-lg-2" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras con cámara">📷 Escáner</button>
-                    <button class="btn btn-primary btn-sm ms-lg-1" type="button" data-bs-toggle="modal" data-bs-target="#modalVenta">+ Registrar venta</button>
+                    <a class="btn btn-outline-primary btn-sm ms-lg-1" href="venta_form.php">🛒 Punto de Venta</a>
+                    <a class="btn btn-primary btn-sm ms-lg-1" href="producto_form.php">+ Nuevo Producto</a>
                     <a class="btn btn-outline-danger btn-sm ms-lg-2" href="logout.php">Cerrar sesión</a>
                 </div>
             </div>
@@ -164,13 +167,49 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             <p class="texto-secundario small mb-4">Realizá operaciones clave de forma inmediata desde un solo clic.</p>
                             <div class="row g-3">
                                 <div class="col-12 col-sm-6">
-                                    <button class="btn btn-outline-primary w-100 p-3 text-start d-flex align-items-center gap-3" type="button" data-bs-toggle="modal" data-bs-target="#modalProducto">
+                                    <a class="btn btn-outline-primary w-100 p-3 text-start d-flex align-items-center gap-3" href="producto_form.php">
                                         <span class="fs-4">➕</span>
                                         <div>
                                             <div class="fw-bold">Alta de producto</div>
-                                            <small class="text-muted">Carga individual con código y proveedor</small>
+                                            <small class="text-muted">Con foto, categoría, costo y venta</small>
                                         </div>
-                                    </button>
+                                    </a>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <a class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" href="venta_form.php">
+                                        <span class="fs-4">🛒</span>
+                                        <div>
+                                            <div class="fw-bold">Punto de Venta (POS)</div>
+                                            <small class="text-muted">Carrito dinámico y escáner QR</small>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <a class="btn btn-outline-info w-100 p-3 text-start d-flex align-items-center gap-3" href="categorias.php">
+                                        <span class="fs-4">🏷️</span>
+                                        <div>
+                                            <div class="fw-bold">Gestión de Categorías</div>
+                                            <small class="text-muted">Crear y organizar rubros</small>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <a class="btn btn-outline-dark w-100 p-3 text-start d-flex align-items-center gap-3" href="catalogo.php">
+                                        <span class="fs-4">👁️</span>
+                                        <div>
+                                            <div class="fw-bold">Catálogo Visual / Menú</div>
+                                            <small class="text-muted">Fotos y fichas sin precios</small>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <a class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3" href="proveedor_form.php">
+                                        <span class="fs-4">🏢</span>
+                                        <div>
+                                            <div class="fw-bold">Nuevo Proveedor</div>
+                                            <small class="text-muted">Alta, CUIT y contacto</small>
+                                        </div>
+                                    </a>
                                 </div>
                                 <div class="col-12 col-sm-6">
                                     <button class="btn btn-outline-success w-100 p-3 text-start d-flex align-items-center gap-3" type="button" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">
@@ -178,24 +217,6 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                         <div>
                                             <div class="fw-bold">Alta Masiva (Lote)</div>
                                             <small class="text-muted">Ingreso multiproducto por remito</small>
-                                        </div>
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6">
-                                    <button class="btn btn-outline-primary w-100 p-3 text-start d-flex align-items-center gap-3" type="button" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                        <span class="fs-4">🛒</span>
-                                        <div>
-                                            <div class="fw-bold">Registrar venta</div>
-                                            <small class="text-muted">Cajas, unidades y descuentos</small>
-                                        </div>
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6">
-                                    <button class="btn btn-outline-secondary w-100 p-3 text-start d-flex align-items-center gap-3" type="button" onclick="bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-proveedores-btn')).show()">
-                                        <span class="fs-4">🏢</span>
-                                        <div>
-                                            <div class="fw-bold">Directorio Proveedores</div>
-                                            <small class="text-muted">Alta, CUIT, contacto y catálogo</small>
                                         </div>
                                     </button>
                                 </div>
@@ -236,7 +257,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoTabla" title="Buscar con lector de código de barras o cámara">📷 Escanear código</button>
                             <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">📦 Alta Masiva (Lote)</button>
-                            <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalProducto">+ Agregar producto</button>
+                            <a class="btn btn-primary" href="producto_form.php">+ Agregar producto</a>
                         </div>
                     </div>
 
@@ -472,7 +493,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                         </div>
                         <div class="d-flex gap-2 w-100 w-sm-auto">
                             <input type="text" id="buscadorProveedores" class="form-control" placeholder="🔍 Buscar proveedor, CUIT o email...">
-                            <button class="btn btn-primary text-nowrap" type="button" data-bs-toggle="modal" data-bs-target="#modalProveedor">+ Nuevo Proveedor</button>
+                            <a class="btn btn-primary text-nowrap" href="proveedor_form.php">+ Nuevo Proveedor</a>
                         </div>
                     </div>
 
