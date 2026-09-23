@@ -10,6 +10,7 @@ $productoIdTexto = trim($_GET["producto_id"] ?? "");
 $proveedor = mb_strtolower(trim($_GET["proveedor"] ?? ""));
 $usuarioIdTexto = trim($_GET["usuario_id"] ?? "");
 $semaforo = trim($_GET["semaforo"] ?? "");
+$numeroFacturaFiltro = mb_strtolower(trim($_GET["numero_factura"] ?? $_GET["factura"] ?? ""));
 
 if (($desde !== "" && !fechaIsoValida($desde)) || ($hasta !== "" && !fechaIsoValida($hasta))) {
     responderJson(["error" => "Ingresá fechas válidas."], 400);
@@ -47,6 +48,8 @@ try {
         $prov = (string) ($i["proveedor"] ?? "");
         $fecha = (string) ($i["fecha"] ?? "");
         $fechaVenc = !empty($i["fecha_vencimiento"]) ? (string)$i["fecha_vencimiento"] : null;
+        $numFacturaDoc = (string) ($i["numero_factura"] ?? "");
+        $sinFacturaDoc = !empty($i["sin_factura"]);
 
         // Filtro desde
         if ($desde !== "" && $fecha !== "" && substr($fecha, 0, 10) < $desde) {
@@ -71,6 +74,18 @@ try {
         // Filtro proveedor
         if ($proveedor !== "" && !str_contains(mb_strtolower($prov), $proveedor)) {
             continue;
+        }
+
+        // Filtro N° Factura
+        if ($numeroFacturaFiltro !== "") {
+            $numFacturaLower = mb_strtolower($numFacturaDoc);
+            $matchFact = str_contains($numFacturaLower, $numeroFacturaFiltro);
+            if ($sinFacturaDoc && str_contains("sin factura", $numeroFacturaFiltro)) {
+                $matchFact = true;
+            }
+            if (!$matchFact) {
+                continue;
+            }
         }
 
         // Filtro semáforo

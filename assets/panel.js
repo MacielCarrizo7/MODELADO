@@ -1231,6 +1231,165 @@ if (btnImprimir) {
 }
 
 // -------------------------------------------------------------
+// HISTORIAL DE CÓDIGOS DE BARRA EN FIRESTORE
+// -------------------------------------------------------------
+let historialCodigosCache = [];
+
+async function cargarHistorialCodigos(busqueda = "") {
+    const tbody = document.getElementById("historialCodigosBody");
+    if (!tbody) return;
+
+    try {
+        const url = busqueda ? `obtener_codigos_barra.php?busqueda=${encodeURIComponent(busqueda)}` : "obtener_codigos_barra.php";
+        historialCodigosCache = await solicitar(url);
+
+        if (historialCodigosCache.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron códigos de barras en el historial.</td></tr>`;
+            return;
+        }
+
+        tbody.replaceChildren();
+        historialCodigosCache.forEach((c, idx) => {
+            const tr = document.createElement("tr");
+
+            // #
+            tr.append(celda(String(idx + 1), "text-muted small"));
+
+            // Fecha
+            tr.append(celda(fechaLegible(c.fecha), "small text-muted"));
+
+            // Código
+            const tdCod = document.createElement("td");
+            tdCod.innerHTML = `<span class="badge text-bg-light border font-monospace fs-6">🏷️ ${c.codigo}</span>`;
+            tr.appendChild(tdCod);
+
+            // Producto
+            const tdNom = document.createElement("td");
+            tdNom.innerHTML = `<strong>${c.nombre}</strong>`;
+            tr.appendChild(tdNom);
+
+            // Precio
+            tr.append(celda(c.precio > 0 ? formatoMoneda.format(c.precio) : "$ 0,00", "fw-bold text-success"));
+
+            // Formato
+            const tdForm = document.createElement("td");
+            tdForm.innerHTML = `<span class="badge text-bg-secondary">${c.formato || 'CODE128'}</span>`;
+            tr.appendChild(tdForm);
+
+            // Acciones
+            const tdAcc = document.createElement("td");
+            tdAcc.className = "text-end";
+
+            const grp = document.createElement("div");
+            grp.className = "btn-group btn-group-sm";
+
+            const btnCargar = document.createElement("button");
+            btnCargar.className = "btn btn-outline-primary";
+            btnCargar.innerHTML = "👁️ Cargar";
+            btnCargar.title = "Cargar en el visor y vista previa";
+            btnCargar.addEventListener("click", () => {
+                const inCod = document.getElementById("barcodeInputCodigo");
+                const inNom = document.getElementById("barcodeInputNombre");
+                const inPre = document.getElementById("barcodeInputPrecio");
+                const inForm = document.getElementById("barcodeInputFormato");
+                if (inCod) inCod.value = c.codigo;
+                if (inNom) inNom.value = c.nombre;
+                if (inPre) inPre.value = c.precio || "";
+                if (inForm) inForm.value = c.formato || "CODE128";
+                actualizarPreviewBarcode();
+                window.scrollTo({ top: 300, behavior: "smooth" });
+            });
+            grp.appendChild(btnCargar);
+
+            const btnCopy = document.createElement("button");
+            btnCopy.className = "btn btn-outline-secondary";
+            btnCopy.innerHTML = "📋";
+            btnCopy.title = "Copiar código";
+            btnCopy.addEventListener("click", () => {
+                navigator.clipboard.writeText(c.codigo);
+                alert(`Código "${c.codigo}" copiado.`);
+            });
+            grp.appendChild(btnCopy);
+
+            tdAcc.appendChild(grp);
+            tr.appendChild(tdAcc);
+
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error("Error al cargar historial de códigos:", err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">No se pudo cargar el historial.</td></tr>`;
+    }
+}
+
+async function guardarCodigoEnHistorial() {
+    const inputCodigo = document.getElementById("barcodeInputCodigo");
+    const inputNombre = document.getElementById("barcodeInputNombre");
+    const inputPrecio = document.getElementById("barcodeInputPrecio");
+    const selectFormato = document.getElementById("barcodeInputFormato");
+    const selectorProd = document.getElementById("barcodeSelectorProducto");
+    const btnSave = document.getElementById("btnGuardarCodigoHistorial");
+
+    const codigo = inputCodigo ? inputCodigo.value.trim() : "";
+    if (!codigo) {
+        alert("Por favor, ingresá o generá un código de barras.");
+        return;
+    }
+
+    const nombre = inputNombre ? inputNombre.value.trim() : "Producto General";
+    const precio = inputPrecio ? Number(inputPrecio.value) || 0 : 0;
+    const formato = selectFormato ? selectFormato.value : "CODE128";
+    const productoId = selectorProd && selectorProd.value ? Number(selectorProd.value) : null;
+
+    if (btnSave) {
+        btnSave.disabled = true;
+        btnSave.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Guardando...`;
+    }
+
+    try {
+        await solicitar("guardar_codigo_barra.php", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                codigo: codigo,
+                nombre: nombre,
+                precio: precio,
+                formato: formato,
+                producto_id: productoId
+            })
+        });
+
+        await cargarHistorialCodigos();
+        alert("✓ ¡Código de barras guardado en el historial de Firestore!");
+    } catch (err) {
+        alert("Error al guardar código: " + err.message);
+    } finally {
+        if (btnSave) {
+            btnSave.disabled = false;
+            btnSave.innerHTML = "💾 Guardar en Historial";
+        }
+    }
+}
+
+const btnGuardarHist = document.getElementById("btnGuardarCodigoHistorial");
+if (btnGuardarHist) {
+    btnGuardarHist.addEventListener("click", guardarCodigoEnHistorial);
+}
+
+const inputBuscarHistCod = document.getElementById("buscadorHistorialCodigos");
+if (inputBuscarHistCod) {
+    let timerBusqueda = null;
+    inputBuscarHistCod.addEventListener("input", (e) => {
+        clearTimeout(timerBusqueda);
+        timerBusqueda = setTimeout(() => {
+            cargarHistorialCodigos(e.target.value.trim());
+        }, 300);
+    });
+}
+
+// -------------------------------------------------------------
 // ESCÁNER DE CÓDIGO DE BARRAS (CÁMARA WEB / MÓVIL + PISTOLA LECTORA)
 // -------------------------------------------------------------
 function abrirModalScannerCamara(callbackExito) {
@@ -2551,6 +2710,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll('[data-bs-target="#pestana-barcodes"]').forEach((btn) => {
         btn.addEventListener("shown.bs.tab", () => {
             actualizarPreviewBarcode();
+            cargarHistorialCodigos();
         });
     });
 
@@ -2561,7 +2721,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         cargarIngresos(),
         cargarClientes(),
         cargarVendedores(),
-        cargarSolicitudesVendedor()
+        cargarSolicitudesVendedor(),
+        cargarHistorialCodigos()
     ]);
     actualizarPreviewBarcode();
 });

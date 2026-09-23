@@ -19,6 +19,18 @@ $csrf = tokenCsrf();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        .item-resultado-busqueda {
+            cursor: pointer;
+            transition: background-color 0.15s ease-in-out;
+        }
+        .item-resultado-busqueda:hover, .item-resultado-busqueda.active-item {
+            background-color: #f1f5f9;
+        }
+        .tarjeta-prod-seleccionado {
+            border-left: 4px solid #0d6efd !important;
+        }
+    </style>
 </head>
 <body data-rol="<?= htmlspecialchars($rol, ENT_QUOTES, "UTF-8") ?>" data-csrf="<?= htmlspecialchars($csrf, ENT_QUOTES, "UTF-8") ?>" data-limite-descuento="<?= $limiteDescuento ?>">
     <!-- Barra Superior -->
@@ -40,7 +52,7 @@ $csrf = tokenCsrf();
             <div>
                 <a href="<?= $paginaRetorno ?>" class="text-decoration-none text-muted small">← Volver al Panel</a>
                 <h1 class="h3 fw-bold mt-1 mb-0">🛒 Registrar Venta (Carrito Multiproducto)</h1>
-                <p class="text-muted small mb-0">Agregá múltiples productos al ticket, aplicá descuentos autorizados y confirmá la operación en un solo paso.</p>
+                <p class="text-muted small mb-0">Buscá por nombre, código de barras o rubro, agregá productos al ticket y confirmá en un solo clic.</p>
             </div>
         </div>
 
@@ -49,7 +61,7 @@ $csrf = tokenCsrf();
         <div id="alertaExito" class="alert alert-success d-none mb-3" role="alert"></div>
 
         <div class="row g-4">
-            <!-- Columna Izquierda: Selección de Cliente y Configuración de Productos -->
+            <!-- Columna Izquierda: Selección de Cliente y Búsqueda Ágil de Productos -->
             <div class="col-12 col-lg-6">
                 <!-- 1. Cliente -->
                 <div class="seccion-card mb-4">
@@ -73,19 +85,42 @@ $csrf = tokenCsrf();
                     </div>
                 </div>
 
-                <!-- 2. Agregar Producto -->
+                <!-- 2. Buscador Inteligente y Rápido de Producto -->
                 <div class="seccion-card mb-4">
-                    <h2 class="h5 fw-bold text-primary mb-3">2. Agregar Artículo al Carrito</h2>
+                    <h2 class="h5 fw-bold text-primary mb-3">2. Buscar y Agregar Artículo</h2>
                     
-                    <div class="mb-3">
-                        <label for="ventaProducto" class="form-label">Producto *</label>
+                    <div class="mb-3 position-relative">
+                        <label for="buscadorVentaProducto" class="form-label fw-bold">🔍 Buscar Producto *</label>
                         <div class="input-group">
-                            <select class="form-select" id="ventaProducto">
-                                <option value="">Cargando productos...</option>
-                            </select>
-                            <button class="btn btn-outline-secondary" type="button" id="btnEscanearProductoCb" title="Escanear código con cámara">📷</button>
+                            <input type="text" class="form-control" id="buscadorVentaProducto" placeholder="Escribí nombre, categoría, código de barras o descripción..." autocomplete="off">
+                            <button class="btn btn-outline-secondary" type="button" id="btnLimpiarBuscadorProd" title="Limpiar búsqueda">✕</button>
+                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoCb" title="Escanear código con cámara">📷</button>
                         </div>
-                        <small id="ventaInfoEmpaque" class="text-primary small d-none mt-1 d-block"></small>
+                        
+                        <!-- Lista flotante de sugerencias en vivo -->
+                        <div id="dropdownResultadosBusqueda" class="position-absolute w-100 bg-white border rounded-3 shadow-lg mt-1 d-none" style="z-index: 1050; max-height: 280px; overflow-y: auto;">
+                        </div>
+
+                        <!-- Selector sincronizado interno -->
+                        <select class="form-select d-none" id="ventaProducto">
+                            <option value="">Cargando productos...</option>
+                        </select>
+                    </div>
+
+                    <!-- Ficha del Producto Seleccionado -->
+                    <div id="tarjetaProductoSeleccionado" class="p-3 bg-white rounded-3 border tarjeta-prod-seleccionado mb-3 shadow-sm d-none">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <span class="badge bg-primary rounded-pill mb-1" id="selProdCat">General</span>
+                                <h3 class="h6 fw-bold mb-0 text-dark" id="selProdNombre">Nombre del Producto</h3>
+                                <small class="text-muted" id="selProdDetalles">Cód: — | Proveedor: —</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge text-bg-success fs-6 fw-bold" id="selProdPrecio">$ 0,00</span>
+                                <small class="d-block text-muted" id="selProdStock">Stock: 0 un.</small>
+                            </div>
+                        </div>
+                        <small id="ventaInfoEmpaque" class="text-primary small d-none mt-2 d-block"></small>
                     </div>
 
                     <div class="row g-2 mb-3">
@@ -98,8 +133,8 @@ $csrf = tokenCsrf();
                             </select>
                         </div>
                         <div class="col-6 col-sm-4">
-                            <label for="ventaCantidad" class="form-label small text-muted">Cantidad</label>
-                            <input class="form-control" id="ventaCantidad" type="number" min="1" value="1">
+                            <label for="ventaCantidad" class="form-label small text-muted">Cantidad *</label>
+                            <input class="form-control fw-bold" id="ventaCantidad" type="number" min="1" value="1">
                         </div>
                         <div class="col-6 col-sm-4">
                             <label for="ventaDescuento" class="form-label small text-muted">Descuento (%)</label>
@@ -136,7 +171,7 @@ $csrf = tokenCsrf();
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-primary w-100 py-2 fw-bold" id="btnAgregarAlCarrito">
+                    <button type="button" class="btn btn-primary w-100 py-2 fs-6 fw-bold" id="btnAgregarAlCarrito">
                         ➕ Agregar Artículo al Carrito
                     </button>
                 </div>
@@ -166,7 +201,7 @@ $csrf = tokenCsrf();
                             <tbody id="carritoTablaBody">
                                 <tr>
                                     <td colspan="6" class="text-center text-muted py-4">
-                                        🛒 El carrito está vacío. Agregá productos desde el panel izquierdo.
+                                        🛒 El carrito está vacío. Buscá y agregá productos desde el panel izquierdo.
                                     </td>
                                 </tr>
                             </tbody>
@@ -255,7 +290,7 @@ $csrf = tokenCsrf();
                     selClientes.appendChild(new Option(`${c.nombre} ${c.apellido} (DNI ${c.dni})`, c.id));
                 });
 
-                // Poblar select productos
+                // Poblar select productos (interno)
                 const selProds = document.getElementById("ventaProducto");
                 selProds.replaceChildren(new Option("-- Seleccionar Producto --", ""));
                 productosCache.forEach(p => {
@@ -268,6 +303,8 @@ $csrf = tokenCsrf();
                     opt.dataset.proveedor = p.proveedor || "";
                     opt.dataset.categoria = p.categoria_nombre || "";
                     opt.dataset.nombre = p.nombre;
+                    opt.dataset.codigo = p.codigo_barras || "";
+                    opt.dataset.descripcion = p.descripcion || "";
                     selProds.appendChild(opt);
                 });
 
@@ -277,6 +314,152 @@ $csrf = tokenCsrf();
                 console.error("Error al inicializar POS:", err);
             }
         }
+
+        // ==============================================================
+        // BUSCADOR INTELIGENTE Y RÁPIDO DE PRODUCTOS (AUTO-COMPLETE)
+        // ==============================================================
+        const inputBuscador = document.getElementById("buscadorVentaProducto");
+        const dropdownResultados = document.getElementById("dropdownResultadosBusqueda");
+        const tarjetaSeleccionado = document.getElementById("tarjetaProductoSeleccionado");
+        const btnLimpiarBuscador = document.getElementById("btnLimpiarBuscadorProd");
+        let indiceFocoResultado = -1;
+
+        function renderizarResultadosBusqueda(query) {
+            const q = query.trim().toLowerCase();
+            if (!q) {
+                dropdownResultados.classList.add("d-none");
+                dropdownResultados.replaceChildren();
+                return;
+            }
+
+            const filtrados = productosCache.filter(p => {
+                const nom = (p.nombre || "").toLowerCase();
+                const cat = (p.categoria_nombre || p.categoria || "").toLowerCase();
+                const cb = (p.codigo_barras || p.codigo || "").toLowerCase();
+                const desc = (p.descripcion || "").toLowerCase();
+                const prov = (p.proveedor || "").toLowerCase();
+
+                return nom.includes(q) || cat.includes(q) || cb.includes(q) || desc.includes(q) || prov.includes(q);
+            });
+
+            if (filtrados.length === 0) {
+                dropdownResultados.innerHTML = `
+                    <div class="p-3 text-muted text-center small">
+                        🔍 No se encontraron productos coincidentes con "<strong>${escapeHtml(query)}</strong>".
+                    </div>
+                `;
+                dropdownResultados.classList.remove("d-none");
+                return;
+            }
+
+            dropdownResultados.replaceChildren();
+            filtrados.slice(0, 15).forEach((p, index) => {
+                const itemDiv = document.createElement("div");
+                itemDiv.className = "p-2 border-bottom item-resultado-busqueda d-flex justify-content-between align-items-center";
+                itemDiv.dataset.id = p.id;
+
+                const stockClass = p.stock > 10 ? "text-bg-success" : (p.stock > 0 ? "text-bg-warning" : "text-bg-danger");
+                const stockText = p.stock > 0 ? `${p.stock} un.` : "Sin stock";
+
+                itemDiv.innerHTML = `
+                    <div class="me-2 text-truncate">
+                        <div class="fw-bold text-dark text-truncate">${escapeHtml(p.nombre)}</div>
+                        <div class="small text-muted text-truncate">
+                            <span class="badge text-bg-light border">${escapeHtml(p.categoria_nombre || "General")}</span>
+                            ${p.codigo_barras ? `<span class="font-monospace ms-1">🏷️ ${escapeHtml(p.codigo_barras)}</span>` : ""}
+                            ${p.proveedor ? `<span class="ms-1">🏢 ${escapeHtml(p.proveedor)}</span>` : ""}
+                        </div>
+                    </div>
+                    <div class="text-end text-nowrap">
+                        <span class="fw-bold text-success fs-6">${formatoMoneda.format(p.precio_venta)}</span>
+                        <span class="badge ${stockClass} d-block mt-1">${stockText}</span>
+                    </div>
+                `;
+
+                itemDiv.addEventListener("click", () => {
+                    seleccionarProducto(p);
+                });
+
+                dropdownResultados.appendChild(itemDiv);
+            });
+
+            dropdownResultados.classList.remove("d-none");
+            indiceFocoResultado = -1;
+        }
+
+        function seleccionarProducto(p) {
+            const selProds = document.getElementById("ventaProducto");
+            selProds.value = p.id;
+
+            // Actualizar tarjeta visual de producto seleccionado
+            document.getElementById("selProdCat").textContent = p.categoria_nombre || "General";
+            document.getElementById("selProdNombre").textContent = p.nombre;
+            document.getElementById("selProdDetalles").textContent = `Cód: ${p.codigo_barras || p.id} | Proveedor: ${p.proveedor || "General"}`;
+            document.getElementById("selProdPrecio").textContent = formatoMoneda.format(p.precio_venta);
+            document.getElementById("selProdStock").textContent = `Stock disponible: ${p.stock} un.`;
+            tarjetaSeleccionado.classList.remove("d-none");
+
+            inputBuscador.value = p.nombre;
+            dropdownResultados.classList.add("d-none");
+
+            recalcularPrevisualizacion();
+
+            // Auto-enfocar cantidad para rapidez
+            const inCant = document.getElementById("ventaCantidad");
+            inCant.focus();
+            inCant.select();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text || "";
+            return div.innerHTML;
+        }
+
+        inputBuscador.addEventListener("input", (e) => {
+            renderizarResultadosBusqueda(e.target.value);
+        });
+
+        inputBuscador.addEventListener("keydown", (e) => {
+            const items = dropdownResultados.querySelectorAll(".item-resultado-busqueda");
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (items.length > 0) {
+                    indiceFocoResultado = (indiceFocoResultado + 1) % items.length;
+                    items.forEach((it, i) => it.classList.toggle("active-item", i === indiceFocoResultado));
+                }
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (items.length > 0) {
+                    indiceFocoResultado = (indiceFocoResultado - 1 + items.length) % items.length;
+                    items.forEach((it, i) => it.classList.toggle("active-item", i === indiceFocoResultado));
+                }
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (indiceFocoResultado >= 0 && items[indiceFocoResultado]) {
+                    items[indiceFocoResultado].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === "Escape") {
+                dropdownResultados.classList.add("d-none");
+            }
+        });
+
+        btnLimpiarBuscador.addEventListener("click", () => {
+            inputBuscador.value = "";
+            dropdownResultados.classList.add("d-none");
+            document.getElementById("ventaProducto").value = "";
+            tarjetaSeleccionado.classList.add("d-none");
+            recalcularPrevisualizacion();
+            inputBuscador.focus();
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!dropdownResultados.contains(e.target) && e.target !== inputBuscador) {
+                dropdownResultados.classList.add("d-none");
+            }
+        });
 
         // Restricción de descuentos en select para vendedor
         const selDesc = document.getElementById("ventaDescuento");
@@ -312,6 +495,14 @@ $csrf = tokenCsrf();
         selProducto.addEventListener("change", recalcularPrevisualizacion);
         selTipoVenta.addEventListener("change", recalcularPrevisualizacion);
         inputCantidad.addEventListener("input", recalcularPrevisualizacion);
+
+        // Presionar Enter en cantidad para agregar rápido
+        inputCantidad.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("btnAgregarAlCarrito").click();
+            }
+        });
 
         function obtenerCalculoActual() {
             const opt = selProducto.selectedOptions[0];
@@ -405,8 +596,9 @@ $csrf = tokenCsrf();
 
             const calc = obtenerCalculoActual();
             if (!calc) {
-                errBox.textContent = "Seleccioná un producto y especificá una cantidad válida.";
+                errBox.textContent = "Buscá y seleccioná un producto antes de agregarlo.";
                 errBox.classList.remove("d-none");
+                inputBuscador.focus();
                 return;
             }
 
@@ -423,14 +615,17 @@ $csrf = tokenCsrf();
             carrito.push(calc);
             renderizarCarrito();
 
-            // Reset inputs producto
+            // Reset rápido para el próximo producto
             selProducto.value = "";
+            inputBuscador.value = "";
+            tarjetaSeleccionado.classList.add("d-none");
             inputCantidad.value = 1;
             selTipoVenta.value = "unidad";
             selDesc.value = "0";
             inputDescCustom.value = "";
             inputDescCustom.classList.add("d-none");
             recalcularPrevisualizacion();
+            inputBuscador.focus();
         });
 
         // Renderizar carrito
@@ -444,7 +639,7 @@ $csrf = tokenCsrf();
             const btnConfirm = document.getElementById("btnConfirmarVenta");
 
             if (carrito.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">🛒 El carrito está vacío.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">🛒 El carrito está vacío. Buscá y agregá productos desde el panel izquierdo.</td></tr>`;
                 badgeCount.textContent = "0 ítems";
                 resUnid.textContent = "0 un.";
                 resSub.textContent = "$ 0,00";
@@ -573,8 +768,7 @@ $csrf = tokenCsrf();
             abrirLector((cb) => {
                 const encontrado = productosCache.find(p => p.codigo_barras === cb || p.codigo === cb);
                 if (encontrado) {
-                    selProducto.value = encontrado.id;
-                    recalcularPrevisualizacion();
+                    seleccionarProducto(encontrado);
                 } else {
                     alert(`No se encontró producto con código "${cb}".`);
                 }

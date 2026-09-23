@@ -445,6 +445,10 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                             </select>
                         </div>
                         <div class="col-12 col-sm-6 col-lg-2">
+                            <label for="filtroIngresoFactura" class="form-label">📄 N° Factura</label>
+                            <input type="text" id="filtroIngresoFactura" name="numero_factura" class="form-control" placeholder="Ej: FC-0001...">
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-2">
                             <label for="filtroIngresoProveedor" class="form-label">Proveedor</label>
                             <input type="text" id="filtroIngresoProveedor" name="proveedor" class="form-control" placeholder="Buscar...">
                         </div>
@@ -582,10 +586,49 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
                                     </div>
                                 </div>
 
-                                <div class="mt-4">
-                                    <button class="btn btn-outline-primary btn-sm" type="button" id="btnCopiarCodigoBarras">📋 Copiar código</button>
+                                <div class="mt-4 d-flex flex-wrap gap-2 justify-content-center">
+                                    <button class="btn btn-primary btn-sm px-3 fw-bold" type="button" id="btnGuardarCodigoHistorial">💾 Guardar en Historial</button>
+                                    <button class="btn btn-outline-dark btn-sm px-3" type="button" id="btnImprimirEtiqueta">🖨️ Imprimir Etiqueta</button>
+                                    <button class="btn btn-outline-secondary btn-sm px-3" type="button" id="btnCopiarCodigoBarras">📋 Copiar código</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla Historial de Códigos de Barra Creados -->
+                    <div class="mt-4 pt-4 border-top">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
+                            <div>
+                                <p class="etiqueta text-primary mb-1">Registro y Trazabilidad</p>
+                                <h3 class="h5 fw-bold mb-0">📜 Historial de Códigos Creados</h3>
+                                <small class="text-muted">Reutilizá, visualizá o reimprimí códigos generados anteriormente.</small>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <input type="text" id="buscadorHistorialCodigos" class="form-control form-control-sm" placeholder="🔍 Buscar código o producto...">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive bg-white border rounded-3">
+                            <table class="table table-hover align-middle mb-0" id="tablaHistorialCodigos">
+                                <thead class="table-light small text-muted text-uppercase">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Fecha Creación</th>
+                                        <th>Código de Barras</th>
+                                        <th>Producto / Detalle</th>
+                                        <th>Precio ($)</th>
+                                        <th>Formato</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historialCodigosBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            Cargando historial de códigos...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
