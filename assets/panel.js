@@ -1249,22 +1249,45 @@ function iniciarLectorCamara() {
     const readerDiv = document.getElementById("qr-reader");
     if (!readerDiv) return;
 
+    const resBox = document.getElementById("scannerResultado");
+    if (resBox) resBox.classList.add("d-none");
+
     if (html5QrScannerInstance) {
         html5QrScannerInstance.clear().catch(() => {});
+        html5QrScannerInstance = null;
     }
 
-    html5QrScannerInstance = new Html5Qrcode("qr-reader");
-    const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+    try {
+        html5QrScannerInstance = new Html5Qrcode("qr-reader");
+    } catch (e) {
+        console.error("Error al instanciar Html5Qrcode:", e);
+        return;
+    }
+
+    // Cálculo dinámico de qrbox según el tamaño de la pantalla
+    const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
+        const edge = Math.min(viewfinderWidth, viewfinderHeight);
+        const ancho = Math.floor(Math.max(160, Math.min(viewfinderWidth * 0.8, 250)));
+        const alto = Math.floor(Math.max(120, Math.min(viewfinderHeight * 0.7, 160)));
+        return { width: ancho, height: alto };
+    };
+
+    const config = {
+        fps: 15,
+        qrbox: qrboxFunction,
+        aspectRatio: 1.333333,
+        showTorchButtonIfSupported: true
+    };
 
     html5QrScannerInstance.start(
         { facingMode: "environment" },
         config,
         (decodedText) => {
-            // Sonido suave de beep o vibración
             if (navigator.vibrate) navigator.vibrate(100);
             
             detenerLectorCamara();
-            bootstrap.Modal.getInstance(document.getElementById("modalScannerCamara")).hide();
+            const modalInst = bootstrap.Modal.getInstance(document.getElementById("modalScannerCamara"));
+            if (modalInst) modalInst.hide();
 
             if (callbackScannerActivo) {
                 callbackScannerActivo(decodedText);
@@ -1272,11 +1295,10 @@ function iniciarLectorCamara() {
         },
         () => {} // Ignorar frames sin código
     ).catch((err) => {
-        const resBox = document.getElementById("scannerResultado");
         if (resBox) {
             resBox.textContent = "No se pudo acceder a la cámara o no hay permisos suficientes: " + err;
             resBox.classList.remove("d-none");
-            resBox.className = "alert alert-warning py-2";
+            resBox.className = "alert alert-warning py-2 small";
         }
     });
 }

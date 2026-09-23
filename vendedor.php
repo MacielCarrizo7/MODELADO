@@ -617,14 +617,14 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
                 <div class="modal-body text-center">
                     <div class="tarjeta-credencial-qr mx-auto" style="max-width: 340px;">
                         <div class="small text-uppercase tracking-wide opacity-75">Control Stock - Cliente</div>
-                        <h3 class="h5 fw-bold mt-1 mb-0" id="qrClienteNombreModal">Nombre del Cliente</h3>
-                        <p class="small text-white-50 mb-2" id="qrClienteDniModal">DNI: —</p>
+                        <h3 class="h5 fw-bold mt-1 mb-0" id="modalQrClienteNombre">Nombre del Cliente</h3>
+                        <p class="small text-white-50 mb-2" id="modalQrClienteDni">DNI: —</p>
                         
                         <div class="qr-box">
-                            <div id="contenedorQrCanvasCliente"></div>
+                            <div id="modalQrClienteContenedor"></div>
                         </div>
 
-                        <div class="small font-monospace opacity-75" id="qrClienteCodigoTexto">CLIENTE:0</div>
+                        <div class="small font-monospace opacity-75" id="modalQrClienteId">CLIENTE:0</div>
                     </div>
                 </div>
                 <div class="modal-footer">
