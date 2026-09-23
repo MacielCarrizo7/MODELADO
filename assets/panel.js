@@ -717,12 +717,19 @@ function actualizarPreviewBarcode() {
 const barcodeSelector = document.getElementById("barcodeSelectorProducto");
 if (barcodeSelector) {
     barcodeSelector.addEventListener("change", (e) => {
-        const prodId = Number(e.target.value);
-        const prod = productosCache.find((p) => Number(p.id) === prodId);
+        const prodVal = String(e.target.value || "").trim();
+        if (!prodVal) {
+            actualizarPreviewBarcode();
+            return;
+        }
+        const prod = productosCache.find((p) => String(p.id) === prodVal || String(p._id) === prodVal);
         if (prod) {
-            document.getElementById("barcodeInputCodigo").value = prod.codigo_barras || prod.codigo || generarCodigoEan13();
-            document.getElementById("barcodeInputNombre").value = prod.nombre;
-            document.getElementById("barcodeInputPrecio").value = prod.precio;
+            const inputCodigo = document.getElementById("barcodeInputCodigo");
+            const inputNombre = document.getElementById("barcodeInputNombre");
+            const inputPrecio = document.getElementById("barcodeInputPrecio");
+            if (inputCodigo) inputCodigo.value = prod.codigo_barras || prod.codigo || generarCodigoEan13();
+            if (inputNombre) inputNombre.value = prod.nombre || "";
+            if (inputPrecio) inputPrecio.value = prod.precio !== undefined ? prod.precio : "";
         }
         actualizarPreviewBarcode();
     });
@@ -1278,6 +1285,22 @@ function configurarCalculadoraVenta() {
 
     if (!selectProducto || !inputCantidad) return;
 
+    const rol = document.body.dataset.rol || "";
+    const limiteDescuento = (rol === "admin") ? 100 : (Number(document.body.dataset.limiteDescuento) || 15);
+
+    // Si es vendedor, restringir opciones que excedan su límite autorizado
+    if (selectDescuento && rol === "vendedor") {
+        Array.from(selectDescuento.options).forEach((opt) => {
+            if (opt.value !== "custom") {
+                const valNum = Number(opt.value);
+                if (valNum > limiteDescuento) {
+                    opt.disabled = true;
+                    opt.text = `${valNum}% (No autorizado - Máx: ${limiteDescuento}%)`;
+                }
+            }
+        });
+    }
+
     const recalcular = () => {
         const opt = selectProducto.selectedOptions[0];
         if (!opt || !opt.dataset.precio) {
@@ -1310,11 +1333,22 @@ function configurarCalculadoraVenta() {
             if (selectDescuento.value === "custom") {
                 if (inputDescuentoCustom) {
                     inputDescuentoCustom.classList.remove("d-none");
-                    descPorcentaje = Math.min(100, Math.max(0, Number(inputDescuentoCustom.value) || 0));
+                    inputDescuentoCustom.max = String(limiteDescuento);
+                    let customVal = Number(inputDescuentoCustom.value) || 0;
+                    if (customVal > limiteDescuento && rol === "vendedor") {
+                        inputDescuentoCustom.value = limiteDescuento;
+                        customVal = limiteDescuento;
+                    }
+                    descPorcentaje = Math.min(limiteDescuento, Math.max(0, customVal));
                 }
             } else {
                 if (inputDescuentoCustom) inputDescuentoCustom.classList.add("d-none");
-                descPorcentaje = Number(selectDescuento.value) || 0;
+                let optVal = Number(selectDescuento.value) || 0;
+                if (optVal > limiteDescuento && rol === "vendedor") {
+                    selectDescuento.value = "0";
+                    optVal = 0;
+                }
+                descPorcentaje = optVal;
             }
         }
 
@@ -1383,12 +1417,34 @@ if (formVenta) {
         e.preventDefault();
         const errorBox = document.getElementById("errorVenta");
         errorBox.classList.add("d-none");
+
+        const formData = new FormData(formVenta);
+        const selectDescuento = document.getElementById("ventaDescuentoPorcentaje");
+        const inputDescuentoCustom = document.getElementById("ventaDescuentoCustom");
+        const rol = document.body.dataset.rol || "";
+        const limiteDescuento = (rol === "admin") ? 100 : (Number(document.body.dataset.limiteDescuento) || 15);
+
+        let descAplicado = 0;
+        if (selectDescuento && selectDescuento.value === "custom") {
+            descAplicado = Number(inputDescuentoCustom ? inputDescuentoCustom.value : 0) || 0;
+            formData.set("descuento_porcentaje", descAplicado);
+        } else if (selectDescuento) {
+            descAplicado = Number(selectDescuento.value) || 0;
+        }
+
+        if (rol === "vendedor" && descAplicado > limiteDescuento) {
+            errorBox.textContent = `No puedes aplicar un descuento mayor a tu límite autorizado (${limiteDescuento}%).`;
+            errorBox.classList.remove("d-none");
+            return;
+        }
+
         try {
-            await solicitar("guardar_venta.php", { method: "POST", body: new FormData(formVenta) });
+            await solicitar("guardar_venta.php", { method: "POST", body: formData });
             bootstrap.Modal.getInstance(document.getElementById("modalVenta")).hide();
             formVenta.reset();
             const infoEmpaque = document.getElementById("ventaInfoEmpaque");
             if (infoEmpaque) infoEmpaque.classList.add("d-none");
+            if (inputDescuentoCustom) inputDescuentoCustom.classList.add("d-none");
             await Promise.all([cargarProductos(), cargarVentas()]);
         } catch (error) {
             errorBox.textContent = error.message;
@@ -1528,6 +1584,12 @@ document.querySelectorAll("[data-filtro-semaforo]").forEach((elemento) => {
 
 // Inicialización general al cargar el DOM
 document.addEventListener("DOMContentLoaded", async () => {
+    document.querySelectorAll('[data-bs-target="#pestana-barcodes"]').forEach((btn) => {
+        btn.addEventListener("shown.bs.tab", () => {
+            actualizarPreviewBarcode();
+        });
+    });
+
     await Promise.all([
         cargarProductos(),
         cargarProveedores(),

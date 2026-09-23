@@ -429,17 +429,107 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* Optimizaciones de accesibilidad táctil y scroll fluido */
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+    border-radius: .75rem;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
 @media (max-width: 991.98px) {
     .login-layout { display: block; max-width: 560px; min-height: 0; }
     .login-card { padding: 2.5rem; }
+    .navbar-collapse {
+        background: #ffffff;
+        padding: 1rem;
+        border-radius: .85rem;
+        margin-top: .75rem;
+        box-shadow: 0 .75rem 2rem rgba(15, 23, 42, .08);
+        border: 1px solid var(--cs-border);
+    }
+}
+
+@media (max-width: 768px) {
+    /* Prevención de zoom automático indeseado en iOS/Android al enfocar inputs */
+    .form-control,
+    .form-select,
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+        min-height: 2.75rem;
+    }
+    
+    .btn {
+        min-height: 2.65rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: .5rem .85rem;
+    }
+
+    .modal-dialog {
+        margin: .5rem;
+        max-width: calc(100% - 1rem);
+    }
+    
+    .modal-content {
+        border-radius: .95rem;
+    }
+
+    .modal-body {
+        padding: 1.15rem;
+    }
+
+    .modal-header,
+    .modal-footer {
+        padding: .85rem 1.15rem;
+    }
 }
 
 @media (max-width: 575.98px) {
     .login-body { display: block; }
     .login-layout { border-radius: 1rem; }
     .login-card { padding: 1.5rem; }
-    .hero-panel { border-radius: 1rem; }
-    .hero-panel h1 { font-size: 1.75rem; }
-    .seccion-card { padding: 1rem; }
-    .nav-tabs-app .nav-link { padding: .5rem .75rem; font-size: .82rem; }
+    .hero-panel { border-radius: 1rem; padding: 1.25rem; }
+    .hero-panel h1 { font-size: 1.55rem; }
+    .seccion-card { padding: 1rem; border-radius: .85rem; }
+    .nav-tabs-app {
+        gap: .35rem;
+        padding: .3rem;
+        border-radius: .75rem;
+    }
+    .nav-tabs-app .nav-link {
+        padding: .45rem .65rem;
+        font-size: .8rem;
+        border-radius: .6rem;
+    }
+    .tabla-app th, 
+    .tabla-app td {
+        padding: .65rem .6rem;
+        font-size: .84rem;
+    }
+    .badge {
+        font-size: .75rem;
+        padding: .35em .55em;
+    }
 }

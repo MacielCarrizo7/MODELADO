@@ -48,13 +48,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $usuario["apellido"] = $apellido;
                 }
 
-                // Iniciar sesión segura con los 5 campos requeridos
+                // Iniciar sesión segura con los datos requeridos
                 session_regenerate_id(true);
                 $_SESSION["usuario_id"] = (int) $usuario["id"];
                 $_SESSION["usuario_dni"] = (string) $usuario["dni"];
                 $_SESSION["usuario_nombre"] = (string) $usuario["nombre"];
                 $_SESSION["usuario_apellido"] = (string) $usuario["apellido"];
                 $_SESSION["usuario_rol"] = (string) $usuario["rol"];
+                $_SESSION["usuario_limite_descuento"] = isset($usuario["limite_descuento"]) ? (float)$usuario["limite_descuento"] : (($usuario["rol"] === "vendedor") ? 15.0 : 100.0);
                 $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
 
                 header("Location: stock.php");

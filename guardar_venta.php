@@ -19,6 +19,16 @@ if ($descuentoPorcentaje < 0 || $descuentoPorcentaje > 100) {
     responderJson(["error" => "El porcentaje de descuento debe estar entre 0% y 100%."], 400);
 }
 
+// Validar límite de descuento configurado para el vendedor
+if (isset($_SESSION["usuario_rol"]) && $_SESSION["usuario_rol"] === "vendedor") {
+    $limiteVendedor = isset($_SESSION["usuario_limite_descuento"]) ? (float)$_SESSION["usuario_limite_descuento"] : 15.0;
+    if ($descuentoPorcentaje > ($limiteVendedor + 0.001)) {
+        responderJson([
+            "error" => "El descuento aplicado ({$descuentoPorcentaje}%) supera tu límite máximo autorizado de {$limiteVendedor}% establecido por el administrador."
+        ], 403);
+    }
+}
+
 if ($productoId <= 0 || $clienteId <= 0 || $cantidad <= 0) {
     responderJson(["error" => "Seleccioná un producto, un cliente y una cantidad válida."], 400);
 }
