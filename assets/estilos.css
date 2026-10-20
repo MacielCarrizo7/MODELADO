@@ -145,12 +145,110 @@ main, .container, .container-fluid, .tab-content, .tab-pane, .seccion-card {
     color: #526077;
     border-radius: .65rem;
     font-weight: 600;
-    padding: .5rem .85rem;
+    padding: .45rem .85rem;
+    font-size: .9rem;
     transition: all .15s ease-in-out;
 }
 .nav-link-app:hover, .nav-link-app:focus, .nav-link-app.active {
     color: var(--cs-primary-dark);
     background: #eff6ff;
+}
+
+/* Componentes Modernos de Barra Superior */
+.btn-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 50%;
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    transition: all .15s ease-in-out;
+}
+.btn-nav-icon:hover {
+    color: var(--cs-primary);
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    transform: translateY(-1px);
+}
+.btn-nav-pos {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    padding: .42rem .85rem;
+    font-size: .84rem;
+    font-weight: 650;
+    color: var(--cs-primary);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 9999px;
+    text-decoration: none;
+    transition: all .15s ease-in-out;
+}
+.btn-nav-pos:hover {
+    color: #fff;
+    background: var(--cs-primary);
+    border-color: var(--cs-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, .2);
+}
+.btn-nav-profile {
+    display: inline-flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    transition: all .15s ease-in-out;
+}
+.btn-nav-profile:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+.avatar-chip {
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cs-primary), #60a5fa);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: .8rem;
+    font-weight: 750;
+}
+.app-navbar .dropdown-menu {
+    min-width: 13.5rem;
+    border-radius: .85rem;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+}
+.app-navbar .dropdown-item {
+    font-size: .86rem;
+    font-weight: 550;
+    color: #334155;
+    border-radius: .5rem;
+    margin: 0 .25rem;
+    width: calc(100% - .5rem);
+    transition: all .12s ease-in-out;
+}
+.app-navbar .dropdown-item:hover {
+    background: #f1f5f9;
+    color: var(--cs-primary-dark);
+}
+@media (max-width: 991.98px) {
+    .btn-nav-icon {
+        width: 100%;
+        border-radius: .65rem;
+        justify-content: flex-start;
+        padding: .5rem .85rem;
+        height: auto;
+    }
+    .btn-nav-pos {
+        width: 100%;
+        border-radius: .65rem;
+        padding: .55rem 1rem;
+    }
 }
 
 /* Sistema de Pestañas Modernas */
