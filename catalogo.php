@@ -1,11 +1,15 @@
 <?php
 require_once __DIR__ . "/seguridad.php";
-requerirPaginaAutenticada(["admin", "vendedor"]);
+requerirPaginaAutenticada(["admin", "vendedor", "cliente"]);
 
-$rol = $_SESSION["usuario_rol"] ?? "vendedor";
+$rol = $_SESSION["usuario_rol"] ?? "cliente";
 $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Usuario") . " " . ($_SESSION["usuario_apellido"] ?? ""));
 
-$paginaRetorno = ($rol === "admin") ? "admin.php" : "vendedor.php";
+$paginaRetorno = match ($rol) {
+    "admin" => "admin.php",
+    "vendedor" => "vendedor.php",
+    default => "cliente.php"
+};
 
 $csrf = tokenCsrf();
 ?>
@@ -14,7 +18,7 @@ $csrf = tokenCsrf();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catálogo de Presentaciones de Hielo | Control Stock</title>
+    <title>Catálogo Visual de Productos | Menú</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
 </head>
@@ -23,11 +27,11 @@ $csrf = tokenCsrf();
     <nav class="navbar navbar-expand-lg app-navbar sticky-top py-3">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center gap-2" href="<?= $paginaRetorno ?>">
-                <span class="marca-icono" aria-hidden="true">❄️</span>
-                <span class="fw-bold">Catálogo de Hielo</span>
+                <span class="marca-icono" aria-hidden="true">CS</span>
+                <span class="fw-bold">Catálogo de Productos</span>
             </a>
             <div class="d-flex align-items-center gap-2 ms-auto">
-                <a href="<?= $paginaRetorno ?>" class="btn btn-outline-secondary btn-sm">← Volver al Panel</a>
+                <a href="<?= $paginaRetorno ?>" class="btn btn-outline-secondary btn-sm">← Volver a Mi Panel</a>
             </div>
         </div>
     </nav>
@@ -36,9 +40,9 @@ $csrf = tokenCsrf();
         <!-- Hero Header del Catálogo -->
         <div class="hero-panel p-4 p-md-5 mb-4 text-white">
             <div class="hero-contenido">
-                <span class="badge text-bg-light text-primary fw-bold mb-2">Catálogo & Presentaciones</span>
-                <h1 class="h2 fw-bold mb-2">Variedad y Presentaciones de Hielo</h1>
-                <p class="text-white-50 mb-0" style="max-width: 650px;">Consultá la disponibilidad de bolsas de hielo en cubos, rollos, escamas y barras.</p>
+                <span class="badge text-bg-light text-primary fw-bold mb-2">Catálogo & Menú Oficial</span>
+                <h1 class="h2 fw-bold mb-2">Explorá nuestro catálogo de artículos</h1>
+                <p class="text-white-50 mb-0" style="max-width: 650px;">Consultá la variedad de productos, sabores, presentaciones y novedades organizadas por rubro.</p>
             </div>
         </div>
 

@@ -5,6 +5,7 @@ requerirPaginaAutenticada();
 $destinos = [
     "admin"    => "admin.php",
     "vendedor" => "vendedor.php",
+    "cliente"  => "cliente.php",
 ];
 
 $rol = $_SESSION["usuario_rol"] ?? "";

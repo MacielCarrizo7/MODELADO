@@ -432,12 +432,15 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
                     const acciones = document.createElement("td");
                     acciones.className = "text-nowrap";
                     if (compra.estado !== "CANCELADA") {
-                        const btnRemito = document.createElement("a");
-                        btnRemito.href = `generar_remito.php?id=${compra.id}${compra.ticket_id ? `&ticket_id=${encodeURIComponent(compra.ticket_id)}` : ''}`;
-                        btnRemito.target = "_blank";
-                        btnRemito.className = "btn btn-outline-primary btn-sm me-2 d-inline-flex align-items-center gap-1 shadow-sm";
-                        btnRemito.innerHTML = '<i class="bi bi-file-earmark-pdf-fill text-danger"></i> Descargar Remito';
-
+                        const cantidad = document.createElement("button");
+                        cantidad.type = "button";
+                        cantidad.className = "btn btn-outline-primary btn-sm me-2";
+                        cantidad.textContent = "Cantidad";
+                        cantidad.addEventListener("click", () => {
+                            document.getElementById("clienteVentaCantidadId").value = compra.id;
+                            document.getElementById("clienteNuevaCantidad").value = compra.cantidad;
+                            bootstrap.Modal.getOrCreateInstance(document.getElementById("modalClienteCantidad")).show();
+                        });
                         const cancelar = document.createElement("button");
                         cancelar.type = "button";
                         cancelar.className = "btn btn-outline-danger btn-sm";
@@ -446,7 +449,7 @@ $nombreUsuario = trim(($_SESSION["usuario_nombre"] ?? "Cliente") . " " . ($_SESS
                             document.getElementById("clienteVentaCancelarId").value = compra.id;
                             bootstrap.Modal.getOrCreateInstance(document.getElementById("modalClienteCancelar")).show();
                         });
-                        acciones.append(btnRemito, cancelar);
+                        acciones.append(cantidad, cancelar);
                     } else {
                         acciones.textContent = "—";
                     }

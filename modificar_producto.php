@@ -14,8 +14,8 @@ $precioCosto = isset($_POST["precio_costo"]) ? floatval($_POST["precio_costo"]) 
 $precioVenta = floatval($_POST["precio_venta"] ?? ($_POST["precio"] ?? 0));
 $precio = $precioVenta;
 
-$stock = filter_input(INPUT_POST, "stock", FILTER_VALIDATE_INT);
-$presentacion = trim($_POST["presentacion"] ?? "unidad");
+$stock = isset($_POST["stock"]) && $_POST["stock"] !== "" ? floatval($_POST["stock"]) : null;
+$presentacionRaw = trim($_POST["presentacion"] ?? "unidad");
 
 // Categoría
 $categoriaId = isset($_POST["categoria_id"]) && $_POST["categoria_id"] !== "" ? (int)$_POST["categoria_id"] : null;
@@ -26,7 +26,7 @@ $fechaVencimiento = trim($_POST["fecha_vencimiento"] ?? "");
 $proveedor = trim($_POST["proveedor"] ?? "");
 $motivo = trim($_POST["motivo"] ?? "Modificación / corrección de producto");
 
-$presentacionesValidas = ["unidad", "caja", "bulto"];
+$presentacionesValidas = ["unidad", "caja", "bulto", "Litros", "Kg", "litros", "kg"];
 
 if ($id <= 0) {
     responderJson(["error" => "ID de producto inválido."], 400);
@@ -48,8 +48,8 @@ try {
     $precioVenta = isset($_POST["precio_venta"]) && $_POST["precio_venta"] !== "" ? floatval($_POST["precio_venta"]) : (isset($_POST["precio"]) && $_POST["precio"] !== "" ? floatval($_POST["precio"]) : floatval($productoActual["precio_venta"] ?? $productoActual["precio"] ?? 0));
     $precio = $precioVenta;
 
-    $stock = isset($_POST["stock"]) && $_POST["stock"] !== "" ? filter_input(INPUT_POST, "stock", FILTER_VALIDATE_INT) : (int)($productoActual["stock"] ?? 0);
-    $presentacion = trim($_POST["presentacion"] ?? ($productoActual["presentacion"] ?? "unidad"));
+    $stock = isset($_POST["stock"]) && $_POST["stock"] !== "" ? floatval($_POST["stock"]) : floatval($productoActual["stock"] ?? 0);
+    $presentacionRaw = trim($_POST["presentacion"] ?? ($productoActual["presentacion"] ?? "unidad"));
     $unidadesPorBulto = isset($_POST["unidades_por_bulto"]) && $_POST["unidades_por_bulto"] !== "" ? intval($_POST["unidades_por_bulto"]) : intval($productoActual["unidades_por_bulto"] ?? 1);
 
     // Categoría
@@ -61,8 +61,6 @@ try {
     $codigoBarras = isset($_POST["codigo_barras"]) ? trim($_POST["codigo_barras"]) : ($productoActual["codigo_barras"] ?? "");
     $motivo = trim($_POST["motivo"] ?? "Modificación / corrección de producto");
 
-    $presentacionesValidas = ["unidad", "caja", "bulto"];
-
     if ($nombre === "" || mb_strlen($nombre) > 150) {
         responderJson(["error" => "Ingresá un nombre de producto válido (máx. 150 caracteres)."], 400);
     }
@@ -72,11 +70,24 @@ try {
     if ($stock === null || $stock < 0) {
         responderJson(["error" => "El stock no puede ser negativo."], 400);
     }
-    if (!in_array($presentacion, $presentacionesValidas, true)) {
+    if (!in_array($presentacionRaw, $presentacionesValidas, true)) {
         responderJson(["error" => "La presentación seleccionada no es válida."], 400);
     }
 
-    if ($presentacion === "unidad") {
+    $presLower = strtolower($presentacionRaw);
+    if ($presLower === "litros") {
+        $presentacion = "Litros";
+    } elseif ($presLower === "kg") {
+        $presentacion = "Kg";
+    } elseif ($presLower === "caja") {
+        $presentacion = "caja";
+    } elseif ($presLower === "bulto") {
+        $presentacion = "bulto";
+    } else {
+        $presentacion = "unidad";
+    }
+
+    if ($presentacion === "unidad" || $presentacion === "Litros" || $presentacion === "Kg") {
         $unidadesPorBulto = 1;
         $permiteVentaUnidad = true;
     } else {
@@ -183,23 +194,9 @@ try {
         }
     }
 
-    $stockAnterior = (int) ($productoActual["stock"] ?? 0);
+    $stockAnterior = (float) ($productoActual["stock"] ?? 0);
     $precioAnterior = (float) ($productoActual["precio"] ?? 0);
     $diferenciaStock = $stock - $stockAnterior;
-
-    // Validación estricta de auditoría: si cambia el stock, el motivo es obligatorio
-    $motivo = trim($_POST["motivo"] ?? "");
-    if ($diferenciaStock !== 0 && $motivo === "") {
-        responderJson(["error" => "Es obligatorio registrar el motivo o justificación del cambio de stock (requerido por auditoría)."], 400);
-    }
-    if ($motivo === "") {
-        $motivo = "Actualización de ficha de producto";
-    }
-
-    $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
-    $usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
-    $usuarioRol = $_SESSION["usuario_rol"] ?? "admin";
-    $fechaActual = date("Y-m-d H:i:s");
 
     // Si no se proporcionó nuevo precio de costo, mantener el actual
     $precioCostoFinal = $precioCosto !== null ? $precioCosto : floatval($productoActual["precio_costo"] ?? 0);
@@ -224,33 +221,10 @@ try {
         "unidades_por_bulto" => $unidadesPorBulto,
         "fecha_vencimiento" => $vencimientoParam,
         "proveedor" => $proveedorParam,
-        "ultimo_modificado_por" => $usuarioNombre,
-        "ultimo_motivo_stock" => $motivo,
-        "fecha_ultima_modificacion" => $fechaActual,
-        "modificado_el" => $fechaActual
+        "modificado_el" => date("Y-m-d H:i:s")
     ];
 
     $firestore->actualizarCampos("productos", (string)$id, $camposActualizados);
-
-    // Registro de Auditoría Específica de Stock en Firestore
-    if ($diferenciaStock !== 0) {
-        $auditoriaId = $firestore->obtenerSiguienteId("contadores", "auditoria_stock", "ultimo_id");
-        $auditoriaDoc = [
-            "id" => $auditoriaId,
-            "producto_id" => $id,
-            "producto_nombre" => $nombre,
-            "stock_anterior" => $stockAnterior,
-            "stock_nuevo" => $stock,
-            "diferencia" => $diferenciaStock,
-            "tipo_cambio" => $diferenciaStock > 0 ? "INGRESO_AJUSTE" : "MERMA_O_DISMINUCION",
-            "motivo" => $motivo,
-            "usuario_id" => $usuarioId,
-            "usuario_nombre" => $usuarioNombre,
-            "usuario_rol" => $usuarioRol,
-            "fecha" => $fechaActual
-        ];
-        $firestore->guardarDocumento("auditoria_stock", (string)$auditoriaId, $auditoriaDoc);
-    }
 
     // Si hubo incremento de stock, registrar en Kardex de ingresos
     if ($diferenciaStock > 0) {
@@ -258,8 +232,8 @@ try {
         $numeroFacturaMod = trim($_POST["numero_factura"] ?? "");
         $facturaFinalMod = ($sinFacturaMod || $numeroFacturaMod === "") ? ($sinFacturaMod ? "Sin Factura" : null) : $numeroFacturaMod;
 
-        $cantidadBultosIngresados = ($unidadesPorBulto > 1) ? intdiv($diferenciaStock, $unidadesPorBulto) : $diferenciaStock;
-        if ($cantidadBultosIngresados === 0) {
+        $cantidadBultosIngresados = ($unidadesPorBulto > 1) ? floor($diferenciaStock / $unidadesPorBulto) : $diferenciaStock;
+        if ($cantidadBultosIngresados <= 0) {
             $cantidadBultosIngresados = 1;
         }
 
@@ -282,19 +256,18 @@ try {
             "numero_factura" => $facturaFinalMod,
             "sin_factura" => $sinFacturaMod,
             "usuario_id" => $usuarioId,
-            "usuario_nombre" => $usuarioNombre,
             "motivo" => $motivoIngreso,
-            "fecha" => $fechaActual
+            "fecha" => date("Y-m-d H:i:s")
         ];
 
         $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
 
     // Registrar en trazabilidad de movimientos
-    $tipoMovimiento = ($diferenciaStock !== 0) ? ($diferenciaStock > 0 ? "INGRESO_AJUSTE" : "MERMA_AJUSTE") : "EDICION_DATOS";
-    $descripcionMov = "Modificación por {$usuarioNombre}: Costo: $" . number_format($precioCostoFinal, 2) . " | Venta: $" . number_format($precioVenta, 2);
+    $tipoMovimiento = ($diferenciaStock !== 0) ? "AJUSTE_STOCK" : "EDICION_DATOS";
+    $descripcionMov = "Modificación: Costo: $" . number_format($precioCostoFinal, 2) . " | Venta: $" . number_format($precioVenta, 2);
     if ($diferenciaStock !== 0) {
-        $descripcionMov .= " | Stock: {$stockAnterior} → {$stock} (" . ($diferenciaStock > 0 ? "+{$diferenciaStock}" : "{$diferenciaStock}") . " un.) - Motivo: {$motivo}";
+        $descripcionMov .= " | Variación: " . ($diferenciaStock > 0 ? "+{$diferenciaStock}" : "{$diferenciaStock}") . " un. ($motivo)";
     }
 
     FirestoreConexion::registrarMovimientoProducto(
@@ -316,10 +289,8 @@ try {
         "nombre" => $nombre,
         "precio_costo" => $precioCostoFinal,
         "precio_venta" => $precioVenta,
-        "stock" => $stock,
-        "modificado_por" => $usuarioNombre,
         "imagen_url" => $imagenFinal,
-        "mensaje" => "Producto y stock actualizados con registro de auditoría."
+        "mensaje" => "Producto modificado exitosamente."
     ]);
 } catch (Throwable $e) {
     error_log("Error al modificar producto: " . $e->getMessage());

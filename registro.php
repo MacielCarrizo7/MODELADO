@@ -5,7 +5,7 @@ require_once __DIR__ . "/FirestoreConexion.php";
 
 $firestore = FirestoreConexion::obtenerFirestore();
 $error = "";
-$rolesValidos = ["admin", "vendedor"];
+$rolesValidos = ["admin", "vendedor", "cliente"];
 
 if (!isset($_SESSION["csrf_crear_usuario"])) {
     $_SESSION["csrf_crear_usuario"] = bin2hex(random_bytes(32));
@@ -98,6 +98,7 @@ try {
     $usuarios = [];
 }
 
+$clientes = array_filter($usuarios, fn($u) => ($u["rol"] ?? "") === "cliente");
 $equipo = array_filter($usuarios, fn($u) => ($u["rol"] ?? "") === "admin" || ($u["rol"] ?? "") === "vendedor");
 
 function e(string $valor): string {
@@ -109,7 +110,7 @@ function e(string $valor): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-    <title>Gestión de Usuarios | Control Stock</title>
+    <title>Gestión de usuarios y clientes | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
 </head>
@@ -130,8 +131,8 @@ function e(string $valor): string {
     <main class="container py-3 py-md-5">
         <div class="mb-4">
             <p class="etiqueta text-primary mb-1">Administración de Cuentas</p>
-            <h1 class="h2 fw-bold mb-2">Gestión de Usuarios (Admin y Vendedor)</h1>
-            <p class="texto-secundario mb-0">Control de personal de ventas, administradores y límites de descuento autorizados.</p>
+            <h1 class="h2 fw-bold mb-2">Gestión de Usuarios y Personal</h1>
+            <p class="texto-secundario mb-0">Control de clientes, vendedores, roles y límites de descuento autorizados.</p>
         </div>
 
         <?php if (isset($_GET["creado"])): ?>
@@ -155,7 +156,7 @@ function e(string $valor): string {
             <div class="col-12 col-lg-4">
                 <section class="seccion-card" aria-labelledby="titulo-crear-usuario">
                     <h2 id="titulo-crear-usuario" class="h5 fw-bold mb-1">Registrar cuenta</h2>
-                    <p class="texto-secundario small mb-4">Completá los datos para crear un nuevo usuario con rol de Administrador o Vendedor.</p>
+                    <p class="texto-secundario small mb-4">Completá los datos para crear un nuevo usuario o cliente.</p>
                     <form method="POST" autocomplete="off">
                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION["csrf_crear_usuario"]) ?>">
                         <input type="hidden" name="accion" value="crear_usuario">
@@ -181,16 +182,16 @@ function e(string $valor): string {
                         <div class="mb-3">
                             <label for="rol" class="form-label">Tipo de cuenta / Rol *</label>
                             <select id="rol" name="rol" class="form-select" required>
-                                <option value="vendedor" selected>Vendedor (Punto de Venta)</option>
+                                <option value="cliente" selected>Cliente (Consumidor final)</option>
+                                <option value="vendedor">Vendedor (Personal de ventas)</option>
                                 <option value="admin">Administrador (Control total)</option>
                             </select>
                         </div>
 
                         <!-- Límite de Descuento para Vendedores -->
-                        <div class="mb-4" id="contenedorLimiteDescuento">
+                        <div class="mb-4 d-none" id="contenedorLimiteDescuento">
                             <label for="limiteDescuento" class="form-label">Límite de descuento máximo permitido (%)</label>
                             <select id="limiteDescuento" name="limite_descuento" class="form-select">
-                                <option value="0">0% (Sin descuento permitido)</option>
                                 <option value="5">5% de descuento máximo</option>
                                 <option value="10">10% de descuento máximo</option>
                                 <option value="15" selected>15% de descuento máximo (Estándar)</option>
@@ -212,69 +213,183 @@ function e(string $valor): string {
                 <section class="seccion-card" aria-labelledby="titulo-segmentacion-usuarios">
                     
                     <!-- Barra de Búsqueda Instantánea -->
-                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <h2 id="titulo-segmentacion-usuarios" class="h5 fw-bold text-dark mb-0">Personal Autorizado (<?= count($equipo) ?>)</h2>
-                        <div class="flex-grow-1" style="max-width: 320px;">
-                            <input type="text" id="buscadorUsuarios" class="form-control form-control-sm" placeholder="Buscar por nombre, apellido, DNI...">
-                        </div>
+                    <div class="mb-3">
+                        <input type="text" id="buscadorUsuarios" class="form-control" placeholder="Buscar por nombre, apellido, DNI o rol...">
                     </div>
 
-                    <?php if (empty($equipo)): ?>
-                        <div class="empty-state">No hay miembros registrados en el sistema.</div>
-                    <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table align-middle mb-0 tabla-filtrable">
-                                <thead>
-                                    <tr>
-                                        <th>Usuario</th>
-                                        <th>DNI</th>
-                                        <th>Rol</th>
-                                        <th>Límite Descuento</th>
-                                        <th class="text-end">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                <?php foreach ($equipo as $miembro): ?>
-                                    <?php $limiteActual = isset($miembro["limite_descuento"]) ? (float)$miembro["limite_descuento"] : (($miembro["rol"] === "vendedor") ? 15.0 : 100.0); ?>
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="avatar bg-primary-subtle text-primary" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($miembro["nombre"], 0, 1))) ?></span>
-                                                <div>
-                                                    <div class="fw-semibold nombre-usuario"><?= e(trim($miembro["nombre"] . " " . ($miembro["apellido"] ?? ""))) ?></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="dni-usuario font-monospace small"><?= e($miembro["dni"]) ?></td>
-                                        <td>
-                                            <?php if ($miembro["rol"] === "admin"): ?>
-                                                <span class="badge text-bg-danger rol-usuario">Administrador</span>
-                                            <?php else: ?>
-                                                <span class="badge text-bg-primary rol-usuario">Vendedor</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <?php if ($miembro["rol"] === "admin"): ?>
-                                                <span class="badge text-bg-light border">Sin límite (100%)</span>
-                                            <?php else: ?>
-                                                <span class="badge text-bg-warning text-dark fw-bold">Máx. <?= $limiteActual ?>%</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="text-end">
-                                            <?php if ($miembro["rol"] === "vendedor"): ?>
-                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirModalEditarLimite(<?= (int)$miembro['id'] ?>, '<?= e(addslashes($miembro['nombre'])) ?>', <?= $limiteActual ?>)">
-                                                    Ajustar Límite
-                                                </button>
-                                            <?php else: ?>
-                                                <span class="text-muted small">—</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                    <!-- Pestañas de Segmentación -->
+                    <ul class="nav nav-tabs-app mb-4" id="usuariosSegmentacionTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-equipo-btn" data-bs-toggle="tab" data-bs-target="#panel-equipo" type="button" role="tab" aria-controls="panel-equipo" aria-selected="true">
+                                <span>Equipo y Vendedores</span>
+                                <span class="badge rounded-pill text-bg-primary ms-1"><?= count($equipo) ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-clientes-btn" data-bs-toggle="tab" data-bs-target="#panel-clientes" type="button" role="tab" aria-controls="panel-clientes" aria-selected="false">
+                                <span>Clientes</span>
+                                <span class="badge rounded-pill text-bg-secondary ms-1"><?= count($clientes) ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-todos-btn" data-bs-toggle="tab" data-bs-target="#panel-todos" type="button" role="tab" aria-controls="panel-todos" aria-selected="false">
+                                <span>Todos</span>
+                                <span class="badge rounded-pill text-bg-light border ms-1"><?= count($usuarios) ?></span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="usuariosSegmentacionContent">
+                        
+                        <!-- Vista Exclusiva: Vendedores y Administradores -->
+                        <div class="tab-pane fade show active" id="panel-equipo" role="tabpanel" aria-labelledby="tab-equipo-btn">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h2 class="h6 fw-bold text-uppercase text-muted mb-0">Personal y Límites Autorizados</h2>
+                                <span class="text-secondary small"><?= count($equipo) ?> miembros</span>
+                            </div>
+                            <?php if (empty($equipo)): ?>
+                                <div class="empty-state">No hay miembros de equipo registrados.</div>
+                            <?php else: ?>
+                                <div class="table-responsive">
+                                    <table class="table align-middle mb-0 tabla-filtrable">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>DNI</th>
+                                                <th>Rol</th>
+                                                <th>Límite Descuento</th>
+                                                <th class="text-end">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        <?php foreach ($equipo as $miembro): ?>
+                                            <?php $limiteActual = isset($miembro["limite_descuento"]) ? (float)$miembro["limite_descuento"] : (($miembro["rol"] === "vendedor") ? 15.0 : 100.0); ?>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar bg-primary-subtle text-primary" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($miembro["nombre"], 0, 1))) ?></span>
+                                                        <div>
+                                                            <div class="fw-semibold nombre-usuario"><?= e(trim($miembro["nombre"] . " " . ($miembro["apellido"] ?? ""))) ?></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="dni-usuario font-monospace small"><?= e($miembro["dni"]) ?></td>
+                                                <td>
+                                                    <?php if ($miembro["rol"] === "admin"): ?>
+                                                        <span class="badge text-bg-danger rol-usuario">Administrador</span>
+                                                    <?php else: ?>
+                                                        <span class="badge text-bg-primary rol-usuario">Vendedor</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($miembro["rol"] === "admin"): ?>
+                                                        <span class="badge text-bg-light border">Sin límite (100%)</span>
+                                                    <?php else: ?>
+                                                        <span class="badge text-bg-warning text-dark fw-bold">Máx. <?= $limiteActual ?>%</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-end">
+                                                    <?php if ($miembro["rol"] === "vendedor"): ?>
+                                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirModalEditarLimite(<?= (int)$miembro['id'] ?>, '<?= e(addslashes($miembro['nombre'])) ?>', <?= $limiteActual ?>)">
+                                                            Ajustar Límite
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <span class="text-muted small">—</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
                         </div>
-                    <?php endif; ?>
+
+                        <!-- Vista Exclusiva: Clientes -->
+                        <div class="tab-pane fade" id="panel-clientes" role="tabpanel" aria-labelledby="tab-clientes-btn">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h2 class="h6 fw-bold text-uppercase text-muted mb-0">Cartera de Clientes</h2>
+                                <span class="text-secondary small"><?= count($clientes) ?> clientes registrados</span>
+                            </div>
+                            <?php if (empty($clientes)): ?>
+                                <div class="empty-state">No hay clientes registrados en el sistema.</div>
+                            <?php else: ?>
+                                <div class="table-responsive">
+                                    <table class="table align-middle mb-0 tabla-filtrable">
+                                        <thead>
+                                            <tr>
+                                                <th>Cliente</th>
+                                                <th>DNI</th>
+                                                <th>Fecha de Registro</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        <?php foreach ($clientes as $cliente): ?>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($cliente["nombre"], 0, 1))) ?></span>
+                                                        <div>
+                                                            <div class="fw-semibold nombre-usuario"><?= e(trim($cliente["nombre"] . " " . ($cliente["apellido"] ?? ""))) ?></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="dni-usuario font-monospace small"><?= e($cliente["dni"]) ?></td>
+                                                <td><small class="text-muted"><?= e(date("d/m/Y", strtotime($cliente["fecha_registro"]))) ?></small></td>
+                                                <td>
+                                                    <span class="badge text-bg-success">Activo</span>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Vista Consolidada: Todos -->
+                        <div class="tab-pane fade" id="panel-todos" role="tabpanel" aria-labelledby="tab-todos-btn">
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0 tabla-filtrable">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th>DNI</th>
+                                            <th>Rol</th>
+                                            <th>Fecha</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($usuarios as $usuario): ?>
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($usuario["nombre"], 0, 1))) ?></span>
+                                                    <div>
+                                                        <div class="fw-semibold nombre-usuario"><?= e(trim($usuario["nombre"] . " " . ($usuario["apellido"] ?? ""))) ?></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="dni-usuario font-monospace small"><?= e($usuario["dni"]) ?></td>
+                                            <td>
+                                                <?php if ($usuario["rol"] === "admin"): ?>
+                                                    <span class="badge text-bg-danger rol-usuario">Admin</span>
+                                                <?php elseif ($usuario["rol"] === "vendedor"): ?>
+                                                    <span class="badge text-bg-primary rol-usuario">Vendedor</span>
+                                                <?php else: ?>
+                                                    <span class="badge text-bg-secondary rol-usuario">Cliente</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td><small class="text-muted"><?= e(date("d/m/Y", strtotime($usuario["fecha_registro"]))) ?></small></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
                 </section>
             </div>
         </div>

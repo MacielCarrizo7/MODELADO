@@ -14,8 +14,8 @@ $precioCosto = floatval($_POST["precio_costo"] ?? 0);
 $precioVenta = floatval($_POST["precio_venta"] ?? ($_POST["precio"] ?? 0));
 $precio = $precioVenta; // Compatibilidad
 
-$stock = intval($_POST["stock"] ?? 0);
-$presentacion = trim($_POST["presentacion"] ?? "unidad");
+$stock = floatval($_POST["stock"] ?? 0);
+$presentacionRaw = trim($_POST["presentacion"] ?? "unidad");
 
 // Categoría
 $categoriaId = isset($_POST["categoria_id"]) && $_POST["categoria_id"] !== "" ? (int)$_POST["categoria_id"] : null;
@@ -25,7 +25,7 @@ $unidadesPorBulto = intval($_POST["unidades_por_bulto"] ?? 1);
 $fechaVencimiento = trim($_POST["fecha_vencimiento"] ?? "");
 $proveedor = trim($_POST["proveedor"] ?? "");
 
-$presentacionesValidas = ["unidad", "caja", "bulto"];
+$presentacionesValidas = ["unidad", "caja", "bulto", "Litros", "Kg", "litros", "kg"];
 
 if ($nombre === "" || mb_strlen($nombre) > 150) {
     responderJson(["error" => "Ingresá un nombre de producto válido (máx. 150 caracteres)."], 400);
@@ -39,11 +39,25 @@ if ($precioCosto < 0) {
 if ($stock < 0) {
     responderJson(["error" => "El stock no puede ser negativo."], 400);
 }
-if (!in_array($presentacion, $presentacionesValidas, true)) {
+if (!in_array($presentacionRaw, $presentacionesValidas, true)) {
     responderJson(["error" => "La presentación seleccionada no es válida."], 400);
 }
 
-if ($presentacion === "unidad") {
+// Sanitizar y normalizar presentación
+$presLower = strtolower($presentacionRaw);
+if ($presLower === "litros") {
+    $presentacion = "Litros";
+} elseif ($presLower === "kg") {
+    $presentacion = "Kg";
+} elseif ($presLower === "caja") {
+    $presentacion = "caja";
+} elseif ($presLower === "bulto") {
+    $presentacion = "bulto";
+} else {
+    $presentacion = "unidad";
+}
+
+if ($presentacion === "unidad" || $presentacion === "Litros" || $presentacion === "Kg") {
     $unidadesPorBulto = 1;
     $permiteVentaUnidad = true;
 } else {
@@ -186,50 +200,42 @@ try {
 
     // Registrar en Kardex de ingresos si stock > 0
     if ($totalUnidades > 0) {
-        try {
-            $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
-            $ingresoDatos = [
-                "id" => $ingresoId,
-                "producto_id" => $productoId,
-                "producto_nombre" => $nombre,
-                "cantidad" => $stock,
-                "presentacion" => $presentacion,
-                "unidades_por_bulto" => $unidadesPorBulto,
-                "total_unidades" => $totalUnidades,
-                "precio_unitario" => $precioVenta,
-                "precio_costo" => $precioCosto,
-                "precio_venta" => $precioVenta,
-                "proveedor" => $proveedorParam,
-                "fecha_vencimiento" => $vencimientoParam,
-                "numero_factura" => $numeroFacturaFinal,
-                "sin_factura" => $sinFactura,
-                "usuario_id" => $usuarioId,
-                "motivo" => "Alta inicial de producto" . ($numeroFacturaFinal ? " (Factura: {$numeroFacturaFinal})" : ""),
-                "fecha" => date("Y-m-d H:i:s")
-            ];
-            $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
-        } catch (Throwable $eIngreso) {
-            error_log("Aviso: no se pudo registrar ingreso_stock: " . $eIngreso->getMessage());
-        }
+        $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
+        $ingresoDatos = [
+            "id" => $ingresoId,
+            "producto_id" => $productoId,
+            "producto_nombre" => $nombre,
+            "cantidad" => $stock,
+            "presentacion" => $presentacion,
+            "unidades_por_bulto" => $unidadesPorBulto,
+            "total_unidades" => $totalUnidades,
+            "precio_unitario" => $precioVenta,
+            "precio_costo" => $precioCosto,
+            "precio_venta" => $precioVenta,
+            "proveedor" => $proveedorParam,
+            "fecha_vencimiento" => $vencimientoParam,
+            "numero_factura" => $numeroFacturaFinal,
+            "sin_factura" => $sinFactura,
+            "usuario_id" => $usuarioId,
+            "motivo" => "Alta inicial de producto" . ($numeroFacturaFinal ? " (Factura: {$numeroFacturaFinal})" : ""),
+            "fecha" => date("Y-m-d H:i:s")
+        ];
+        $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDatos);
     }
 
     // Registrar en trazabilidad de movimientos de producto
-    try {
-        FirestoreConexion::registrarMovimientoProducto(
-            productoId: $productoId,
-            tipo: "ALTA_INICIAL",
-            descripcion: "Alta inicial del producto con stock de {$totalUnidades} un. Costo: $" . number_format($precioCosto, 2) . " | Venta: $" . number_format($precioVenta, 2),
-            cantidadAnterior: 0,
-            cantidadNueva: $totalUnidades,
-            diferencia: $totalUnidades,
-            precioAnterior: null,
-            precioNuevo: $precioVenta,
-            usuarioId: $usuarioId,
-            usuarioNombre: $usuarioNombre
-        );
-    } catch (Throwable $eMov) {
-        error_log("Aviso: no se pudo registrar movimiento: " . $eMov->getMessage());
-    }
+    FirestoreConexion::registrarMovimientoProducto(
+        productoId: $productoId,
+        tipo: "ALTA_INICIAL",
+        descripcion: "Alta inicial del producto con stock de {$totalUnidades} un. Costo: $" . number_format($precioCosto, 2) . " | Venta: $" . number_format($precioVenta, 2),
+        cantidadAnterior: 0,
+        cantidadNueva: $totalUnidades,
+        diferencia: $totalUnidades,
+        precioAnterior: null,
+        precioNuevo: $precioVenta,
+        usuarioId: $usuarioId,
+        usuarioNombre: $usuarioNombre
+    );
 
     responderJson([
         "success" => true,

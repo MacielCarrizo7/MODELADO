@@ -27,11 +27,7 @@ class FirestoreRestCliente {
         ]);
         $this->baseUrl = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents";
 
-        $scopes = [
-            "https://www.googleapis.com/auth/datastore",
-            "https://www.googleapis.com/auth/cloud-platform",
-            "https://www.googleapis.com/auth/firebase.database"
-        ];
+        $scopes = ["https://www.googleapis.com/auth/datastore"];
         $this->credenciales = new ServiceAccountCredentials($scopes, $this->keyFilePath);
     }
 
@@ -427,63 +423,75 @@ class FirestoreRestCliente {
     }
 
     /**
-    /**
-     * Genera un ID autoincremental directo y robusto sin requerir transacciones complejas.
-     * Lee y actualiza el contador directamente en la colección 'contadores'.
+     * Genera un ID autoincremental atómico utilizando Firestore write commit / transactions.
      */
     public function obtenerSiguienteId(string $coleccion = "contadores", string $documento = "usuarios", string $campo = "ultimo_id"): int {
-        $ultimoId = 0;
+        $token = $this->obtenerToken();
 
-        // 1. Intentar leer el contador existente directamente
-        try {
-            $doc = $this->obtenerDocumento($coleccion, $documento);
-            if ($doc !== null && isset($doc[$campo])) {
-                $ultimoId = (int) $doc[$campo];
-            }
-        } catch (Throwable $e) {
-            error_log("Aviso: no se pudo leer contador {$coleccion}/{$documento}: " . $e->getMessage());
+        // 1. Iniciar transacción en Firestore
+        $urlTx = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents:beginTransaction";
+        $resTx = $this->http->post($urlTx, [
+            "headers" => [
+                "Authorization" => "Bearer {$token}",
+                "Content-Type" => "application/json",
+                "Accept" => "application/json",
+            ],
+            "json" => (object)[]
+        ]);
+
+        if ($resTx->getStatusCode() !== 200) {
+            throw new RuntimeException("No se pudo iniciar la transacción en Firestore: " . (string)$resTx->getBody());
         }
 
-        // 2. Si el contador está en 0 o no existe, intentar buscar el max(id) de la colección destino
-        if ($ultimoId <= 0) {
-            $coleccionDestino = match ($documento) {
-                "usuarios" => "usuarios",
-                "productos" => "productos",
-                "ventas" => "ventas",
-                "solicitudes" => "solicitudes",
-                "ingresos" => "ingresos_stock",
-                "movimientos" => "movimientos_producto",
-                "bajas_inventario" => "bajas_inventario",
-                "categorias" => "categorias",
-                "proveedores" => "proveedores",
-                default => $documento
-            };
+        $txData = json_decode((string)$resTx->getBody(), true);
+        $transactionId = $txData["transaction"];
 
-            try {
-                $docs = $this->obtenerColeccion($coleccionDestino, 100);
-                foreach ($docs as $d) {
-                    if (isset($d["id"]) && is_numeric($d["id"])) {
-                        $idNum = (int)$d["id"];
-                        if ($idNum > $ultimoId) {
-                            $ultimoId = $idNum;
-                        }
-                    }
-                }
-            } catch (Throwable $e) {
-                // Silencioso
+        // 2. Leer el documento actual dentro de la transacción
+        $urlGet = "{$this->baseUrl}/{$coleccion}/{$documento}?transaction=" . urlencode($transactionId);
+        $resGet = $this->http->get($urlGet, [
+            "headers" => [
+                "Authorization" => "Bearer {$token}",
+                "Accept" => "application/json",
+            ]
+        ]);
+
+        $ultimoId = 0;
+        if ($resGet->getStatusCode() === 200) {
+            $docData = json_decode((string)$resGet->getBody(), true);
+            if (isset($docData["fields"][$campo]["integerValue"])) {
+                $ultimoId = (int) $docData["fields"][$campo]["integerValue"];
             }
         }
 
         $siguienteId = $ultimoId + 1;
+        $docName = "projects/{$this->projectId}/databases/(default)/documents/{$coleccion}/{$documento}";
 
-        // 3. Guardar el nuevo contador de forma directa
-        try {
-            $this->guardarDocumento($coleccion, $documento, [
-                $campo => $siguienteId,
-                "actualizado_el" => date("Y-m-d H:i:s")
-            ]);
-        } catch (Throwable $e) {
-            error_log("Aviso: no se pudo actualizar documento de contador {$coleccion}/{$documento}: " . $e->getMessage());
+        // 3. Confirmar la escritura en la transacción (Commit)
+        $urlCommit = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents:commit";
+        $resCommit = $this->http->post($urlCommit, [
+            "headers" => [
+                "Authorization" => "Bearer {$token}",
+                "Content-Type" => "application/json",
+                "Accept" => "application/json",
+            ],
+            "json" => [
+                "transaction" => $transactionId,
+                "writes" => [
+                    [
+                        "update" => [
+                            "name" => $docName,
+                            "fields" => [
+                                $campo => ["integerValue" => (string)$siguienteId],
+                                "actualizado_el" => ["stringValue" => date("Y-m-d H:i:s")]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+
+        if ($resCommit->getStatusCode() !== 200) {
+            throw new RuntimeException("Error al confirmar transacción de contador en Firestore: " . (string)$resCommit->getBody());
         }
 
         return $siguienteId;
@@ -551,40 +559,13 @@ class FirestoreConexion {
     }
 
     /**
-     * Obtiene el Project ID configurado dinámicamente desde el archivo JSON de credenciales o la variable de entorno.
+     * Obtiene el Project ID configurado.
      */
     public static function obtenerProjectId(): string {
-        // 1. Variable de entorno explícita
         $projectEnv = getenv("FIREBASE_PROJECT_ID");
         if ($projectEnv !== false && trim($projectEnv) !== "") {
             return trim($projectEnv);
         }
-
-        // 2. Extraer del JSON en variable de entorno FIREBASE_CREDENTIALS_JSON
-        $jsonDirecto = getenv("FIREBASE_CREDENTIALS_JSON");
-        if ($jsonDirecto !== false && trim($jsonDirecto) !== "") {
-            $parsed = @json_decode($jsonDirecto, true);
-            if (is_array($parsed) && !empty($parsed["project_id"])) {
-                return trim($parsed["project_id"]);
-            }
-        }
-
-        // 3. Extraer del archivo de credenciales resuelto
-        try {
-            $rutaKey = self::obtenerRutaCredenciales();
-            if (file_exists($rutaKey)) {
-                $contenido = @file_get_contents($rutaKey);
-                if ($contenido !== false) {
-                    $parsed = @json_decode($contenido, true);
-                    if (is_array($parsed) && !empty($parsed["project_id"])) {
-                        return trim($parsed["project_id"]);
-                    }
-                }
-            }
-        } catch (Throwable $e) {
-            // Ignorar para usar fallback
-        }
-
         return "modelado-e4de7";
     }
 

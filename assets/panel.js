@@ -114,13 +114,13 @@ function crearBadgeVencimiento(fechaIso, prod = null) {
     return badge;
 }
 
-// Renderizado de Presentaciones de Hielo
+// Renderizado de Productos con Código de Barras y Botón de Historial
 function renderizarFilasProductos(productos) {
     const tbody = document.getElementById("productosBody");
     if (!tbody) return;
-    const columnas = 6;
+    const columnas = 8;
     if (productos.length === 0) {
-        mensajeEnTabla(tbody, columnas, "No se encontraron presentaciones de hielo con los filtros seleccionados.");
+        mensajeEnTabla(tbody, columnas, "No se encontraron productos con los filtros seleccionados.");
         return;
     }
     tbody.replaceChildren();
@@ -128,24 +128,8 @@ function renderizarFilasProductos(productos) {
     productos.forEach((producto) => {
         const fila = document.createElement("tr");
 
-        // 1. Nombre y Presentación (Header en Móviles)
-        const nombreTd = document.createElement("td");
-        nombreTd.className = "prod-mob-header";
-        const nombreTitulo = document.createElement("div");
-        nombreTitulo.className = "prod-mob-title fw-bold text-dark";
-        nombreTitulo.textContent = producto.nombre;
-        nombreTd.appendChild(nombreTitulo);
-        if (producto.descripcion) {
-            const desc = document.createElement("small");
-            desc.className = "text-muted d-block";
-            desc.textContent = producto.descripcion;
-            nombreTd.appendChild(desc);
-        }
-        fila.appendChild(nombreTd);
-
-        // 2. Código / Código de Barras
+        // 1. Código / Código de Barras
         const cbTd = document.createElement("td");
-        cbTd.setAttribute("data-label", "Cód. / Barras");
         const cbCont = document.createElement("div");
         if (producto.codigo_barras) {
             const cbBadge = document.createElement("span");
@@ -163,26 +147,56 @@ function renderizarFilasProductos(productos) {
         cbTd.appendChild(cbCont);
         fila.appendChild(cbTd);
 
-        // 3. Presentación / Empaque
+        // 2. Nombre con Diferenciación de Proveedor
+        const nombreTd = document.createElement("td");
+        const nombreTitulo = document.createElement("div");
+        nombreTitulo.className = "fw-bold d-flex align-items-center flex-wrap gap-1";
+        nombreTitulo.textContent = producto.nombre;
+        if (producto.proveedor) {
+            const badgeProv = document.createElement("span");
+            badgeProv.className = "badge text-bg-light border text-primary small fw-semibold";
+            badgeProv.textContent = producto.proveedor;
+            nombreTitulo.appendChild(badgeProv);
+        }
+        nombreTd.appendChild(nombreTitulo);
+        if (producto.descripcion) {
+            const desc = document.createElement("small");
+            desc.className = "text-muted d-block";
+            desc.textContent = producto.descripcion;
+            nombreTd.appendChild(desc);
+        }
+        fila.appendChild(nombreTd);
+
+        // 3. Presentación
         const presTd = document.createElement("td");
-        presTd.setAttribute("data-label", "Empaque");
         const presNombre = producto.presentacion ? producto.presentacion.toUpperCase() : "UNIDAD";
         if (producto.presentacion && producto.presentacion.toLowerCase() !== "unidad") {
             const permite = (producto.permite_venta_unidad !== false && producto.permite_venta_unidad !== 0 && producto.permite_venta_unidad !== "0");
-            presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span><small class="d-block ${permite ? 'text-success' : 'text-danger'}" style="font-size:0.75rem;">${permite ? 'Venta x bolsa' : 'Solo empaque'}</small>`;
+            presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span><small class="d-block ${permite ? 'text-success' : 'text-danger'}" style="font-size:0.75rem;">${permite ? 'Venta x unidad' : 'Solo empaque'}</small>`;
         } else {
             presTd.innerHTML = `<span class="fw-semibold">${escapeHtml(presNombre)}</span>`;
         }
         fila.appendChild(presTd);
 
-        // 4. Precio Unitario
-        const precioTd = celda(formatoMoneda.format(producto.precio), "fw-bold text-primary");
-        precioTd.setAttribute("data-label", "Precio Unitario");
-        fila.appendChild(precioTd);
+        // 4. Proveedor
+        const provTd = document.createElement("td");
+        if (producto.proveedor) {
+            provTd.innerHTML = `<span class="fw-semibold text-dark">${producto.proveedor}</span>`;
+        } else {
+            provTd.innerHTML = '<span class="text-muted small">—</span>';
+        }
+        fila.appendChild(provTd);
 
-        // 5. Stock en Cámara
+        // 5. Vencimiento (FIFO)
+        const vencimientoTd = document.createElement("td");
+        vencimientoTd.appendChild(crearBadgeVencimiento(producto.fecha_vencimiento, producto));
+        fila.appendChild(vencimientoTd);
+
+        // 6. Precio
+        fila.append(celda(formatoMoneda.format(producto.precio), "fw-bold text-primary"));
+
+        // 7. Stock
         const stockTd = document.createElement("td");
-        stockTd.setAttribute("data-label", "Stock en Cámara");
         const stock = Number(producto.stock);
         const unidadesPorBulto = Number(producto.unidades_por_bulto) || 1;
         const badge = document.createElement("span");
@@ -190,23 +204,27 @@ function renderizarFilasProductos(productos) {
         
         if (stock <= 0) {
             badge.textContent = "Sin stock";
-        } else if (producto.presentacion && producto.presentacion !== "unidad" && unidadesPorBulto > 1) {
+        } else if (producto.presentacion && (producto.presentacion.toLowerCase() === "caja" || producto.presentacion.toLowerCase() === "bulto") && unidadesPorBulto > 1) {
             const bultos = Math.floor(stock / unidadesPorBulto);
             const resto = stock % unidadesPorBulto;
-            let textoEmpaque = `${stock} bolsas`;
+            let textoEmpaque = `${stock} un.`;
             if (bultos > 0) {
                 textoEmpaque += ` (${bultos} ${producto.presentacion}${bultos > 1 ? "s" : ""}${resto > 0 ? ` + ${resto} un.` : ""})`;
             }
             badge.textContent = textoEmpaque;
+        } else if (producto.presentacion && producto.presentacion.toLowerCase() === "litros") {
+            badge.textContent = `${stock} Lt.`;
+        } else if (producto.presentacion && producto.presentacion.toLowerCase() === "kg") {
+            badge.textContent = `${stock} Kg.`;
         } else {
-            badge.textContent = `${stock} bolsas`;
+            badge.textContent = `${stock} un. disponibles`;
         }
         stockTd.appendChild(badge);
         fila.appendChild(stockTd);
 
-        // 6. Acciones (Historial + Editar + Dar de Baja)
+        // 8. Acciones (Historial + Editar + Dar de Baja)
         const accion = document.createElement("td");
-        accion.className = "text-end prod-mob-acciones";
+        accion.className = "text-end";
         const grupo = document.createElement("div");
         grupo.className = "d-inline-flex gap-1";
 
@@ -214,7 +232,7 @@ function renderizarFilasProductos(productos) {
         const btnHistorial = document.createElement("button");
         btnHistorial.type = "button";
         btnHistorial.className = "btn btn-outline-secondary btn-sm";
-        btnHistorial.title = "Ver trazabilidad y movimientos en cámara";
+        btnHistorial.title = "Ver trazabilidad y movimientos";
         btnHistorial.textContent = "Historial";
         btnHistorial.addEventListener("click", () => abrirModalHistorialProducto(producto.id));
         grupo.appendChild(btnHistorial);
@@ -228,8 +246,8 @@ function renderizarFilasProductos(productos) {
             const btnEliminar = document.createElement("button");
             btnEliminar.type = "button";
             btnEliminar.className = "btn btn-outline-danger btn-sm";
-            btnEliminar.title = "Dar de baja / registrar merma";
-            btnEliminar.textContent = "Baja/Merma";
+            btnEliminar.title = "Dar de baja del inventario";
+            btnEliminar.textContent = "Dar de Baja";
             btnEliminar.addEventListener("click", () => abrirModalBaja(producto));
 
             grupo.append(btnEditar, btnEliminar);
@@ -243,24 +261,39 @@ function renderizarFilasProductos(productos) {
 
 function filtrarYRenderizarProductos() {
     const inputBusqueda = document.getElementById("filtroProductoBusqueda");
+    const selectSemaforo = document.getElementById("filtroProductoSemaforo");
     const selectPresentacion = document.getElementById("filtroProductoPresentacion");
+    const selectProveedor = document.getElementById("filtroProductoProveedor");
 
     const query = inputBusqueda ? inputBusqueda.value.toLowerCase().trim() : "";
+    const semaforoFiltro = selectSemaforo ? selectSemaforo.value : "";
     const presentacionFiltro = selectPresentacion ? selectPresentacion.value : "";
+    const proveedorFiltro = selectProveedor ? selectProveedor.value.toLowerCase().trim() : "";
 
     const filtrados = productosCache.filter((producto) => {
         if (query !== "") {
             const nombre = (producto.nombre || "").toLowerCase();
+            const proveedor = (producto.proveedor || "").toLowerCase();
             const codigo = (producto.codigo || "").toLowerCase();
             const cb = (producto.codigo_barras || "").toLowerCase();
-            if (!nombre.includes(query) && !codigo.includes(query) && !cb.includes(query)) {
+            if (!nombre.includes(query) && !proveedor.includes(query) && !codigo.includes(query) && !cb.includes(query)) {
                 return false;
             }
         }
 
+        if (proveedorFiltro !== "") {
+            const prov = (producto.proveedor || "").toLowerCase().trim();
+            if (prov !== proveedorFiltro) return false;
+        }
+
         if (presentacionFiltro !== "") {
             const pres = (producto.presentacion || "unidad").toLowerCase();
-            if (pres !== presentacionFiltro) return false;
+            if (pres !== presentacionFiltro.toLowerCase()) return false;
+        }
+
+        if (semaforoFiltro !== "") {
+            const cat = obtenerCategoriaSemaforo(producto.fecha_vencimiento, producto);
+            if (cat !== semaforoFiltro) return false;
         }
 
         return true;
@@ -272,8 +305,8 @@ function filtrarYRenderizarProductos() {
 async function cargarProductos() {
     const tbody = document.getElementById("productosBody");
     if (!tbody) return;
-    const columnas = 6;
-    mensajeEnTabla(tbody, columnas, "Cargando presentaciones de hielo...");
+    const columnas = 8;
+    mensajeEnTabla(tbody, columnas, "Cargando productos...");
     try {
         productosCache = await solicitar("obtener_productos.php");
         
@@ -1098,22 +1131,37 @@ function llenarSelectorBarcodeProductos() {
     selector.value = valActual;
 }
 
+function calcularDigitoVerificadorEan13(doceDigitos) {
+    let suma = 0;
+    for (let i = 0; i < 12; i++) {
+        const digito = parseInt(doceDigitos[i], 10);
+        suma += (i % 2 === 0) ? digito : digito * 3;
+    }
+    const resto = suma % 10;
+    return (resto === 0) ? 0 : 10 - resto;
+}
+
+function generarCodigoEan13() {
+    const aleatorio9 = Math.floor(Math.random() * 1000000000).toString().padStart(9, "0");
+    const primeros12 = "200" + aleatorio9;
+    const checkDigit = calcularDigitoVerificadorEan13(primeros12);
+    return primeros12 + checkDigit.toString();
+}
+
 function actualizarPreviewBarcode() {
     const inputCodigo = document.getElementById("barcodeInputCodigo");
     const inputNombre = document.getElementById("barcodeInputNombre");
     const selectFormato = document.getElementById("barcodeInputFormato");
     const svgElement = document.getElementById("previewBarcodeSvg");
     const lblNombre = document.getElementById("previewEtiquetaNombre");
-    const lblPrecio = document.getElementById("previewEtiquetaPrecio");
 
     if (!svgElement) return;
 
-    const codigo = inputCodigo && inputCodigo.value.trim() ? inputCodigo.value.trim() : "2001234567890";
-    const nombre = inputNombre && inputNombre.value.trim() ? inputNombre.value.trim() : "Bolsa de Hielo";
+    const codigo = inputCodigo && inputCodigo.value.trim() ? inputCodigo.value.trim() : "2001234567893";
+    const nombre = inputNombre && inputNombre.value.trim() ? inputNombre.value.trim() : "Nombre del Producto";
     const formato = selectFormato && selectFormato.value ? selectFormato.value : "CODE128";
 
     if (lblNombre) lblNombre.textContent = nombre;
-    if (lblPrecio) lblPrecio.textContent = "";
 
     // Limpiar contenido previo del SVG
     svgElement.innerHTML = "";
@@ -1164,37 +1212,20 @@ if (barcodeSelector) {
         if (prod) {
             const inputCodigo = document.getElementById("barcodeInputCodigo");
             const inputNombre = document.getElementById("barcodeInputNombre");
-            const inputPrecio = document.getElementById("barcodeInputPrecio");
             if (inputCodigo) inputCodigo.value = prod.codigo_barras || prod.codigo || generarCodigoEan13();
             if (inputNombre) inputNombre.value = prod.nombre || "";
-            if (inputPrecio) inputPrecio.value = prod.precio !== undefined ? prod.precio : "";
         }
         actualizarPreviewBarcode();
     });
 }
 
-["barcodeInputCodigo", "barcodeInputNombre", "barcodeInputPrecio", "barcodeInputFormato"].forEach((id) => {
+["barcodeInputCodigo", "barcodeInputNombre", "barcodeInputFormato"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
         el.addEventListener("input", actualizarPreviewBarcode);
         el.addEventListener("change", actualizarPreviewBarcode);
     }
 });
-
-function generarCodigoEan13() {
-    // Comienza obligatoriamente y sin excepciones con el prefijo "20" (código interno) seguido de 10 dígitos aleatorios y dígito de control EAN-13
-    let primeros12 = "20";
-    for (let i = 0; i < 10; i++) {
-        primeros12 += Math.floor(Math.random() * 10).toString();
-    }
-    let suma = 0;
-    for (let i = 0; i < 12; i++) {
-        const d = parseInt(primeros12.charAt(i), 10);
-        suma += (i % 2 === 0) ? d : d * 3;
-    }
-    const digitoControl = (10 - (suma % 10)) % 10;
-    return primeros12 + digitoControl.toString();
-}
 
 const btnRandomCode = document.getElementById("btnGenerarCodigoRandom");
 if (btnRandomCode) {
@@ -1295,11 +1326,9 @@ async function cargarHistorialCodigos(busqueda = "") {
             btnCargar.addEventListener("click", () => {
                 const inCod = document.getElementById("barcodeInputCodigo");
                 const inNom = document.getElementById("barcodeInputNombre");
-                const inPre = document.getElementById("barcodeInputPrecio");
                 const inForm = document.getElementById("barcodeInputFormato");
                 if (inCod) inCod.value = c.codigo;
                 if (inNom) inNom.value = c.nombre;
-                if (inPre) inPre.value = c.precio || "";
                 if (inForm) inForm.value = c.formato || "CODE128";
                 actualizarPreviewBarcode();
                 window.scrollTo({ top: 300, behavior: "smooth" });
@@ -1330,7 +1359,6 @@ async function cargarHistorialCodigos(busqueda = "") {
 async function guardarCodigoEnHistorial() {
     const inputCodigo = document.getElementById("barcodeInputCodigo");
     const inputNombre = document.getElementById("barcodeInputNombre");
-    const inputPrecio = document.getElementById("barcodeInputPrecio");
     const selectFormato = document.getElementById("barcodeInputFormato");
     const selectorProd = document.getElementById("barcodeSelectorProducto");
     const btnSave = document.getElementById("btnGuardarCodigoHistorial");
@@ -1342,7 +1370,6 @@ async function guardarCodigoEnHistorial() {
     }
 
     const nombre = inputNombre ? inputNombre.value.trim() : "Producto General";
-    const precio = inputPrecio ? Number(inputPrecio.value) || 0 : 0;
     const formato = selectFormato ? selectFormato.value : "CODE128";
     const productoId = selectorProd && selectorProd.value ? Number(selectorProd.value) : null;
 
@@ -1360,7 +1387,7 @@ async function guardarCodigoEnHistorial() {
             body: JSON.stringify({
                 codigo: codigo,
                 nombre: nombre,
-                precio: precio,
+                precio: 0,
                 formato: formato,
                 producto_id: productoId
             })
@@ -1625,7 +1652,7 @@ document.addEventListener("keydown", async (e) => {
 async function cargarVentas(filtros = {}) {
     const tbody = document.getElementById("ventasBody");
     if (!tbody) return;
-    const columnas = esAdmin ? 11 : 10;
+    const columnas = esAdmin ? 12 : 10;
     mensajeEnTabla(tbody, columnas, "Cargando ventas...");
 
     const params = new URLSearchParams();
@@ -1676,67 +1703,32 @@ async function cargarVentas(filtros = {}) {
             const badge = document.createElement("span");
             const esCancelada = venta.estado === "CANCELADA";
             const esModificada = venta.estado === "MODIFICADA";
-            const esEntregada = venta.estado === "ENTREGADO";
-
-            if (esCancelada) {
-                badge.className = "badge text-bg-danger";
-                badge.textContent = "Cancelada";
-            } else if (esEntregada) {
-                badge.className = "badge text-bg-success d-inline-flex align-items-center gap-1";
-                badge.innerHTML = '<i class="bi bi-check2-circle"></i> Entregado';
-            } else if (esModificada) {
-                badge.className = "badge text-bg-warning text-dark";
-                badge.textContent = "Modificada";
-            } else {
-                badge.className = "badge text-bg-primary";
-                badge.textContent = "Activa";
-            }
+            badge.className = `badge ${esCancelada ? "text-bg-danger" : esModificada ? "text-bg-warning" : "text-bg-success"}`;
+            badge.textContent = venta.estado || "ACTIVA";
             estadoTd.appendChild(badge);
             fila.appendChild(estadoTd);
 
+            if (esAdmin) {
+                fila.append(celda(venta.fecha_modificacion ? fechaLegible(venta.fecha_modificacion) : "—"));
+            }
+
             const accion = document.createElement("td");
             accion.className = "text-end";
-            const grupo = document.createElement("div");
-            grupo.className = "d-inline-flex flex-wrap gap-1 justify-content-end";
-
-            // Botón estilizado para ver y Descargar Remito oficial en PDF
-            const btnRemito = document.createElement("a");
-            btnRemito.href = `generar_remito.php?id=${venta.id}${venta.ticket_id ? `&ticket_id=${encodeURIComponent(venta.ticket_id)}` : ''}`;
-            btnRemito.target = "_blank";
-            btnRemito.className = "btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1 shadow-sm";
-            btnRemito.title = "Descargar Remito en PDF / Comprobante de Entrega";
-            btnRemito.innerHTML = '<i class="bi bi-file-earmark-pdf-fill text-danger"></i> <span>Descargar Remito</span>';
-            grupo.appendChild(btnRemito);
-
             if (!esCancelada) {
-                // Botón rápido de Entregado con un solo clic si no fue entregada aún
-                if (!esEntregada) {
-                    const btnEntregar = document.createElement("button");
-                    btnEntregar.type = "button";
-                    btnEntregar.className = "btn btn-success btn-sm";
-                    btnEntregar.title = "Marcar pedido de hielo como ENTREGADO con un solo clic";
-                    btnEntregar.innerHTML = '<i class="bi bi-truck me-1"></i>Entregar';
-                    btnEntregar.addEventListener("click", async () => {
-                        if (!confirm(`¿Marcar la venta #${venta.id} (${venta.cliente || 'Cliente'}) como ENTREGADO?`)) return;
-                        btnEntregar.disabled = true;
-                        btnEntregar.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-                        try {
-                            await solicitar("marcar_entrega_venta.php", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ venta_id: venta.id, ticket_id: venta.ticket_id || "" })
-                            });
-                            const formFiltros = document.getElementById("formFiltrosVentas");
-                            const datosFiltros = formFiltros ? Object.fromEntries(new FormData(formFiltros)) : {};
-                            await cargarVentas(datosFiltros);
-                        } catch (err) {
-                            alert("Error al cambiar estado: " + err.message);
-                            btnEntregar.disabled = false;
-                            btnEntregar.innerHTML = '<i class="bi bi-truck me-1"></i>Entregar';
-                        }
-                    });
-                    grupo.appendChild(btnEntregar);
-                }
+                const grupo = document.createElement("div");
+                grupo.className = "d-inline-flex gap-1";
+
+                const btnModificar = document.createElement("button");
+                btnModificar.type = "button";
+                btnModificar.className = "btn btn-outline-primary btn-sm";
+                btnModificar.textContent = "Modificar";
+                btnModificar.addEventListener("click", () => {
+                    document.getElementById("modificarVentaId").value = venta.id;
+                    document.getElementById("modificarCantidad").value = venta.cantidad;
+                    document.getElementById("motivoModificacion").value = "";
+                    document.getElementById("errorModificarVenta").classList.add("d-none");
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalModificarVenta")).show();
+                });
 
                 const btnCancelar = document.createElement("button");
                 btnCancelar.type = "button";
@@ -1749,10 +1741,11 @@ async function cargarVentas(filtros = {}) {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById("modalCancelarVenta")).show();
                 });
 
-                grupo.append(btnCancelar);
+                grupo.append(btnModificar, btnCancelar);
+                accion.appendChild(grupo);
+            } else {
+                accion.textContent = "—";
             }
-
-            accion.appendChild(grupo);
             fila.appendChild(accion);
 
             tbody.appendChild(fila);
@@ -1765,8 +1758,8 @@ async function cargarVentas(filtros = {}) {
 async function cargarIngresos(filtros = {}) {
     const tbody = document.getElementById("ingresosBody");
     if (!tbody) return;
-    const columnas = 7;
-    mensajeEnTabla(tbody, columnas, "Cargando kardex de producción e ingresos a cámara...");
+    const columnas = 9;
+    mensajeEnTabla(tbody, columnas, "Cargando kardex de ingresos...");
 
     const params = new URLSearchParams();
     Object.entries(filtros).forEach(([k, v]) => {
@@ -1789,12 +1782,12 @@ async function cargarIngresos(filtros = {}) {
             fila.append(celda(String(ing.id)));
             fila.append(celda(fechaLegible(ing.fecha)));
 
-            // N° Factura / Remito
+            // N° Factura
             const factTd = document.createElement("td");
             if (ing.numero_factura && ing.numero_factura !== "—" && ing.numero_factura !== "Sin Factura") {
                 factTd.innerHTML = `<span class="badge text-bg-light border font-monospace">${ing.numero_factura}</span>`;
             } else if (ing.sin_factura || ing.numero_factura === "Sin Factura") {
-                factTd.innerHTML = `<span class="badge text-bg-light border text-muted">Sin comprobante</span>`;
+                factTd.innerHTML = `<span class="badge text-bg-light border text-muted">Sin factura</span>`;
             } else {
                 factTd.innerHTML = `<span class="text-muted small">—</span>`;
             }
@@ -1803,12 +1796,18 @@ async function cargarIngresos(filtros = {}) {
             fila.append(celda(ing.producto_nombre, "fw-bold"));
 
             const cantEmpaque = (ing.presentacion && ing.presentacion !== "unidad" && Number(ing.unidades_por_bulto) > 1)
-                ? `${ing.cantidad} ${ing.presentacion}(s) (${ing.total_unidades} bolsas)`
-                : `${ing.total_unidades} bolsas`;
+                ? `${ing.cantidad} ${ing.presentacion}(s) (${ing.total_unidades} un.)`
+                : `${ing.total_unidades} un.`;
             fila.append(celda(cantEmpaque));
 
+            fila.append(celda(ing.proveedor || "—"));
+
+            const vencTd = document.createElement("td");
+            vencTd.appendChild(crearBadgeVencimiento(ing.fecha_vencimiento));
+            fila.appendChild(vencTd);
+
             fila.append(celda(ing.usuario || "Admin"));
-            fila.append(celda(ing.motivo || "Ingreso a cámara", "small text-muted"));
+            fila.append(celda(ing.motivo || "Alta de inventario", "small text-muted"));
 
             tbody.appendChild(fila);
         });
@@ -1888,7 +1887,7 @@ async function cargarSolicitudesVendedor() {
         }
 
         if (solicitudesCache.length === 0) {
-            mensajeEnTabla(tbody, 6, "No hay solicitudes de atención registradas.");
+            mensajeEnTabla(tbody, 5, "No hay solicitudes de atención registradas.");
             return;
         }
 
@@ -1907,19 +1906,6 @@ async function cargarSolicitudesVendedor() {
             estadoTd.appendChild(badge);
             fila.appendChild(estadoTd);
 
-            const accionTd = document.createElement("td");
-            accionTd.className = "text-end";
-            if (esPendiente) {
-                const btnAtender = document.createElement("button");
-                btnAtender.type = "button";
-                btnAtender.className = "btn btn-success btn-sm";
-                btnAtender.textContent = "Atender";
-                btnAtender.addEventListener("click", () => marcarSolicitudAtendida(sol.id));
-                accionTd.appendChild(btnAtender);
-            } else {
-                accionTd.textContent = "—";
-            }
-            fila.appendChild(accionTd);
             tbody.appendChild(fila);
         });
     } catch (error) {
@@ -1956,7 +1942,12 @@ function abrirModalEditarProducto(producto) {
     document.getElementById("editarProductoCodigoBarras").value = producto.codigo_barras || "";
     document.getElementById("editarProductoPrecio").value = producto.precio;
     document.getElementById("editarProductoStock").value = producto.stock;
-    document.getElementById("editarProductoPresentacion").value = producto.presentacion || "unidad";
+    const selPresEditar = document.getElementById("editarProductoPresentacion");
+    if (selPresEditar) {
+        const pPres = (producto.presentacion || "unidad").trim();
+        const matchOpt = Array.from(selPresEditar.options).find(opt => opt.value.toLowerCase() === pPres.toLowerCase());
+        selPresEditar.value = matchOpt ? matchOpt.value : (producto.presentacion || "unidad");
+    }
     document.getElementById("editarProductoUnidadesBulto").value = producto.unidades_por_bulto || 1;
     document.getElementById("editarProductoVencimiento").value = producto.fecha_vencimiento || "";
     document.getElementById("editarProductoProveedor").value = producto.proveedor || "";
@@ -2721,100 +2712,6 @@ if (formFiltrosVentas) {
             cargarVentas();
         });
     }
-
-    const btnExportarVentas = document.getElementById("btnExportarVentasCsv");
-    if (btnExportarVentas) {
-        btnExportarVentas.addEventListener("click", async () => {
-            const params = new URLSearchParams();
-            if (formFiltrosVentas) {
-                const datos = Object.fromEntries(new FormData(formFiltrosVentas));
-                Object.entries(datos).forEach(([k, v]) => {
-                    if (v !== "" && v !== null && v !== undefined) params.append(k, v);
-                });
-            }
-
-            const textoOriginal = btnExportarVentas.innerHTML;
-            btnExportarVentas.disabled = true;
-            btnExportarVentas.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Exportando...';
-
-            try {
-                const ventas = await solicitar(`obtener_ventas.php?${params.toString()}`);
-                if (!ventas || ventas.length === 0) {
-                    alert("No se encontraron ventas que coincidan con los filtros seleccionados para exportar.");
-                    btnExportarVentas.disabled = false;
-                    btnExportarVentas.innerHTML = textoOriginal;
-                    return;
-                }
-
-                // Generar contenido CSV estructurado
-                const encabezados = [
-                    "ID Venta",
-                    "Ticket",
-                    "Fecha",
-                    "Cliente",
-                    "Telefono",
-                    "Direccion Entrega",
-                    "Producto / Presentacion",
-                    "Tipo Venta",
-                    "Cantidad Empaque",
-                    "Bolsas Fisicas",
-                    "Precio Unitario ($)",
-                    "Descuento (%)",
-                    "Monto Descuento ($)",
-                    "Total Cobrado ($)",
-                    "Vendedor / Operador",
-                    "Estado",
-                    "Fecha Entrega",
-                    "Motivo Cancelacion"
-                ];
-
-                const filas = [encabezados.map(h => `"${h.replace(/"/g, '""')}"`).join(";")];
-
-                ventas.forEach(v => {
-                    const empaque = (v.tipo_venta && v.tipo_venta !== "unidad") ? (v.cantidad_empaque || v.cantidad) : v.cantidad;
-                    const fila = [
-                        v.id || "",
-                        v.ticket_id || "",
-                        v.fecha || "",
-                        v.cliente || "Consumidor Final",
-                        v.cliente_telefono || "",
-                        v.cliente_direccion || "",
-                        v.producto_nombre || "",
-                        v.tipo_venta || "unidad",
-                        empaque,
-                        v.cantidad || 0,
-                        Number(v.precio_unitario || 0).toFixed(2),
-                        Number(v.descuento_porcentaje || 0).toFixed(1),
-                        Number(v.descuento_monto || 0).toFixed(2),
-                        Number(v.total || 0).toFixed(2),
-                        v.vendedor || "",
-                        v.estado || "ACTIVA",
-                        v.fecha_entrega || "",
-                        v.motivo_cancelacion || ""
-                    ];
-                    filas.push(fila.map(val => `"${String(val).replace(/"/g, '""')}"`).join(";"));
-                });
-
-                // BOM UTF-8 (\uFEFF) para abrir sin problemas de acentos en Microsoft Excel
-                const csvContent = "\uFEFF" + filas.join("\r\n");
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                const hoy = new Date().toISOString().slice(0, 10);
-                a.href = url;
-                a.download = `Ventas_Filtradas_${hoy}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch (err) {
-                alert("Error al exportar ventas: " + err.message);
-            } finally {
-                btnExportarVentas.disabled = false;
-                btnExportarVentas.innerHTML = textoOriginal;
-            }
-        });
-    }
 }
 
 // Filtros de Ingresos
@@ -2996,9 +2893,9 @@ async function cargarBajas(filtros = {}) {
 function renderizarBajas(bajas) {
     const tbody = document.getElementById("bajasBody");
     if (!tbody) return;
-    const columnas = 9;
+    const columnas = 10;
     if (bajas.length === 0) {
-        mensajeEnTabla(tbody, columnas, "No se encontraron registros de bajas o merma de hielo.");
+        mensajeEnTabla(tbody, columnas, "No se encontraron registros de bajas de inventario.");
         return;
     }
     tbody.replaceChildren();
@@ -3012,7 +2909,7 @@ function renderizarBajas(bajas) {
         // 2. Fecha
         fila.appendChild(celda(fechaLegible(baja.fecha_baja), "small text-nowrap"));
 
-        // 3. Presentación
+        // 3. Producto
         const tdProd = document.createElement("td");
         const strong = document.createElement("strong");
         strong.textContent = baja.nombre;
@@ -3029,11 +2926,11 @@ function renderizarBajas(bajas) {
         // 4. Categoría
         fila.appendChild(celda(baja.categoria || "—", "small"));
 
-        // 5. Motivo de Baja
+        // 5. Motivo
         const tdMotivo = document.createElement("td");
         const badgeMot = document.createElement("span");
         badgeMot.className = "badge bg-danger-subtle text-danger border border-danger-subtle";
-        badgeMot.textContent = baja.motivo_baja || "Merma / Descongelamiento";
+        badgeMot.textContent = baja.motivo_baja || "Eliminación manual";
         tdMotivo.appendChild(badgeMot);
         fila.appendChild(tdMotivo);
 
@@ -3043,16 +2940,22 @@ function renderizarBajas(bajas) {
         tdRem.textContent = `${baja.stock_remanente} un.`;
         fila.appendChild(tdRem);
 
-        // 7. Pérdida Estimada ($)
+        // 7. Unidades Vendidas Históricas
+        const tdVend = document.createElement("td");
+        tdVend.className = "fw-semibold text-success";
+        tdVend.textContent = `${baja.unidades_vendidas_historicas} un.`;
+        fila.appendChild(tdVend);
+
+        // 8. Pérdida en Costo
         const tdPerd = document.createElement("td");
         tdPerd.className = "text-muted small";
         tdPerd.textContent = formatoMoneda.format(baja.total_perdida_costo || 0);
         fila.appendChild(tdPerd);
 
-        // 8. Responsable
+        // 9. Responsable
         fila.appendChild(celda(baja.usuario_nombre || "Admin", "small"));
 
-        // 9. Observaciones
+        // 10. Observaciones
         fila.appendChild(celda(baja.observaciones || "—", "small text-muted"));
 
         tbody.appendChild(fila);
@@ -3086,6 +2989,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await Promise.all([
         cargarProductos(),
+        cargarProveedores(),
         cargarVentas(),
         cargarIngresos(),
         cargarBajas(),

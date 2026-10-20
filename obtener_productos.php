@@ -117,7 +117,7 @@ try {
         }
 
         // Filtro de presentación
-        if ($presentacion !== "" && $pres !== $presentacion) {
+        if ($presentacion !== "" && strcasecmp($pres, $presentacion) !== 0) {
             continue;
         }
 

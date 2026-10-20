@@ -14,3 +14,4 @@ scratch/
 
 # Backups locales
 database_backup.sql
+*.zip

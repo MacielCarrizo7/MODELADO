@@ -381,10 +381,7 @@ main, .container, .container-fluid, .tab-content, .tab-pane, .seccion-card {
     margin: 2px 0 6px;
 }
 .etiqueta-print-precio {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: #2563eb;
-    margin-top: 4px;
+    display: none !important;
 }
 .barcode-svg {
     max-width: 100%;
@@ -790,85 +787,5 @@ main, .container, .container-fluid, .tab-content, .tab-pane, .seccion-card {
     font-weight: 600 !important;
     margin: 0.25rem !important;
 }
-
-/* =======================================================
-   ADAPTACIÓN RESPONSIVE DE STOCK EN MÓVILES (<= 768px)
-======================================================= */
-@media (max-width: 768px) {
-    .tabla-stock-responsive thead {
-        display: none !important;
-    }
-    .tabla-stock-responsive, 
-    .tabla-stock-responsive tbody {
-        display: block !important;
-        width: 100% !important;
-    }
-    .tabla-stock-responsive tr {
-        display: block !important;
-        width: 100% !important;
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 14px !important;
-        margin-bottom: 12px !important;
-        padding: 14px 16px !important;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
-    }
-    .tabla-stock-responsive td {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        padding: 6px 0 !important;
-        border: none !important;
-        font-size: 0.9rem !important;
-    }
-    .tabla-stock-responsive td.prod-mob-header {
-        display: block !important;
-        padding-bottom: 8px !important;
-        margin-bottom: 6px !important;
-        border-bottom: 1px solid #f1f5f9 !important;
-    }
-    .tabla-stock-responsive td.prod-mob-header .prod-mob-title {
-        font-size: 1.05rem !important;
-        font-weight: 800 !important;
-        color: #0f172a !important;
-        line-height: 1.25 !important;
-    }
-    .tabla-stock-responsive td::before {
-        content: attr(data-label);
-        font-size: 0.78rem !important;
-        font-weight: 700 !important;
-        color: #64748b !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.03em !important;
-    }
-    .tabla-stock-responsive td.prod-mob-header::before,
-    .tabla-stock-responsive td.prod-mob-acciones::before {
-        display: none !important;
-    }
-    .tabla-stock-responsive td.prod-mob-acciones {
-        margin-top: 10px !important;
-        padding-top: 10px !important;
-        border-top: 1px solid #f1f5f9 !important;
-        justify-content: flex-end !important;
-    }
-    .tabla-stock-responsive .estado-stock {
-        font-size: 0.85rem !important;
-        padding: 4px 10px !important;
-    }
-}
-
-/* =======================================================
-   ESTILOS DE HISTORIAS DE INSTAGRAM (FONDO OBLIGATORIO)
-   ======================================================= */
-.story-canvas {
-    background-image: url('FONDO HISTORIA.jpg') !important;
-    background-size: cover !important;
-    background-position: center center !important;
-    background-repeat: no-repeat !important;
-    background-color: rgba(0, 0, 0, 0.5) !important;
-    background-blend-mode: overlay !important;
-}
-
-
 
 

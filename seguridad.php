@@ -34,15 +34,7 @@ function requerirPaginaAutenticada(array $roles = []): void {
         header("Location: login.php");
         exit;
     }
-    // Roles admitidos en el sistema: solo admin y vendedor
-    $rolActual = $_SESSION["usuario_rol"] ?? "";
-    if (!in_array($rolActual, ["admin", "vendedor"], true)) {
-        session_unset();
-        session_destroy();
-        header("Location: login.php");
-        exit;
-    }
-    if ($roles !== [] && !in_array($rolActual, $roles, true)) {
+    if ($roles !== [] && !in_array($_SESSION["usuario_rol"] ?? "", $roles, true)) {
         http_response_code(403);
         echo "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><title>Acceso denegado</title></head><body style='font-family:sans-serif;text-align:center;padding:50px;'><h2>403 - Acceso Denegado</h2><p>No tenés permiso para acceder a esta página.</p><a href='stock.php'>Volver al inicio</a></body></html>";
         exit;
@@ -61,11 +53,7 @@ function requerirUsuarioJson(array $roles = []): void {
     if (!autenticacionCompleta()) {
         responderJson(["error" => "No autorizado"], 401);
     }
-    $rolActual = $_SESSION["usuario_rol"] ?? "";
-    if (!in_array($rolActual, ["admin", "vendedor"], true)) {
-        responderJson(["error" => "Rol no autorizado en el sistema"], 403);
-    }
-    if ($roles !== [] && !in_array($rolActual, $roles, true)) {
+    if ($roles !== [] && !in_array($_SESSION["usuario_rol"] ?? "", $roles, true)) {
         responderJson(["error" => "No tenés permiso para esta acción"], 403);
     }
 }

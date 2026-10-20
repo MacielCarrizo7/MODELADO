@@ -5,26 +5,7 @@ require_once __DIR__ . "/FirestoreConexion.php";
 
 $rol = $_SESSION["usuario_rol"] ?? "vendedor";
 $esAdmin = ($rol === "admin");
-$usuarioId = (int)($_SESSION["usuario_id"] ?? 0);
-
-$limiteDescuento = 100.0;
-if (!$esAdmin) {
-    try {
-        $firestore = FirestoreConexion::obtenerFirestore();
-        $usuarioDoc = $usuarioId > 0 ? $firestore->obtenerDocumento("usuarios", (string)$usuarioId) : null;
-        if ($usuarioDoc && isset($usuarioDoc["limite_descuento"])) {
-            $limiteDescuento = (float)$usuarioDoc["limite_descuento"];
-            $_SESSION["usuario_limite_descuento"] = $limiteDescuento;
-        } else {
-            $limiteDescuento = isset($_SESSION["usuario_limite_descuento"]) ? (float)$_SESSION["usuario_limite_descuento"] : 100.0;
-        }
-    } catch (Throwable $e) {
-        $limiteDescuento = isset($_SESSION["usuario_limite_descuento"]) ? (float)$_SESSION["usuario_limite_descuento"] : 100.0;
-    }
-} else {
-    $_SESSION["usuario_limite_descuento"] = 100.0;
-}
-
+$limiteDescuento = $esAdmin ? 100 : (int)($_SESSION["usuario_limite_descuento"] ?? 15);
 $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Usuario") . " " . ($_SESSION["usuario_apellido"] ?? ""));
 $paginaRetorno = $esAdmin ? "admin.php" : "vendedor.php";
 $csrf = tokenCsrf();
@@ -34,900 +15,1201 @@ $csrf = tokenCsrf();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Punto de Venta (POS) - Fábrica de Hielo</title>
+    <title>Punto de Venta / Registrar Venta | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
     <link href="assets/estilos.css" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
-        :root {
-            --pos-font-heading: 'Outfit', sans-serif;
-            --pos-font-body: 'Inter', sans-serif;
-        }
-
-        body {
-            background-color: #f1f5f9;
-            font-family: var(--pos-font-body);
-        }
-
-        .pos-header-title {
-            font-family: var(--pos-font-heading);
-            font-weight: 800;
-        }
-
-        /* Cuadrados / Tarjetas de Productos de Hielo */
-        .grid-pos-productos {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-            gap: 10px;
-        }
-
-        @media (min-width: 576px) {
-            .grid-pos-productos {
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                gap: 12px;
-            }
-        }
-
-        .ice-product-tile {
-            background: #ffffff;
-            border: 2px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 12px 10px;
-            text-align: center;
+        .item-resultado-busqueda {
             cursor: pointer;
-            user-select: none;
-            transition: all 0.15s ease-in-out;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 125px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-            position: relative;
+            transition: background-color 0.15s ease-in-out;
         }
-
-        .ice-product-tile:hover {
-            border-color: #0284c7;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(2, 132, 199, 0.15);
+        .item-resultado-busqueda:hover, .item-resultado-busqueda.active-item {
+            background-color: #f1f5f9;
         }
-
-        .ice-product-tile.active-tile {
-            border-color: #0284c7;
-            background: #f0f9ff;
-            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25), 0 8px 20px rgba(2, 132, 199, 0.15);
-            transform: scale(1.02);
-        }
-
-        .ice-product-tile.agotado-tile {
-            opacity: 0.55;
-            background: #f8fafc;
-            border-color: #cbd5e1;
-            cursor: not-allowed;
-        }
-
-        .ice-icon-box {
-            font-size: 1.6rem;
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-
-        .ice-tile-name {
-            font-family: var(--pos-font-heading);
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: #0f172a;
-            line-height: 1.15;
-            margin-bottom: 4px;
-        }
-
-        .ice-tile-price {
-            font-size: 0.95rem;
-            font-weight: 800;
-            color: #0284c7;
-        }
-
-        .ice-tile-stock {
-            font-size: 0.68rem;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 6px;
-            display: inline-block;
-        }
-
-        /* Panel de Configuración Rápida del Producto Seleccionado */
-        .panel-config-item {
-            background: #ffffff;
-            border: 1px solid #bae6fd;
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.08);
-            animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .stepper-btn {
-            width: 44px;
-            height: 44px;
-            font-size: 1.3rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-        }
-
-        .input-qty-box {
-            height: 44px;
-            font-size: 1.25rem;
-            font-weight: 800;
-            text-align: center;
-            border-radius: 10px;
-        }
-
-        /* Panel Ticket / Carrito */
-        .ticket-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        }
-
-        .ticket-item-row {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 8px 12px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .ticket-total-box {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #ffffff;
-            border-radius: 14px;
-            padding: 14px 16px;
+        .tarjeta-prod-seleccionado {
+            border-left: 4px solid #0d6efd !important;
         }
     </style>
 </head>
 <body data-rol="<?= htmlspecialchars($rol, ENT_QUOTES, "UTF-8") ?>" data-csrf="<?= htmlspecialchars($csrf, ENT_QUOTES, "UTF-8") ?>" data-limite-descuento="<?= $limiteDescuento ?>">
-
-    <!-- Barra Superior Limpia -->
-    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top py-2 shadow-xs">
-        <div class="container-fluid px-3 px-md-4 d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-2">
-                <a href="<?= $paginaRetorno ?>" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
-                    <i class="bi bi-arrow-left"></i> <span>Volver</span>
-                </a>
-                <span class="fs-4">❄️</span>
-                <span class="fw-bold pos-header-title text-dark">Punto de Venta (POS)</span>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge text-bg-light border text-muted small d-none d-sm-inline">
-                    <i class="bi bi-person-circle me-1"></i> <?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?>
-                </span>
+    <!-- Barra Superior -->
+    <nav class="navbar navbar-expand-lg app-navbar sticky-top py-3">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="<?= $paginaRetorno ?>">
+                <span class="marca-icono" aria-hidden="true">CS</span>
+                <span class="fw-bold">Punto de Venta</span>
+            </a>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <a href="<?= $paginaRetorno ?>" class="btn btn-outline-secondary btn-sm">← Volver al Panel</a>
             </div>
         </div>
     </nav>
 
-    <main class="container-fluid px-3 px-md-4 py-3">
-        
-        <!-- Alertas del Sistema -->
+    <main class="container py-4">
+        <!-- Encabezado -->
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <a href="<?= $paginaRetorno ?>" class="text-decoration-none text-muted small">← Volver al Panel</a>
+                <h1 class="h3 fw-bold mt-1 mb-0">Registrar Venta</h1>
+                <p class="text-muted small mb-0">Búsqueda rápida por nombre, código de barras o rubro, agregado al ticket y confirmación de venta.</p>
+            </div>
+        </div>
+
+        <!-- Alertas -->
         <div id="alertaError" class="alert alert-danger d-none mb-3" role="alert"></div>
         <div id="alertaExito" class="alert alert-success d-none mb-3" role="alert"></div>
 
-        <div class="row g-3">
-            
-            <!-- =======================================================
-                 COLUMNA IZQUIERDA: CATÁLOGO VISUAL Y SELECTOR RÁPIDO
-            ======================================================== -->
-            <div class="col-12 col-lg-7">
-                
-                <!-- 1. Cuadrados de Productos de Hielo -->
-                <div class="bg-white border rounded-4 p-3 mb-3 shadow-xs">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h2 class="h6 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-                            <span class="text-primary">🧊</span> <span>Selecciona la Bolsa de Hielo</span>
-                        </h2>
-                        <span class="badge text-bg-light border text-muted small" id="contadorProductosCargados">Cargando...</span>
-                    </div>
-
-                    <!-- Grid de Tarjetas de Hielo -->
-                    <div class="grid-pos-productos" id="gridProductosHielo">
-                        <div class="text-center text-muted py-4 w-100">
-                            <div class="spinner-border spinner-border-sm text-primary me-2"></div>
-                            Cargando presentaciones de hielo...
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. Panel de Configuración Directa de Cantidad y Descuento -->
-                <div id="panelConfiguradorProducto" class="panel-config-item d-none">
-                    <div class="d-flex justify-content-between align-items-start mb-3 pb-2 border-bottom">
-                        <div>
-                            <span class="badge bg-primary bg-opacity-10 text-primary mb-1" id="cfgProdCat">Hielo en Cubos</span>
-                            <h3 class="h5 fw-bold text-dark mb-0" id="cfgProdNombre">Bolsa de Hielo</h3>
-                            <small class="text-muted" id="cfgProdStock">Stock disponible: 0 un.</small>
-                        </div>
-                        <div class="text-end">
-                            <span class="fs-4 fw-bold text-primary" id="cfgProdPrecioLista">$ 0</span>
-                            <small class="text-muted d-block">precio de lista</small>
-                        </div>
-                    </div>
-
-                    <!-- Controles de Venta por Mayor, Precio, Cantidad y Descuento -->
-                    <div class="row g-3 align-items-center mb-3">
-                        
-                        <!-- Toggle de Venta por Mayor -->
-                        <div class="col-12">
-                            <div class="p-2 px-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input me-2" type="checkbox" role="switch" id="checkVentaMayoristaPOS">
-                                    <label class="form-check-label fw-bold text-dark small" for="checkVentaMayoristaPOS">
-                                        🚚 Venta por Mayor / Precio Negociado
-                                    </label>
-                                    <small class="text-muted d-block" style="font-size: 0.72rem;">Habilita este modo para ingresar manualmente un precio unitario especial.</small>
-                                </div>
-                                <span class="badge text-bg-danger fw-bold d-none" id="badgeMayoristaActivo">PRECIO MAYORISTA</span>
-                            </div>
-                        </div>
-
-                        <!-- Precio Unitario -->
-                        <div class="col-12 col-sm-4">
-                            <label class="form-label small fw-bold text-muted mb-1" id="lblTituloPrecioUnitario">Precio Unitario ($)</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white fw-bold text-muted">$</span>
-                                <input type="number" step="0.01" min="0.01" class="form-control fw-bold font-monospace bg-light" id="inputPrecioUnitarioPOS" readonly>
-                            </div>
-                            <small class="text-muted d-block" id="lblInfoPrecioUnitario" style="font-size: 0.70rem;">Precio estándar de lista.</small>
-                        </div>
-
-                        <!-- Cantidad -->
-                        <div class="col-12 col-sm-4">
-                            <label class="form-label small fw-bold text-muted mb-1">Cantidad de Bolsas</label>
-                            <div class="input-group">
-                                <button type="button" class="btn btn-outline-secondary stepper-btn" id="btnRestarCantidad">-</button>
-                                <input type="number" min="1" class="form-control input-qty-box" id="inputCantidadPOS" value="1">
-                                <button type="button" class="btn btn-outline-secondary stepper-btn" id="btnSumarCantidad">+</button>
-                            </div>
-                            <!-- Botones rápidos de cantidad -->
-                            <div class="d-flex gap-1 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-light border text-dark fw-semibold px-2 py-0 btn-preset-cant" data-cant="1">+1</button>
-                                <button type="button" class="btn btn-sm btn-outline-light border text-dark fw-semibold px-2 py-0 btn-preset-cant" data-cant="5">+5</button>
-                                <button type="button" class="btn btn-sm btn-outline-light border text-dark fw-semibold px-2 py-0 btn-preset-cant" data-cant="10">+10</button>
-                                <button type="button" class="btn btn-sm btn-outline-light border text-dark fw-semibold px-2 py-0 btn-preset-cant" data-cant="20">+20</button>
-                                <button type="button" class="btn btn-sm btn-outline-light border text-dark fw-semibold px-2 py-0 btn-preset-cant" data-cant="50">+50</button>
-                            </div>
-                        </div>
-
-                        <!-- Descuento -->
-                        <div class="col-12 col-sm-4">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label small fw-bold text-muted mb-0">Descuento (%)</label>
-                                <?php if (!$esAdmin): ?>
-                                    <span class="badge text-bg-warning text-dark font-monospace" style="font-size: 0.72rem;">Máx. <?= (float)$limiteDescuento ?>%</span>
-                                <?php endif; ?>
-                            </div>
-                            <select class="form-select form-select-lg fw-bold" id="selectDescuentoPOS">
-                                <option value="0" selected>Sin descuento (0%)</option>
-                                <?php
-                                $pasosDescuento = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100];
-                                $mostrados = [0];
-                                foreach ($pasosDescuento as $paso) {
-                                    if ($paso <= $limiteDescuento) {
-                                        echo "<option value=\"{$paso}\">{$paso}% de descuento</option>\n";
-                                        $mostrados[] = $paso;
-                                    }
-                                }
-                                if ($limiteDescuento > 0 && !in_array((int)$limiteDescuento, $mostrados, true)) {
-                                    echo "<option value=\"{$limiteDescuento}\">{$limiteDescuento}% de descuento (Límite)</option>\n";
-                                }
-                                if ($limiteDescuento > 0): ?>
-                                    <option value="custom">Personalizado (hasta <?= (float)$limiteDescuento ?>%)...</option>
-                                <?php endif; ?>
+        <div class="row g-4">
+            <!-- Columna Izquierda: Selección de Cliente y Búsqueda Ágil de Productos -->
+            <div class="col-12 col-lg-6">
+                <!-- 1. Cliente -->
+                <div class="seccion-card mb-4">
+                    <h2 class="h5 fw-bold text-primary mb-3">1. Cliente</h2>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-sm-8">
+                            <label for="ventaCliente" class="form-label">Seleccionar Cliente *</label>
+                            <select class="form-select" id="ventaCliente" required>
+                                <option value="">Cargando lista de clientes...</option>
                             </select>
-                            <input type="number" min="0" max="<?= $limiteDescuento ?>" step="0.5" class="form-control mt-1 d-none font-monospace fw-bold" id="inputDescuentoCustomPOS" placeholder="Porcentaje personalizado (máx <?= (float)$limiteDescuento ?>%)">
                         </div>
-
-                    </div>
-
-                    <!-- Resumen del Ítem y Botón de Agregar -->
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 pt-2 border-top">
-                        <div>
-                            <div class="small text-muted">
-                                Unitario c/desc: <strong class="text-dark" id="cfgItemUnitarioFinal">$ 0</strong>
-                            </div>
-                            <div class="fs-5 fw-bold text-dark">
-                                Subtotal ítem: <span class="text-primary" id="cfgItemTotalFinal">$ 0</span>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-primary btn-lg fw-bold px-4 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" id="btnAgregarAlTicket">
-                            <i class="bi bi-cart-plus-fill fs-5"></i>
-                            <span>Agregar al Ticket</span>
-                        </button>
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- =======================================================
-                 COLUMNA DERECHA: TICKET DE COMPRA Y COBRO
-            ======================================================== -->
-            <div class="col-12 col-lg-5">
-                
-                <div class="ticket-card">
-                    
-                    <!-- Encabezado Ticket -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-receipt fs-4 text-primary"></i>
-                            <h2 class="h5 fw-bold text-dark mb-0">Ticket de Venta</h2>
-                        </div>
-                        <span class="badge bg-primary text-white fs-6 px-3 py-1" id="ticketBadgeCount">0 bolsas</span>
-                    </div>
-
-                    <!-- Datos Rápidos del Cliente (Acordeón Simple) -->
-                    <div class="bg-light border rounded-3 p-2 mb-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="small">
-                                <span class="text-muted">Cliente:</span>
-                                <strong class="text-dark d-block" id="lblClienteActivo">Consumidor Final</strong>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" id="btnToggleDatosCliente">
-                                <i class="bi bi-pencil-square me-1"></i> Cambiar
+                        <div class="col-12 col-sm-4">
+                            <button class="btn btn-outline-primary w-100" type="button" id="btnEscanearClienteQR">
+                                Escanear QR
                             </button>
                         </div>
-                        
-                        <!-- Formulario Desplegable de Cliente -->
-                        <div id="cajaDatosCliente" class="mt-2 pt-2 border-top d-none">
-                            <input type="text" class="form-control form-control-sm mb-1" id="posClienteNombre" value="Consumidor Final" placeholder="Nombre / Razón Social *">
-                            <input type="tel" class="form-control form-control-sm mb-1" id="posClienteTelefono" placeholder="Teléfono / WhatsApp (opcional)">
-                            <input type="text" class="form-control form-control-sm" id="posClienteDireccion" placeholder="Dirección de entrega (opcional)">
-                        </div>
                     </div>
-
-                    <!-- Lista de Ítems del Ticket -->
-                    <div id="cajaItemsTicket" class="mb-3" style="max-height: 280px; overflow-y: auto;">
-                        <div class="text-center text-muted py-4 bg-light rounded-3" id="ticketVacioMsg">
-                            <i class="bi bi-cart-x fs-2 d-block text-muted mb-1"></i>
-                            El ticket está vacío.<br>Toca un producto de hielo a la izquierda para cargarlo.
-                        </div>
+                    <div id="clienteFeedback" class="mt-2 small text-success fw-semibold d-none">
+                        Cliente seleccionado
                     </div>
-
-                    <!-- Total a Cobrar -->
-                    <div class="ticket-total-box mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1 text-white-50 small">
-                            <span>Subtotal bolsas:</span>
-                            <span id="ticketSubtotalBruto">$ 0</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-2 text-warning small" id="cajaFilaDescuentoTotal">
-                            <span>Descuentos:</span>
-                            <span id="ticketDescuentoMonto">-$ 0</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary">
-                            <span class="fw-bold fs-6">TOTAL A COBRAR:</span>
-                            <span class="fs-3 fw-bold text-success" id="ticketTotalPagar">$ 0</span>
-                        </div>
-                    </div>
-
-                    <!-- Botones de Acción -->
-                    <div class="d-flex flex-column gap-2">
-                        <button type="button" class="btn btn-success btn-lg fw-bold py-3 fs-5 shadow-sm d-flex align-items-center justify-content-center gap-2" id="btnConfirmarCobroVenta">
-                            <i class="bi bi-check-circle-fill fs-4"></i> Confirmar y Cobrar Venta
-                        </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm" id="btnVaciarTicket">
-                            <i class="bi bi-trash me-1"></i> Vaciar Ticket
-                        </button>
-                    </div>
-
                 </div>
 
+                <!-- 2. Buscador Inteligente y Rápido de Producto -->
+                <div class="seccion-card mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                        <h2 class="h5 fw-bold text-primary mb-0">2. Buscar y Agregar Artículo</h2>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" id="btnSincronizarProds" title="Actualizar lista de productos en tiempo real">
+                                Sincronizar
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" type="button" id="btnToggleQuickPick" title="Abrir catálogo rápido de productos">
+                                Selección Rápida
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtros Rápidos por Categoría -->
+                    <div class="d-flex gap-1 overflow-x-auto pb-2 mb-2" id="pillsCategoriasPOS" style="scrollbar-width: thin;">
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 text-nowrap pill-pos active" data-categoria="">Todos</button>
+                    </div>
+                    
+                    <div class="mb-3 position-relative">
+                        <label for="buscadorVentaProducto" class="form-label fw-bold">Buscar Producto *</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="buscadorVentaProducto" placeholder="Escanear código de barras o escribir nombre, categoría..." autocomplete="off">
+                            <button class="btn btn-outline-secondary" type="button" id="btnLimpiarBuscadorProd" title="Limpiar búsqueda">Limpiar</button>
+                            <button class="btn btn-outline-primary" type="button" id="btnEscanearProductoCb" title="Escanear código con cámara">Escanear</button>
+                        </div>
+                        
+                        <!-- Lista flotante de sugerencias en vivo -->
+                        <div id="dropdownResultadosBusqueda" class="position-absolute w-100 bg-white border rounded-3 shadow-lg mt-1 d-none" style="z-index: 1050; max-height: 300px; overflow-y: auto;">
+                        </div>
+
+                        <!-- Selector sincronizado interno -->
+                        <select class="form-select d-none" id="ventaProducto">
+                            <option value="">Cargando productos...</option>
+                        </select>
+                    </div>
+
+                    <!-- Panel Colapsable de Selección Rápida (Quick-Pick Grid) -->
+                    <div id="panelQuickPick" class="border rounded-3 p-2 mb-3 bg-light d-none" style="max-height: 260px; overflow-y: auto;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                            <span class="small fw-bold text-muted" id="quickPickTitulo">Catálogo Rápido</span>
+                            <small class="text-muted">Clic para agregar</small>
+                        </div>
+                        <div class="row g-2" id="gridQuickPick"></div>
+                    </div>
+
+                    <!-- Ficha del Producto Seleccionado -->
+                    <div id="tarjetaProductoSeleccionado" class="p-3 bg-white rounded-3 border tarjeta-prod-seleccionado mb-3 shadow-sm d-none">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <span class="badge bg-primary rounded-pill mb-1" id="selProdCat">General</span>
+                                <h3 class="h6 fw-bold mb-0 text-dark" id="selProdNombre">Nombre del Producto</h3>
+                                <small class="text-muted" id="selProdDetalles">Cód: — | Proveedor: —</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge text-bg-success fs-6 fw-bold" id="selProdPrecio">$ 0,00</span>
+                                <small class="d-block text-muted" id="selProdStock">Stock: 0 un.</small>
+                            </div>
+                        </div>
+                        <small id="ventaInfoEmpaque" class="text-primary small d-none mt-2 d-block"></small>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-12 col-sm-4">
+                            <label for="ventaTipoVenta" class="form-label small text-muted">Presentación</label>
+                            <select class="form-select" id="ventaTipoVenta">
+                                <option value="unidad">Unidad</option>
+                                <option value="caja">Caja</option>
+                                <option value="bulto">Bulto</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label for="ventaCantidad" class="form-label small text-muted">Cantidad *</label>
+                            <input class="form-control fw-bold" id="ventaCantidad" type="number" min="1" value="1">
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label for="ventaDescuento" class="form-label small text-muted">Descuento (%)</label>
+                            <select class="form-select" id="ventaDescuento">
+                                <option value="0" selected>0%</option>
+                                <option value="5">5%</option>
+                                <option value="10">10%</option>
+                                <option value="15">15%</option>
+                                <option value="20">20%</option>
+                                <option value="25">25%</option>
+                                <option value="custom">Otro...</option>
+                            </select>
+                            <input type="number" min="0" max="<?= $limiteDescuento ?>" class="form-control mt-1 d-none" id="ventaDescuentoCustom" placeholder="Máx <?= $limiteDescuento ?>%">
+                        </div>
+                    </div>
+
+                    <!-- Previsualización del Artículo -->
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>Unidades físicas:</span>
+                            <strong id="itemPreUnidades" class="text-dark">0 un.</strong>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>Precio unitario:</span>
+                            <span id="itemPrePrecio">$ 0,00</span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>Subtotal ítem:</span>
+                            <span id="itemPreSubtotal">$ 0,00</span>
+                        </div>
+                        <div class="d-flex justify-content-between fw-bold text-success pt-1 border-top">
+                            <span>Subtotal con descuento:</span>
+                            <span id="itemPreTotal">$ 0,00</span>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100 py-2 fs-6 fw-bold" id="btnAgregarAlCarrito">
+                        Agregar al Carrito
+                    </button>
+                </div>
             </div>
 
-        </div>
+            <!-- Columna Derecha: Detalle del Carrito y Confirmación -->
+            <div class="col-12 col-lg-6">
+                <div class="seccion-card mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h2 class="h5 fw-bold text-dark mb-0">3. Carrito de Compras</h2>
+                        <span class="badge text-bg-primary" id="carritoCountBadge">0 ítems</span>
+                    </div>
 
+                    <!-- Tabla de Carrito -->
+                    <div class="table-responsive border rounded mb-3 bg-white">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-muted">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Producto</th>
+                                    <th>Precio</th>
+                                    <th>Desc.</th>
+                                    <th>Total</th>
+                                    <th class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="carritoTablaBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        El carrito está vacío. Busque y agregue productos desde el panel izquierdo.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Resumen Financiero -->
+                    <div class="p-3 bg-light rounded border mb-3">
+                        <div class="d-flex justify-content-between text-muted mb-2">
+                            <span>Total unidades físicas:</span>
+                            <strong id="resumenTotalUnidades" class="text-dark">0 un.</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted mb-2">
+                            <span>Subtotal:</span>
+                            <span id="resumenSubtotal">$ 0,00</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted mb-2">
+                            <span>Descuentos:</span>
+                            <span id="resumenDescuento" class="text-danger">$ 0,00</span>
+                        </div>
+                        <div class="d-flex justify-content-between fs-4 fw-bold text-success pt-2 border-top">
+                            <span>TOTAL A PAGAR:</span>
+                            <span id="resumenTotalFinal">$ 0,00</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-danger" id="btnVaciarCarrito">Vaciar Carrito</button>
+                        <button type="button" class="btn btn-success flex-grow-1 py-3 fs-5 fw-bold shadow" id="btnConfirmarVenta" disabled>
+                            Confirmar Venta
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
+
+    <!-- Modal Escáner Cámara Standalone -->
+    <div class="modal fade" id="modalScannerCamara" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5 fw-bold">Escanear con Cámara</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="contenedorLectorCamara" class="p-2 mb-3">
+                        <div id="qr-reader"></div>
+                    </div>
+                    <div id="scannerResultado" class="alert alert-info d-none mb-0 py-2 small"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const formatoMoneda = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+        const formatoMoneda = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
+        const rol = document.body.dataset.rol || "vendedor";
+        const limiteDescuento = parseInt(document.body.dataset.limiteDescuento) || 15;
         const csrfToken = document.body.dataset.csrf;
-        const rolUsuario = document.body.dataset.rol;
-        const limiteDescuento = isNaN(Number(document.body.dataset.limiteDescuento)) ? 100 : Number(document.body.dataset.limiteDescuento);
 
-        let productosPOS = [];
-        let productoSeleccionado = null;
-        let ticketItems = [];
+        let productosCache = [];
+        let categoriasCache = [];
+        let clientesCache = [];
+        let carrito = [];
+        let callbackScanActivo = null;
+        let categoriaFiltroActiva = "";
+        let indiceFocoResultado = -1;
 
-        // 1. Cargar Catálogo de Productos
-        async function cargarProductosPOS() {
-            const grid = document.getElementById("gridProductosHielo");
-            const contador = document.getElementById("contadorProductosCargados");
+        // Cargar clientes, categorías y productos
+        async function inicializarPOS() {
             try {
-                const resp = await fetch("obtener_productos.php");
-                productosPOS = await resp.json().catch(() => []);
+                const [prods, clients, cats] = await Promise.all([
+                    fetch("obtener_productos.php").then(r => r.json()).catch(() => []),
+                    fetch("obtener_clientes.php").then(r => r.json()).catch(() => []),
+                    fetch("obtener_categorias.php").then(r => r.json()).catch(() => [])
+                ]);
 
-                if (!Array.isArray(productosPOS) || productosPOS.length === 0) {
-                    grid.innerHTML = '<div class="col-12 text-center text-muted py-4">No hay presentaciones de hielo cargadas en el sistema.</div>';
-                    if (contador) contador.textContent = "0 productos";
-                    return;
-                }
+                productosCache = Array.isArray(prods) ? prods : [];
+                clientesCache = Array.isArray(clients) ? clients : [];
+                categoriasCache = Array.isArray(cats) ? cats : [];
 
-                if (contador) contador.textContent = `${productosPOS.length} presentaciones`;
-                renderizarGridProductos();
+                // Poblar select clientes
+                const selClientes = document.getElementById("ventaCliente");
+                selClientes.replaceChildren(new Option("-- Seleccionar Cliente --", ""));
+                clientesCache.forEach(c => {
+                    selClientes.appendChild(new Option(`${c.nombre} ${c.apellido} (DNI ${c.dni})`, c.id));
+                });
 
-                // Seleccionar automáticamente el primer producto con stock
-                const primeroConStock = productosPOS.find(p => Number(p.stock) > 0) || productosPOS[0];
-                if (primeroConStock) {
-                    seleccionarProductoTile(primeroConStock);
-                }
+                // Poblar select productos (interno)
+                actualizarSelectorProductosInterno();
+
+                // Poblar pills de categorías para filtro rápido
+                renderizarPillsCategorias();
+
+                // Renderizar Quick Pick inicial
+                renderizarQuickPick();
+
+                recalcularPrevisualizacion();
 
             } catch (err) {
-                console.error(err);
-                grid.innerHTML = `<div class="col-12 text-center text-danger py-4">Error al cargar productos: ${err.message}</div>`;
+                console.error("Error al inicializar POS:", err);
             }
         }
 
-        // 2. Renderizar Cuadrados / Tarjetas de Hielo
-        function renderizarGridProductos() {
-            const grid = document.getElementById("gridProductosHielo");
+        function actualizarSelectorProductosInterno() {
+            const selProds = document.getElementById("ventaProducto");
+            selProds.replaceChildren(new Option("-- Seleccionar Producto --", ""));
+            productosCache.forEach(p => {
+                const prov = p.proveedor ? ` [${p.proveedor}]` : "";
+                const cat = p.categoria_nombre ? ` [${p.categoria_nombre}]` : "";
+                const opt = new Option(`${p.nombre}${cat}${prov} (Stock: ${p.stock} un. - ${formatoMoneda.format(p.precio_venta)})`, p.id);
+                opt.dataset.precio = p.precio_venta;
+                opt.dataset.stock = p.stock;
+                opt.dataset.presentacion = p.presentacion || "unidad";
+                opt.dataset.permiteVentaUnidad = (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0") ? "1" : "0";
+                opt.dataset.unidadesBulto = p.unidades_por_bulto || 1;
+                opt.dataset.proveedor = p.proveedor || "";
+                opt.dataset.categoria = p.categoria_nombre || "";
+                opt.dataset.nombre = p.nombre;
+                opt.dataset.codigo = p.codigo_barras || "";
+                opt.dataset.descripcion = p.descripcion || "";
+                selProds.appendChild(opt);
+            });
+        }
+
+        function renderizarPillsCategorias() {
+            const cont = document.getElementById("pillsCategoriasPOS");
+            if (!cont) return;
+
+            cont.innerHTML = `
+                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 text-nowrap pill-pos active" data-categoria="">
+                    Todos
+                </button>
+            `;
+
+            // Extraer categorías de productosCache y categoriasCache
+            const nombresCats = new Set();
+            categoriasCache.forEach(c => { if (c.nombre) nombresCats.add(c.nombre.trim()); });
+            productosCache.forEach(p => {
+                const cNom = p.categoria_nombre || p.categoria;
+                if (cNom && cNom.trim() !== "") nombresCats.add(cNom.trim());
+            });
+
+            nombresCats.forEach(catNom => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 text-nowrap pill-pos";
+                btn.setAttribute("data-categoria", catNom);
+                btn.textContent = catNom;
+                cont.appendChild(btn);
+            });
+
+            cont.querySelectorAll(".pill-pos").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    cont.querySelectorAll(".pill-pos").forEach(b => {
+                        b.classList.remove("btn-primary", "active");
+                        b.classList.add("btn-outline-secondary");
+                    });
+                    btn.classList.remove("btn-outline-secondary");
+                    btn.classList.add("btn-primary", "active");
+                    categoriaFiltroActiva = btn.getAttribute("data-categoria") || "";
+                    
+                    const query = inputBuscador.value.trim();
+                    if (query !== "") {
+                        renderizarResultadosBusqueda(query);
+                    } else if (categoriaFiltroActiva !== "") {
+                        renderizarResultadosBusqueda(categoriaFiltroActiva);
+                    } else {
+                        dropdownResultados.classList.add("d-none");
+                    }
+                    renderizarQuickPick();
+                });
+            });
+        }
+
+        function renderizarQuickPick() {
+            const grid = document.getElementById("gridQuickPick");
+            const lblTitulo = document.getElementById("quickPickTitulo");
+            if (!grid) return;
+
+            let prodsMostrar = productosCache;
+            if (categoriaFiltroActiva !== "") {
+                const cLower = categoriaFiltroActiva.toLowerCase();
+                prodsMostrar = prodsMostrar.filter(p => (p.categoria_nombre || p.categoria || "").toLowerCase() === cLower);
+                lblTitulo.textContent = `Artículos en "${categoriaFiltroActiva}" (${prodsMostrar.length})`;
+            } else {
+                lblTitulo.textContent = `Artículos Rápidos (${prodsMostrar.length})`;
+            }
+
+            if (prodsMostrar.length === 0) {
+                grid.innerHTML = `<div class="col-12 text-center text-muted small py-2">No hay artículos para esta categoría.</div>`;
+                return;
+            }
+
             grid.replaceChildren();
+            prodsMostrar.slice(0, 12).forEach(p => {
+                const col = document.createElement("div");
+                col.className = "col-6 col-sm-4 col-md-3";
 
-            productosPOS.forEach(p => {
-                const stockNum = Number(p.stock) || 0;
-                const precio = Number(p.precio_venta || p.precio) || 0;
-                const esAgotado = stockNum <= 0;
+                const card = document.createElement("div");
+                card.className = "p-2 bg-white border rounded-3 h-100 d-flex flex-column justify-content-between shadow-xs";
+                card.style.cursor = "pointer";
 
-                const tile = document.createElement("div");
-                tile.className = `ice-product-tile ${esAgotado ? 'agotado-tile' : ''}`;
-                tile.id = `tileProd_${p.id}`;
+                const stockBadge = p.stock > 0 ? `<span class="badge text-bg-light text-muted small">${p.stock} un.</span>` : `<span class="badge text-bg-danger small">Agotado</span>`;
 
-                // Icono según tipo de hielo
-                let icono = "🧊";
-                const nomLower = (p.nombre || "").toLowerCase();
-                if (nomLower.includes("barra") || nomLower.includes("bloque")) icono = "🧊";
-                else if (nomLower.includes("rollo") || nomLower.includes("cilindro")) icono = "❄️";
-                else if (nomLower.includes("escarcha") || nomLower.includes("picado")) icono = "🏔️";
-
-                const stockBadgeClass = stockNum <= 0 ? 'bg-danger text-white' : stockNum <= 5 ? 'bg-warning text-dark' : 'bg-light text-muted border';
-
-                tile.innerHTML = `
-                    <div>
-                        <div class="ice-icon-box">${icono}</div>
-                        <div class="ice-tile-name text-truncate" title="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</div>
+                card.innerHTML = `
+                    <div class="mb-1">
+                        <span class="badge bg-secondary bg-opacity-25 text-dark small mb-1 text-truncate d-inline-block" style="max-width: 100%; font-size: 0.7rem;">${escapeHtml(p.categoria_nombre || "General")}</span>
+                        <div class="fw-bold text-dark small text-truncate" title="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</div>
                     </div>
-                    <div>
-                        <div class="ice-tile-price">${formatoMoneda.format(precio)}</div>
-                        <span class="ice-tile-stock ${stockBadgeClass}">${stockNum <= 0 ? 'Agotado' : stockNum + ' un.'}</span>
+                    <div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top">
+                        <span class="fw-bold text-success small">${formatoMoneda.format(p.precio_venta)}</span>
+                        ${stockBadge}
                     </div>
                 `;
 
-                if (!esAgotado) {
-                    tile.addEventListener("click", () => {
-                        seleccionarProductoTile(p);
-                    });
-                }
+                card.addEventListener("click", () => {
+                    seleccionarProducto(p);
+                });
 
-                grid.appendChild(tile);
+                col.appendChild(card);
+                grid.appendChild(col);
             });
         }
 
-        // 3. Seleccionar Producto
-        function seleccionarProductoTile(prod) {
-            productoSeleccionado = prod;
+        // ==============================================================
+        // BÚSQUEDA ROBUSTA POR CÓDIGO DE BARRAS (LOCAL + SERVIDOR EN VIVO)
+        // ==============================================================
+        async function buscarYSeleccionarPorCodigo(codigoRaw) {
+            const clean = String(codigoRaw || "").trim();
+            if (!clean) return false;
 
-            // Actualizar estilo visual activo en las tarjetas
-            document.querySelectorAll(".ice-product-tile").forEach(t => t.classList.remove("active-tile"));
-            const tileActivo = document.getElementById(`tileProd_${prod.id}`);
-            if (tileActivo) tileActivo.classList.add("active-tile");
+            const cleanLower = clean.toLowerCase();
+            const cleanSinCeros = clean.replace(/^0+/, "");
 
-            // Mostrar y configurar panel
-            const panel = document.getElementById("panelConfiguradorProducto");
-            panel.classList.remove("d-none");
+            // 1. Búsqueda local con conversión estricta y flexible
+            let prod = productosCache.find(p => {
+                const cb = String(p.codigo_barras || "").trim().toLowerCase();
+                const cod = String(p.codigo || "").trim().toLowerCase();
+                const id = String(p.id || "").trim().toLowerCase();
+                const cbSinCeros = cb.replace(/^0+/, "");
 
-            document.getElementById("cfgProdCat").textContent = prod.categoria_nombre || "Bolsa de Hielo";
-            document.getElementById("cfgProdNombre").textContent = prod.nombre;
-            document.getElementById("cfgProdStock").textContent = `Stock disponible en cámara: ${prod.stock} bolsas`;
-            
-            const precioBase = Number(prod.precio_venta || prod.precio || 0);
-            document.getElementById("cfgProdPrecioLista").textContent = formatoMoneda.format(precioBase);
+                return cb === cleanLower || 
+                       cod === cleanLower || 
+                       id === cleanLower || 
+                       (cleanSinCeros !== "" && cbSinCeros === cleanSinCeros);
+            });
 
-            // Reiniciar modo mayorista y precio unitario
-            const checkMayorista = document.getElementById("checkVentaMayoristaPOS");
-            const inPrecio = document.getElementById("inputPrecioUnitarioPOS");
-            const badgeMayorista = document.getElementById("badgeMayoristaActivo");
-            const lblInfoPrecio = document.getElementById("lblInfoPrecioUnitario");
-
-            if (checkMayorista) checkMayorista.checked = false;
-            if (badgeMayorista) badgeMayorista.classList.add("d-none");
-            if (inPrecio) {
-                inPrecio.value = precioBase > 0 ? precioBase : "";
-                inPrecio.readOnly = true;
-                inPrecio.classList.remove("border-danger", "bg-white");
-                inPrecio.classList.add("bg-light");
+            // 2. Si no se encontró en caché local (ej. producto creado hace segundos), consultar al servidor en tiempo real
+            if (!prod) {
+                try {
+                    const resp = await fetch(`obtener_productos.php?codigo_barras=${encodeURIComponent(clean)}`);
+                    const lista = await resp.json().catch(() => []);
+                    if (Array.isArray(lista) && lista.length > 0) {
+                        prod = lista[0];
+                        // Actualizar cache local
+                        if (!productosCache.some(p => p.id === prod.id)) {
+                            productosCache.push(prod);
+                            actualizarSelectorProductosInterno();
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Fallo búsqueda remota de código de barras:", e);
+                }
             }
-            if (lblInfoPrecio) lblInfoPrecio.textContent = "Precio estándar de lista.";
 
-            // Reiniciar inputs de cantidad y descuento para el nuevo producto
-            document.getElementById("inputCantidadPOS").value = "1";
-            document.getElementById("selectDescuentoPOS").value = "0";
-            document.getElementById("inputDescuentoCustomPOS").classList.add("d-none");
-
-            recalcularConfiguradorItem();
+            if (prod) {
+                seleccionarProducto(prod);
+                return true;
+            } else {
+                alert(`No se encontró ningún producto con el código de barras "${clean}".`);
+                return false;
+            }
         }
 
-        // Switch Modo Venta por Mayor (Precio Editable)
-        const checkMayoristaEl = document.getElementById("checkVentaMayoristaPOS");
-        const inPrecioEl = document.getElementById("inputPrecioUnitarioPOS");
-        const badgeMayoristaEl = document.getElementById("badgeMayoristaActivo");
-        const lblInfoPrecioEl = document.getElementById("lblInfoPrecioUnitario");
+        // Sincronizar Catálogo en Tiempo Real
+        const btnSync = document.getElementById("btnSincronizarProds");
+        if (btnSync) {
+            btnSync.addEventListener("click", async () => {
+                btnSync.disabled = true;
+                const originalHtml = btnSync.innerHTML;
+                btnSync.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
 
-        if (checkMayoristaEl) {
-            checkMayoristaEl.addEventListener("change", () => {
-                if (!productoSeleccionado) return;
-                const precioBase = Number(productoSeleccionado.precio_venta || productoSeleccionado.precio || 0);
-
-                if (checkMayoristaEl.checked) {
-                    inPrecioEl.readOnly = false;
-                    inPrecioEl.classList.remove("bg-light");
-                    inPrecioEl.classList.add("border-danger", "bg-white");
-                    badgeMayoristaEl.classList.remove("d-none");
-                    lblInfoPrecioEl.innerHTML = '<strong class="text-danger">Modo mayorista activo: podés escribir el precio unitario acordado.</strong>';
-                    inPrecioEl.focus();
-                    inPrecioEl.select();
-                } else {
-                    inPrecioEl.value = precioBase > 0 ? precioBase : "";
-                    inPrecioEl.readOnly = true;
-                    inPrecioEl.classList.remove("border-danger", "bg-white");
-                    inPrecioEl.classList.add("bg-light");
-                    badgeMayoristaEl.classList.add("d-none");
-                    lblInfoPrecioEl.textContent = "Precio estándar de lista.";
+                try {
+                    const resp = await fetch("obtener_productos.php");
+                    const prods = await resp.json();
+                    if (Array.isArray(prods)) {
+                        productosCache = prods;
+                        actualizarSelectorProductosInterno();
+                        renderizarPillsCategorias();
+                        renderizarQuickPick();
+                        const query = inputBuscador.value.trim();
+                        if (query) renderizarResultadosBusqueda(query);
+                    }
+                } catch (e) {
+                    console.error("Error al sincronizar productos:", e);
+                } finally {
+                    btnSync.disabled = false;
+                    btnSync.innerHTML = originalHtml;
                 }
-                recalcularConfiguradorItem();
             });
         }
 
-        if (inPrecioEl) {
-            inPrecioEl.addEventListener("input", recalcularConfiguradorItem);
+        // Toggle Panel Quick Pick
+        const btnToggleQP = document.getElementById("btnToggleQuickPick");
+        const panelQP = document.getElementById("panelQuickPick");
+        if (btnToggleQP && panelQP) {
+            btnToggleQP.addEventListener("click", () => {
+                panelQP.classList.toggle("d-none");
+                if (!panelQP.classList.contains("d-none")) {
+                    renderizarQuickPick();
+                }
+            });
         }
 
-        // 4. Recalcular precio del configurador en vivo
-        function recalcularConfiguradorItem() {
-            if (!productoSeleccionado) return;
+        // ==============================================================
+        // BUSCADOR PREDICTIVO INTELIGENTE (AUTO-COMPLETE & KEYBOARD NAV)
+        // ==============================================================
+        const inputBuscador = document.getElementById("buscadorVentaProducto");
+        const dropdownResultados = document.getElementById("dropdownResultadosBusqueda");
+        const tarjetaSeleccionado = document.getElementById("tarjetaProductoSeleccionado");
+        const btnLimpiarBuscador = document.getElementById("btnLimpiarBuscadorProd");
 
-            const inputCant = document.getElementById("inputCantidadPOS");
-            const selectDesc = document.getElementById("selectDescuentoPOS");
-            const customDesc = document.getElementById("inputDescuentoCustomPOS");
-            const inPrecio = document.getElementById("inputPrecioUnitarioPOS");
-            const checkMayorista = document.getElementById("checkVentaMayoristaPOS");
-            const esMayor = checkMayorista && checkMayorista.checked;
+        function renderizarResultadosBusqueda(query) {
+            const q = query.trim().toLowerCase();
+            if (!q && categoriaFiltroActiva === "") {
+                dropdownResultados.classList.add("d-none");
+                dropdownResultados.replaceChildren();
+                return;
+            }
 
-            let cant = Math.max(1, parseInt(inputCant.value) || 1);
-            inputCant.value = cant;
+            const catFiltroLower = categoriaFiltroActiva.toLowerCase();
+
+            const filtrados = productosCache.filter(p => {
+                if (catFiltroLower !== "") {
+                    const cNom = (p.categoria_nombre || p.categoria || "").toLowerCase();
+                    if (cNom !== catFiltroLower) return false;
+                }
+
+                if (!q) return true;
+
+                const nom = (p.nombre || "").toLowerCase();
+                const cat = (p.categoria_nombre || p.categoria || "").toLowerCase();
+                const cb = String(p.codigo_barras || "").toLowerCase();
+                const cod = String(p.codigo || "").toLowerCase();
+                const desc = (p.descripcion || "").toLowerCase();
+                const prov = (p.proveedor || "").toLowerCase();
+                const idStr = String(p.id);
+
+                return nom.includes(q) || cat.includes(q) || cb.includes(q) || cod.includes(q) || desc.includes(q) || prov.includes(q) || idStr === q;
+            });
+
+            if (filtrados.length === 0) {
+                dropdownResultados.innerHTML = `
+                    <div class="p-3 text-muted text-center small">
+                        No se encontraron productos coincidentes con "<strong>${escapeHtml(query)}</strong>".
+                    </div>
+                `;
+                dropdownResultados.classList.remove("d-none");
+                return;
+            }
+
+            dropdownResultados.replaceChildren();
+            filtrados.slice(0, 15).forEach((p, index) => {
+                const itemDiv = document.createElement("div");
+                itemDiv.className = "p-2 border-bottom item-resultado-busqueda d-flex justify-content-between align-items-center";
+                itemDiv.dataset.id = p.id;
+                itemDiv.dataset.index = index;
+
+                const stockClass = p.stock > 10 ? "text-bg-success" : (p.stock > 0 ? "text-bg-warning" : "text-bg-danger");
+                const stockText = p.stock > 0 ? `${p.stock} un.` : "Sin stock";
+
+                const presNom = (p.presentacion || "unidad").toLowerCase();
+                const permiteUnid = (presNom === "unidad") || (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0");
+                let badgePres = "";
+                if (presNom === "caja" || presNom === "bulto") {
+                    badgePres = permiteUnid 
+                        ? `<span class="badge text-bg-info ms-1">${presNom.toUpperCase()} / UNID</span>` 
+                        : `<span class="badge text-bg-warning ms-1">SOLO ${presNom.toUpperCase()}</span>`;
+                }
+
+                itemDiv.innerHTML = `
+                    <div class="me-2 text-truncate">
+                        <div class="fw-bold text-dark text-truncate">${escapeHtml(p.nombre)} ${badgePres}</div>
+                        <div class="small text-muted text-truncate">
+                            <span class="badge text-bg-light border">${escapeHtml(p.categoria_nombre || "General")}</span>
+                            ${p.codigo_barras ? `<span class="font-monospace ms-1 text-primary">${escapeHtml(p.codigo_barras)}</span>` : ""}
+                            ${p.proveedor ? `<span class="ms-1 text-muted">(${escapeHtml(p.proveedor)})</span>` : ""}
+                        </div>
+                    </div>
+                    <div class="text-end text-nowrap">
+                        <span class="fw-bold text-success fs-6">${formatoMoneda.format(p.precio_venta)}</span>
+                        <span class="badge ${stockClass} d-block mt-1">${stockText}</span>
+                    </div>
+                `;
+
+                itemDiv.addEventListener("click", () => {
+                    seleccionarProducto(p);
+                });
+
+                dropdownResultados.appendChild(itemDiv);
+            });
+
+            dropdownResultados.classList.remove("d-none");
+            indiceFocoResultado = -1;
+        }
+
+        function seleccionarProducto(p) {
+            const selProds = document.getElementById("ventaProducto");
+            selProds.value = p.id;
+
+            const pres = (p.presentacion || "unidad").toLowerCase();
+            const permiteUnidad = (pres === "unidad") || (p.permite_venta_unidad !== false && p.permite_venta_unidad !== 0 && p.permite_venta_unidad !== "0");
+            const unidEmpaque = Math.max(1, parseInt(p.unidades_por_bulto) || 1);
+
+            // Reconstruir selector de presentación estrictamente para este producto
+            const selTipo = document.getElementById("ventaTipoVenta");
+            selTipo.replaceChildren();
+
+            if (pres === "caja") {
+                selTipo.appendChild(new Option(`Caja (${unidEmpaque} un.)`, "caja"));
+                if (permiteUnidad) {
+                    selTipo.appendChild(new Option("Unidad individual", "unidad"));
+                }
+                selTipo.value = "caja";
+            } else if (pres === "bulto") {
+                selTipo.appendChild(new Option(`Bulto (${unidEmpaque} un.)`, "bulto"));
+                if (permiteUnidad) {
+                    selTipo.appendChild(new Option("Unidad individual", "unidad"));
+                }
+                selTipo.value = "bulto";
+            } else {
+                selTipo.appendChild(new Option("Unidad", "unidad"));
+                selTipo.value = "unidad";
+            }
+
+            // Actualizar tarjeta visual de producto seleccionado
+            let badgeRestriccion = "";
+            if ((pres === "caja" || pres === "bulto") && !permiteUnidad) {
+                badgeRestriccion = `<span class="badge text-bg-warning ms-1">Venta exclusiva por ${pres.toUpperCase()}</span>`;
+            } else if ((pres === "caja" || pres === "bulto") && permiteUnidad) {
+                badgeRestriccion = `<span class="badge text-bg-info ms-1">Fraccionable (${pres} y unidad)</span>`;
+            }
+
+            document.getElementById("selProdCat").textContent = p.categoria_nombre || "General";
+            document.getElementById("selProdNombre").textContent = p.nombre;
+            document.getElementById("selProdDetalles").innerHTML = `Cód: ${escapeHtml(p.codigo_barras || p.id)} | Proveedor: ${escapeHtml(p.proveedor || "General")} ${badgeRestriccion}`;
+            document.getElementById("selProdPrecio").textContent = formatoMoneda.format(p.precio_venta);
+            document.getElementById("selProdStock").textContent = `Stock disponible: ${p.stock} un.`;
+            tarjetaSeleccionado.classList.remove("d-none");
+
+            inputBuscador.value = p.nombre;
+            dropdownResultados.classList.add("d-none");
+
+            recalcularPrevisualizacion();
+
+            // Auto-enfocar cantidad para rapidez
+            const inCant = document.getElementById("ventaCantidad");
+            inCant.focus();
+            inCant.select();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text || "";
+            return div.innerHTML;
+        }
+
+        inputBuscador.addEventListener("input", (e) => {
+            renderizarResultadosBusqueda(e.target.value);
+        });
+
+        inputBuscador.addEventListener("keydown", (e) => {
+            const items = dropdownResultados.querySelectorAll(".item-resultado-busqueda");
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (items.length > 0) {
+                    indiceFocoResultado = (indiceFocoResultado + 1) % items.length;
+                    items.forEach((it, i) => it.classList.toggle("active-item", i === indiceFocoResultado));
+                }
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (items.length > 0) {
+                    indiceFocoResultado = (indiceFocoResultado - 1 + items.length) % items.length;
+                    items.forEach((it, i) => it.classList.toggle("active-item", i === indiceFocoResultado));
+                }
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (indiceFocoResultado >= 0 && items[indiceFocoResultado]) {
+                    items[indiceFocoResultado].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === "Escape") {
+                dropdownResultados.classList.add("d-none");
+            }
+        });
+
+        btnLimpiarBuscador.addEventListener("click", () => {
+            inputBuscador.value = "";
+            dropdownResultados.classList.add("d-none");
+            document.getElementById("ventaProducto").value = "";
+            tarjetaSeleccionado.classList.add("d-none");
+            recalcularPrevisualizacion();
+            inputBuscador.focus();
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!dropdownResultados.contains(e.target) && e.target !== inputBuscador) {
+                dropdownResultados.classList.add("d-none");
+            }
+        });
+
+        // Restricción de descuentos en select para vendedor
+        const selDesc = document.getElementById("ventaDescuento");
+        const inputDescCustom = document.getElementById("ventaDescuentoCustom");
+        if (rol === "vendedor") {
+            Array.from(selDesc.options).forEach(opt => {
+                if (opt.value !== "custom") {
+                    const num = parseInt(opt.value);
+                    if (num > limiteDescuento) {
+                        opt.disabled = true;
+                        opt.text = `${num}% (No autorizado)`;
+                    }
+                }
+            });
+        }
+
+        selDesc.addEventListener("change", () => {
+            if (selDesc.value === "custom") {
+                inputDescCustom.classList.remove("d-none");
+            } else {
+                inputDescCustom.classList.add("d-none");
+            }
+            recalcularPrevisualizacion();
+        });
+        inputDescCustom.addEventListener("input", recalcularPrevisualizacion);
+
+        // Previsualización del producto activo
+        const selProducto = document.getElementById("ventaProducto");
+        const selTipoVenta = document.getElementById("ventaTipoVenta");
+        const inputCantidad = document.getElementById("ventaCantidad");
+        const infoEmpaque = document.getElementById("ventaInfoEmpaque");
+
+        selProducto.addEventListener("change", recalcularPrevisualizacion);
+        selTipoVenta.addEventListener("change", recalcularPrevisualizacion);
+        inputCantidad.addEventListener("input", recalcularPrevisualizacion);
+
+        // Presionar Enter en cantidad para agregar rápido
+        inputCantidad.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("btnAgregarAlCarrito").click();
+            }
+        });
+
+        function obtenerCalculoActual() {
+            const opt = selProducto.selectedOptions[0];
+            if (!opt || !opt.dataset.precio || !selProducto.value) return null;
+
+            const id = selProducto.value;
+            const nombre = opt.dataset.nombre || opt.text.split("(")[0].trim();
+            const precio = parseFloat(opt.dataset.precio) || 0;
+            const stock = parseInt(opt.dataset.stock) || 0;
+            const unidadesBulto = Math.max(1, parseInt(opt.dataset.unidadesBulto) || 1);
+            const proveedor = opt.dataset.proveedor || "";
+            const tipoVenta = selTipoVenta.value;
+            const cantidad = Math.max(1, parseInt(inputCantidad.value) || 1);
+
+            let totalUnidades = cantidad;
+            if (tipoVenta === "caja" || tipoVenta === "bulto") {
+                totalUnidades = cantidad * unidadesBulto;
+            }
 
             let descPorc = 0;
-            if (selectDesc.value === "custom") {
-                descPorc = Math.min(limiteDescuento, Math.max(0, parseFloat(customDesc.value) || 0));
+            if (selDesc.value === "custom") {
+                let customVal = parseFloat(inputDescCustom.value) || 0;
+                if (customVal > limiteDescuento && rol === "vendedor") {
+                    inputDescCustom.value = limiteDescuento;
+                    customVal = limiteDescuento;
+                }
+                descPorc = Math.min(limiteDescuento, Math.max(0, customVal));
             } else {
-                descPorc = Math.min(limiteDescuento, Math.max(0, parseFloat(selectDesc.value) || 0));
+                let optVal = parseFloat(selDesc.value) || 0;
+                if (optVal > limiteDescuento && rol === "vendedor") {
+                    selDesc.value = "0";
+                    optVal = 0;
+                }
+                descPorc = optVal;
             }
 
-            const precioCatalogo = Number(productoSeleccionado.precio_venta || productoSeleccionado.precio) || 0;
-            let precioUnitario = esMayor ? (parseFloat(inPrecio.value) || 0) : precioCatalogo;
-            if (precioUnitario < 0) precioUnitario = 0;
+            const subtotal = totalUnidades * precio;
+            const montoDesc = subtotal * (descPorc / 100);
+            const total = Math.max(0, subtotal - montoDesc);
 
-            const precioConDesc = descPorc > 0 ? (precioUnitario * (1 - descPorc / 100)) : precioUnitario;
-            const subtotal = cant * precioConDesc;
+            const presProd = (opt.dataset.presentacion || "unidad").toLowerCase();
+            const permiteUnid = (presProd === "unidad") || (opt.dataset.permiteVentaUnidad === "1");
 
-            document.getElementById("cfgItemUnitarioFinal").textContent = formatoMoneda.format(precioConDesc);
-            document.getElementById("cfgItemTotalFinal").textContent = formatoMoneda.format(subtotal);
+            if (tipoVenta === "unidad" && presProd !== "unidad" && !permiteUnid) {
+                return { error: `El producto "${nombre}" está configurado para venta exclusiva por ${presProd.toUpperCase()}. No se permite la venta por unidad suelta.` };
+            }
+
+            return {
+                id: id,
+                producto_id: id,
+                producto_nombre: nombre,
+                proveedor: proveedor,
+                stock_disponible: stock,
+                precio_unitario: precio,
+                tipo_venta: tipoVenta,
+                cantidad: cantidad,
+                cantidad_empaque: cantidad,
+                unidades_por_bulto: unidadesBulto,
+                total_unidades: totalUnidades,
+                descuento_porcentaje: descPorc,
+                descuento_monto: montoDesc,
+                subtotal: subtotal,
+                total: total
+            };
         }
 
-        // Steppers de Cantidad (+ / -)
-        document.getElementById("btnRestarCantidad").addEventListener("click", () => {
-            const inCant = document.getElementById("inputCantidadPOS");
-            let c = Math.max(1, (parseInt(inCant.value) || 1) - 1);
-            inCant.value = c;
-            recalcularConfiguradorItem();
+        function recalcularPrevisualizacion() {
+            const calc = obtenerCalculoActual();
+            const lblUnid = document.getElementById("itemPreUnidades");
+            const lblPrecio = document.getElementById("itemPrePrecio");
+            const lblSub = document.getElementById("itemPreSubtotal");
+            const lblTot = document.getElementById("itemPreTotal");
+
+            if (!calc || calc.error) {
+                lblUnid.textContent = "0 un.";
+                lblPrecio.textContent = "$ 0,00";
+                lblSub.textContent = "$ 0,00";
+                lblTot.textContent = "$ 0,00";
+                infoEmpaque.classList.add("d-none");
+                return;
+            }
+
+            if (calc.tipo_venta === "caja" || calc.tipo_venta === "bulto") {
+                infoEmpaque.textContent = `1 ${calc.tipo_venta} = ${calc.unidades_por_bulto} unidades físicas`;
+                infoEmpaque.classList.remove("d-none");
+            } else {
+                infoEmpaque.classList.add("d-none");
+            }
+
+            lblUnid.textContent = `${calc.total_unidades} un.`;
+            lblPrecio.textContent = formatoMoneda.format(calc.precio_unitario);
+            lblSub.textContent = formatoMoneda.format(calc.subtotal);
+            lblTot.textContent = formatoMoneda.format(calc.total);
+        }
+
+        // Agregar al carrito
+        document.getElementById("btnAgregarAlCarrito").addEventListener("click", () => {
+            const errBox = document.getElementById("alertaError");
+            errBox.classList.add("d-none");
+
+            const calc = obtenerCalculoActual();
+            if (!calc) {
+                errBox.textContent = "Buscá y seleccioná un producto antes de agregarlo.";
+                errBox.classList.remove("d-none");
+                inputBuscador.focus();
+                return;
+            }
+            if (calc.error) {
+                errBox.textContent = calc.error;
+                errBox.classList.remove("d-none");
+                return;
+            }
+
+            const yaEnCarrito = carrito
+                .filter(i => String(i.producto_id) === String(calc.producto_id))
+                .reduce((s, i) => s + i.total_unidades, 0);
+
+            if ((yaEnCarrito + calc.total_unidades) > calc.stock_disponible) {
+                errBox.textContent = `Stock insuficiente para "${calc.producto_nombre}". Stock disponible: ${calc.stock_disponible} un. (Ya hay ${yaEnCarrito} un. en el carrito).`;
+                errBox.classList.remove("d-none");
+                return;
+            }
+
+            carrito.push(calc);
+            renderizarCarrito();
+
+            // Reset rápido para el próximo producto
+            selProducto.value = "";
+            inputBuscador.value = "";
+            tarjetaSeleccionado.classList.add("d-none");
+            inputCantidad.value = 1;
+            selTipoVenta.value = "unidad";
+            selDesc.value = "0";
+            inputDescCustom.value = "";
+            inputDescCustom.classList.add("d-none");
+            recalcularPrevisualizacion();
+            inputBuscador.focus();
         });
 
-        document.getElementById("btnSumarCantidad").addEventListener("click", () => {
-            const inCant = document.getElementById("inputCantidadPOS");
-            let c = (parseInt(inCant.value) || 1) + 1;
-            inCant.value = c;
-            recalcularConfiguradorItem();
+        // Renderizar carrito
+        function renderizarCarrito() {
+            const tbody = document.getElementById("carritoTablaBody");
+            const badgeCount = document.getElementById("carritoCountBadge");
+            const resUnid = document.getElementById("resumenTotalUnidades");
+            const resSub = document.getElementById("resumenSubtotal");
+            const resDesc = document.getElementById("resumenDescuento");
+            const resTot = document.getElementById("resumenTotalFinal");
+            const btnConfirm = document.getElementById("btnConfirmarVenta");
+
+            if (carrito.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">El carrito está vacío. Busque y agregue productos desde el panel izquierdo.</td></tr>`;
+                badgeCount.textContent = "0 ítems";
+                resUnid.textContent = "0 un.";
+                resSub.textContent = "$ 0,00";
+                resDesc.textContent = "$ 0,00";
+                resTot.textContent = "$ 0,00";
+                btnConfirm.disabled = true;
+                return;
+            }
+
+            tbody.replaceChildren();
+            let totalUnidadesGen = 0;
+            let subtotalGen = 0;
+            let descuentoGen = 0;
+            let totalGen = 0;
+
+            carrito.forEach((item, idx) => {
+                totalUnidadesGen += item.total_unidades;
+                subtotalGen += item.subtotal;
+                descuentoGen += item.descuento_monto;
+                totalGen += item.total;
+
+                const tr = document.createElement("tr");
+
+                // #
+                const tdNum = document.createElement("td");
+                tdNum.textContent = idx + 1;
+                tdNum.className = "text-muted small";
+                tr.appendChild(tdNum);
+
+                // Producto
+                const tdProd = document.createElement("td");
+                const strong = document.createElement("strong");
+                strong.textContent = item.producto_nombre;
+                tdProd.appendChild(strong);
+
+                const smallEmp = document.createElement("small");
+                smallEmp.className = "d-block text-muted";
+                smallEmp.textContent = item.tipo_venta !== "unidad" 
+                    ? `${item.cantidad_empaque} ${item.tipo_venta}(s) (${item.total_unidades} un.)` 
+                    : `${item.total_unidades} un.`;
+                tdProd.appendChild(smallEmp);
+                tr.appendChild(tdProd);
+
+                // Precio Unit
+                const tdPrecio = document.createElement("td");
+                tdPrecio.textContent = formatoMoneda.format(item.precio_unitario);
+                tdPrecio.className = "small";
+                tr.appendChild(tdPrecio);
+
+                // Descuento
+                const tdDesc = document.createElement("td");
+                if (item.descuento_porcentaje > 0) {
+                    tdDesc.innerHTML = `<span class="badge text-bg-danger">-${item.descuento_porcentaje}%</span>`;
+                } else {
+                    tdDesc.innerHTML = `<span class="text-muted small">0%</span>`;
+                }
+                tr.appendChild(tdDesc);
+
+                // Total Fila
+                const tdTotal = document.createElement("td");
+                tdTotal.textContent = formatoMoneda.format(item.total);
+                tdTotal.className = "fw-bold text-success";
+                tr.appendChild(tdTotal);
+
+                // Botón Quitar
+                const tdAcc = document.createElement("td");
+                tdAcc.className = "text-end";
+                const btnDel = document.createElement("button");
+                btnDel.type = "button";
+                btnDel.className = "btn btn-outline-danger btn-sm py-0 px-2";
+                btnDel.innerHTML = "✕";
+                btnDel.addEventListener("click", () => {
+                    carrito.splice(idx, 1);
+                    renderizarCarrito();
+                });
+                tdAcc.appendChild(btnDel);
+                tr.appendChild(tdAcc);
+
+                tbody.appendChild(tr);
+            });
+
+            badgeCount.textContent = `${carrito.length} ítems`;
+            resUnid.textContent = `${totalUnidadesGen} un.`;
+            resSub.textContent = formatoMoneda.format(subtotalGen);
+            resDesc.textContent = descuentoGen > 0 ? `-${formatoMoneda.format(descuentoGen)}` : "$ 0,00";
+            resTot.textContent = formatoMoneda.format(totalGen);
+            btnConfirm.disabled = false;
+        }
+
+        document.getElementById("btnVaciarCarrito").addEventListener("click", () => {
+            if (carrito.length > 0 && confirm("¿Vaciar todo el carrito?")) {
+                carrito = [];
+                renderizarCarrito();
+            }
         });
 
-        document.getElementById("inputCantidadPOS").addEventListener("input", recalcularConfiguradorItem);
+        // Escáner de Cliente QR
+        let html5Qr = null;
+        const modalScan = new bootstrap.Modal(document.getElementById("modalScannerCamara"));
 
-        // Botones Presets (+1, +5, +10, +20, +50)
-        document.querySelectorAll(".btn-preset-cant").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const add = parseInt(btn.dataset.cant) || 1;
-                const inCant = document.getElementById("inputCantidadPOS");
-                inCant.value = (parseInt(inCant.value) || 0) + add;
-                recalcularConfiguradorItem();
+        document.getElementById("btnEscanearClienteQR").addEventListener("click", () => {
+            abrirLector((qr) => {
+                const match = String(qr).match(/CLIENTE:([^:]+)(?::DNI:([^:]+))?/i);
+                const idBuscado = match ? match[1].trim() : String(qr).trim();
+                const dniBuscado = match && match[2] ? match[2].trim() : String(qr).trim();
+
+                const encontrado = clientesCache.find(c => 
+                    String(c.id).toLowerCase() === idBuscado.toLowerCase() || 
+                    String(c.dni) === dniBuscado ||
+                    String(c.id) === String(qr).trim()
+                );
+
+                if (encontrado) {
+                    const sel = document.getElementById("ventaCliente");
+                    sel.value = encontrado.id;
+                    const fb = document.getElementById("clienteFeedback");
+                    fb.textContent = `Cliente identificado: ${encontrado.nombre} ${encontrado.apellido} (DNI ${encontrado.dni})`;
+                    fb.classList.remove("d-none");
+                } else {
+                    alert(`No se encontró ningún cliente para el código escaneado: "${qr}".`);
+                }
             });
         });
 
-        // Selector de Descuento
-        document.getElementById("selectDescuentoPOS").addEventListener("change", (e) => {
-            const customIn = document.getElementById("inputDescuentoCustomPOS");
-            if (e.target.value === "custom") {
-                customIn.classList.remove("d-none");
-                customIn.focus();
-            } else {
-                customIn.classList.add("d-none");
-            }
-            recalcularConfiguradorItem();
+        document.getElementById("btnEscanearProductoCb").addEventListener("click", () => {
+            abrirLector(async (cb) => {
+                await buscarYSeleccionarPorCodigo(cb);
+            });
         });
-        document.getElementById("inputDescuentoCustomPOS").addEventListener("input", recalcularConfiguradorItem);
 
-        // 5. Agregar Ítem al Ticket
-        document.getElementById("btnAgregarAlTicket").addEventListener("click", () => {
-            if (!productoSeleccionado) {
-                alert("Por favor selecciona una bolsa de hielo.");
+        // Detección de tecla Enter en el buscador de productos
+        inputBuscador.addEventListener("keydown", async (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const val = inputBuscador.value.trim();
+                if (val) {
+                    const exito = await buscarYSeleccionarPorCodigo(val);
+                    if (!exito) {
+                        const primerItem = dropdownResultados.querySelector(".item-resultado-busqueda");
+                        if (primerItem) {
+                            primerItem.click();
+                        }
+                    }
+                }
+            }
+        });
+
+        // Detección automática para pistolas de código de barras USB/Bluetooth
+        let bufferTeclasBarcode = "";
+        let tiempoUltimaTecla = Date.now();
+
+        document.addEventListener("keydown", async (e) => {
+            // No interferir si el usuario está editando otros campos como cantidad o cliente
+            const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+            if (activeTag === "textarea" || (activeTag === "input" && document.activeElement.id === "ventaCantidad")) {
                 return;
             }
 
-            const stockNum = Number(productoSeleccionado.stock) || 0;
-            const cant = Math.max(1, parseInt(document.getElementById("inputCantidadPOS").value) || 1);
-
-            const yaEnTicket = ticketItems
-                .filter(it => it.producto_id === productoSeleccionado.id)
-                .reduce((acc, it) => acc + it.cantidad, 0);
-
-            if ((yaEnTicket + cant) > stockNum) {
-                alert(`Stock insuficiente para "${productoSeleccionado.nombre}". Disponible en cámara: ${stockNum} un. (Ya hay ${yaEnTicket} un. en el ticket).`);
-                return;
+            const ahora = Date.now();
+            if (ahora - tiempoUltimaTecla > 80) {
+                bufferTeclasBarcode = "";
             }
+            tiempoUltimaTecla = ahora;
 
-            const selectDesc = document.getElementById("selectDescuentoPOS");
-            const customDesc = document.getElementById("inputDescuentoCustomPOS");
-            let descPorc = selectDesc.value === "custom" ? (parseFloat(customDesc.value) || 0) : (parseFloat(selectDesc.value) || 0);
-            descPorc = Math.min(limiteDescuento, Math.max(0, descPorc));
-
-            const checkMayorista = document.getElementById("checkVentaMayoristaPOS");
-            const inPrecio = document.getElementById("inputPrecioUnitarioPOS");
-            const esMayorista = checkMayorista && checkMayorista.checked;
-            const precioCatalogo = Number(productoSeleccionado.precio_venta || productoSeleccionado.precio) || 0;
-
-            let precioUnitarioFinal = esMayorista ? (parseFloat(inPrecio.value) || 0) : precioCatalogo;
-
-            if (precioUnitarioFinal <= 0) {
-                alert("Por favor ingresá un precio unitario válido mayor a $ 0.");
-                if (inPrecio) inPrecio.focus();
-                return;
+            if (e.key === "Enter") {
+                if (bufferTeclasBarcode.length >= 4) {
+                    const barcodeScanned = bufferTeclasBarcode.trim();
+                    bufferTeclasBarcode = "";
+                    await buscarYSeleccionarPorCodigo(barcodeScanned);
+                }
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                bufferTeclasBarcode += e.key;
             }
+        });
 
-            const subtotalBruto = cant * precioUnitarioFinal;
-            const descuentoMonto = subtotalBruto * (descPorc / 100);
-            const totalItem = subtotalBruto - descuentoMonto;
-
-            // Si ya existe el mismo producto con el mismo precio unitario y descuento, sumarlo
-            const itemExistente = ticketItems.find(it => 
-                it.producto_id === productoSeleccionado.id && 
-                Math.abs(it.precio_unitario - precioUnitarioFinal) < 0.001 && 
-                it.descuento_porcentaje === descPorc &&
-                it.es_mayorista === esMayorista
-            );
-
-            if (itemExistente) {
-                itemExistente.cantidad += cant;
-                itemExistente.subtotal += subtotalBruto;
-                itemExistente.descuento_monto += descuentoMonto;
-                itemExistente.total += totalItem;
-            } else {
-                ticketItems.push({
-                    producto_id: productoSeleccionado.id,
-                    producto_nombre: productoSeleccionado.nombre,
-                    tipo_venta: esMayorista ? "bulto" : "unidad",
-                    es_mayorista: esMayorista,
-                    cantidad_empaque: cant,
-                    cantidad: cant,
-                    precio_unitario: precioUnitarioFinal,
-                    precio_catalogo: precioCatalogo,
-                    descuento_porcentaje: descPorc,
-                    descuento_monto: descuentoMonto,
-                    subtotal: subtotalBruto,
-                    total: totalItem
-                });
-            }
-
-            // Animación feedback en botón
-            const btn = document.getElementById("btnAgregarAlTicket");
-            const originalHtml = btn.innerHTML;
-            btn.className = "btn btn-success btn-lg fw-bold px-4 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2";
-            btn.innerHTML = '<i class="bi bi-check2-circle fs-5"></i> <span>¡Agregado al Ticket!</span>';
+        function abrirLector(callback) {
+            callbackScanActivo = callback;
+            modalScan.show();
             setTimeout(() => {
-                btn.className = "btn btn-primary btn-lg fw-bold px-4 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2";
-                btn.innerHTML = originalHtml;
-            }, 600);
-
-            renderizarTicket();
-        });
-
-        // 6. Renderizar Ticket / Carrito
-        function renderizarTicket() {
-            const contenedor = document.getElementById("cajaItemsTicket");
-            const badgeCount = document.getElementById("ticketBadgeCount");
-            const lblSubtotal = document.getElementById("ticketSubtotalBruto");
-            const lblDesc = document.getElementById("ticketDescuentoMonto");
-            const lblTotal = document.getElementById("ticketTotalPagar");
-
-            if (ticketItems.length === 0) {
-                contenedor.innerHTML = `
-                    <div class="text-center text-muted py-4 bg-light rounded-3" id="ticketVacioMsg">
-                        <i class="bi bi-cart-x fs-2 d-block text-muted mb-1"></i>
-                        El ticket está vacío.<br>Toca un producto de hielo a la izquierda para cargarlo.
-                    </div>
-                `;
-                badgeCount.textContent = "0 bolsas";
-                lblSubtotal.textContent = "$ 0";
-                lblDesc.textContent = "-$ 0";
-                lblTotal.textContent = "$ 0";
-                return;
-            }
-
-            contenedor.replaceChildren();
-
-            let totalBolsas = 0;
-            let subtotalGeneral = 0;
-            let descuentoGeneral = 0;
-            let totalPagarGeneral = 0;
-
-            ticketItems.forEach((it, idx) => {
-                totalBolsas += it.cantidad;
-                subtotalGeneral += it.subtotal;
-                descuentoGeneral += it.descuento_monto;
-                totalPagarGeneral += it.total;
-
-                const row = document.createElement("div");
-                row.className = "ticket-item-row";
-
-                const mayorBadge = it.es_mayorista ? `<span class="badge text-bg-danger ms-1" style="font-size: 0.65rem;">MAYORISTA</span>` : "";
-                const descBadge = it.descuento_porcentaje > 0 ? `<span class="badge text-bg-warning text-dark ms-1">-${it.descuento_porcentaje}%</span>` : "";
-
-                row.innerHTML = `
-                    <div style="max-width: 55%;">
-                        <div class="d-flex align-items-center flex-wrap">
-                            <strong class="text-dark small text-truncate">${escapeHtml(it.producto_nombre)}</strong>
-                            ${mayorBadge}
-                        </div>
-                        <small class="text-muted">${formatoMoneda.format(it.precio_unitario)} c/u ${descBadge}</small>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-white border text-dark fw-bold px-2 py-1">${it.cantidad} un.</span>
-                        <strong class="text-primary small">${formatoMoneda.format(it.total)}</strong>
-                        <button type="button" class="btn btn-outline-danger btn-sm p-1 py-0" title="Eliminar ítem" data-del="${idx}">
-                            <i class="bi bi-x fs-6"></i>
-                        </button>
-                    </div>
-                `;
-
-                row.querySelector("[data-del]").addEventListener("click", () => {
-                    ticketItems.splice(idx, 1);
-                    renderizarTicket();
+                if (html5Qr) html5Qr.clear().catch(() => {});
+                html5Qr = new Html5Qrcode("qr-reader");
+                html5Qr.start(
+                    { facingMode: "environment" },
+                    { fps: 15, qrbox: { width: 250, height: 150 } },
+                    (decoded) => {
+                        html5Qr.stop().then(() => {
+                            html5Qr.clear();
+                            html5Qr = null;
+                        });
+                        modalScan.hide();
+                        if (callbackScanActivo) callbackScanActivo(decoded);
+                    },
+                    () => {}
+                ).catch(err => {
+                    const res = document.getElementById("scannerResultado");
+                    res.textContent = "Error de cámara: " + err;
+                    res.classList.remove("d-none");
                 });
-
-                contenedor.appendChild(row);
-            });
-
-            badgeCount.textContent = `${totalBolsas} bolsa${totalBolsas !== 1 ? 's' : ''}`;
-            lblSubtotal.textContent = formatoMoneda.format(subtotalGeneral);
-            lblDesc.textContent = `-${formatoMoneda.format(descuentoGeneral)}`;
-            lblTotal.textContent = formatoMoneda.format(totalPagarGeneral);
+            }, 300);
         }
 
-        // Vaciar Ticket
-        document.getElementById("btnVaciarTicket").addEventListener("click", () => {
-            if (ticketItems.length > 0 && confirm("¿Deseas vaciar todo el ticket de venta?")) {
-                ticketItems = [];
-                renderizarTicket();
+        document.getElementById("modalScannerCamara").addEventListener("hidden.bs.modal", () => {
+            if (html5Qr) {
+                html5Qr.stop().then(() => {
+                    html5Qr.clear();
+                    html5Qr = null;
+                }).catch(() => {});
             }
         });
 
-        // 7. Toggle y Datos de Cliente
-        document.getElementById("btnToggleDatosCliente").addEventListener("click", () => {
-            const caja = document.getElementById("cajaDatosCliente");
-            caja.classList.toggle("d-none");
-        });
+        // Confirmar Venta
+        document.getElementById("btnConfirmarVenta").addEventListener("click", async () => {
+            const errBox = document.getElementById("alertaError");
+            const okBox = document.getElementById("alertaExito");
+            errBox.classList.add("d-none");
+            okBox.classList.add("d-none");
 
-        document.getElementById("posClienteNombre").addEventListener("input", (e) => {
-            document.getElementById("lblClienteActivo").textContent = e.target.value.trim() || "Consumidor Final";
-        });
-
-        // 8. Confirmar y Cobrar Venta (Unificada)
-        document.getElementById("btnConfirmarCobroVenta").addEventListener("click", async () => {
-            const alertErr = document.getElementById("alertaError");
-            const alertOk = document.getElementById("alertaExito");
-            alertErr.classList.add("d-none");
-            alertOk.classList.add("d-none");
-
-            if (ticketItems.length === 0) {
-                alertErr.textContent = "El ticket está vacío. Selecciona al menos una bolsa de hielo antes de cobrar.";
-                alertErr.classList.remove("d-none");
+            const clienteId = document.getElementById("ventaCliente").value;
+            if (!clienteId) {
+                errBox.textContent = "Debés seleccionar o escanear un cliente antes de confirmar la venta.";
+                errBox.classList.remove("d-none");
+                window.scrollTo({ top: 0, behavior: "smooth" });
                 return;
             }
 
-            const btnCobrar = document.getElementById("btnConfirmarCobroVenta");
-            const originalText = btnCobrar.innerHTML;
-            btnCobrar.disabled = true;
-            btnCobrar.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Procesando venta...`;
+            if (carrito.length === 0) {
+                errBox.textContent = "El carrito está vacío. Agregá productos al ticket.";
+                errBox.classList.remove("d-none");
+                return;
+            }
+
+            const btnConfirm = document.getElementById("btnConfirmarVenta");
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Procesando venta...`;
 
             try {
-                const clienteNombre = document.getElementById("posClienteNombre").value.trim() || "Consumidor Final";
-                const clienteTelefono = document.getElementById("posClienteTelefono").value.trim();
-                const clienteDireccion = document.getElementById("posClienteDireccion").value.trim();
-
-                const payload = {
-                    cliente_nombre: clienteNombre,
-                    cliente_telefono: clienteTelefono,
-                    cliente_direccion: clienteDireccion,
-                    items: ticketItems
-                };
-
                 const resp = await fetch("guardar_venta.php", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRF-Token": csrfToken
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        cliente_id: clienteId,
+                        items: carrito
+                    })
                 });
 
                 const data = await resp.json().catch(() => ({}));
-                if (!resp.ok) throw new Error(data.error || "No se pudo registrar la venta.");
+                if (!resp.ok) {
+                    throw new Error(data.error || "Error al procesar la venta.");
+                }
 
-                alertOk.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>¡Venta registrada con éxito!</strong><br>
-                            Ticket: <strong>${data.ticket_id || 'TK-000'}</strong> • Total: <strong>${formatoMoneda.format(data.total || 0)}</strong>
-                        </div>
-                        <a href="generar_remito.php?id=${data.id || data.ventas_ids[0]}" target="_blank" class="btn btn-dark btn-sm text-white fw-bold">
-                            <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> Ver Remito
-                        </a>
-                    </div>
-                `;
-                alertOk.classList.remove("d-none");
-
-                // Limpiar Ticket y recargar stock
-                ticketItems = [];
-                renderizarTicket();
-                await cargarProductosPOS();
-
+                okBox.innerHTML = `<strong>Venta registrada con éxito.</strong> ${data.mensaje || ''} ${data.ticket_id ? `<br><span class="font-monospace small">Ticket: ${data.ticket_id}</span>` : ''}`;
+                okBox.classList.remove("d-none");
+                carrito = [];
+                renderizarCarrito();
                 window.scrollTo({ top: 0, behavior: "smooth" });
+
+                setTimeout(() => {
+                    window.location.href = "<?= $paginaRetorno ?>";
+                }, 1500);
 
             } catch (err) {
-                alertErr.textContent = err.message;
-                alertErr.classList.remove("d-none");
+                errBox.textContent = err.message;
+                errBox.classList.remove("d-none");
+                btnConfirm.disabled = false;
+                btnConfirm.textContent = "Confirmar Venta";
                 window.scrollTo({ top: 0, behavior: "smooth" });
-            } finally {
-                btnCobrar.disabled = false;
-                btnCobrar.innerHTML = originalText;
             }
         });
 
-        // Helper para escape HTML
-        function escapeHtml(texto) {
-            const div = document.createElement("div");
-            div.textContent = texto || "";
-            return div.innerHTML;
-        }
-
-        // Inicializar al cargar
-        document.addEventListener("DOMContentLoaded", cargarProductosPOS);
+        // Iniciar
+        document.addEventListener("DOMContentLoaded", inicializarPOS);
     </script>
 </body>
 </html>

@@ -30,6 +30,19 @@ $proveedorParam = $proveedor !== "" ? $proveedor : null;
 $usuarioId = isset($_SESSION["usuario_id"]) ? (int) $_SESSION["usuario_id"] : null;
 $usuarioNombre = trim(($_SESSION["usuario_nombre"] ?? "Admin") . " " . ($_SESSION["usuario_apellido"] ?? ""));
 
+function generarCodigoInternoMasivo(): string {
+    $aleatorio = str_pad((string)random_int(0, 999999999), 9, "0", STR_PAD_LEFT);
+    $doce = "200" . $aleatorio;
+    $suma = 0;
+    for ($i = 0; $i < 12; $i++) {
+        $d = (int)$doce[$i];
+        $suma += ($i % 2 === 0) ? $d : ($d * 3);
+    }
+    $resto = $suma % 10;
+    $check = ($resto === 0) ? 0 : (10 - $resto);
+    return $doce . $check;
+}
+
 try {
     $firestore = FirestoreConexion::obtenerFirestore();
     $guardados = [];
@@ -40,8 +53,8 @@ try {
         $nombre = trim($prod["nombre"] ?? "");
         $precioVenta = floatval($prod["precio_venta"] ?? ($prod["precio"] ?? 0));
         $precioCosto = floatval($prod["precio_costo"] ?? 0);
-        $stock = intval($prod["stock"] ?? 0);
-        $presentacion = trim($prod["presentacion"] ?? "unidad");
+        $stock = floatval($prod["stock"] ?? 0);
+        $presentacionRaw = trim($prod["presentacion"] ?? "unidad");
         $unidadesPorBulto = max(1, intval($prod["unidades_por_bulto"] ?? 1));
         $codigoBarras = trim($prod["codigo_barras"] ?? "");
         $categoriaId = isset($prod["categoria_id"]) && $prod["categoria_id"] !== "" ? (int)$prod["categoria_id"] : null;
@@ -62,10 +75,20 @@ try {
             continue;
         }
 
-        if (!in_array($presentacion, ["unidad", "caja", "bulto"], true)) {
+        $presLower = strtolower($presentacionRaw);
+        if ($presLower === "litros") {
+            $presentacion = "Litros";
+        } elseif ($presLower === "kg") {
+            $presentacion = "Kg";
+        } elseif ($presLower === "caja") {
+            $presentacion = "caja";
+        } elseif ($presLower === "bulto") {
+            $presentacion = "bulto";
+        } else {
             $presentacion = "unidad";
         }
-        if ($presentacion === "unidad") {
+
+        if ($presentacion === "unidad" || $presentacion === "Litros" || $presentacion === "Kg") {
             $unidadesPorBulto = 1;
             $permiteVentaUnidad = true;
         } else {
@@ -74,19 +97,9 @@ try {
 
         $vencimientoParam = ($fechaVencimiento !== "" && fechaIsoValida($fechaVencimiento)) ? $fechaVencimiento : null;
         
-        // Generar código de barras si viene vacío (Inicia obligatoriamente con el prefijo 20)
+        // Generar código de barras interno (GS1 prefijo 200 EAN-13) si viene vacío
         if ($codigoBarras === "") {
-            $primeros12 = "20";
-            for ($i = 0; $i < 10; $i++) {
-                $primeros12 .= (string)random_int(0, 9);
-            }
-            $suma = 0;
-            for ($i = 0; $i < 12; $i++) {
-                $d = (int)$primeros12[$i];
-                $suma += ($i % 2 === 0) ? $d : $d * 3;
-            }
-            $digitoControl = (10 - ($suma % 10)) % 10;
-            $codigoBarras = $primeros12 . $digitoControl;
+            $codigoBarras = generarCodigoInternoMasivo();
         }
 
         $totalUnidades = $stock * $unidadesPorBulto;
@@ -118,50 +131,42 @@ try {
 
         // Registrar en ingresos_stock si hay stock
         if ($totalUnidades > 0) {
-            try {
-                $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
-                $ingresoDoc = [
-                    "id" => $ingresoId,
-                    "producto_id" => $productoId,
-                    "producto_nombre" => $nombre,
-                    "cantidad" => $stock,
-                    "presentacion" => $presentacion,
-                    "unidades_por_bulto" => $unidadesPorBulto,
-                    "total_unidades" => $totalUnidades,
-                    "precio_unitario" => $precioVenta,
-                    "precio_costo" => $precioCosto,
-                    "precio_venta" => $precioVenta,
-                    "proveedor" => $proveedorParam,
-                    "fecha_vencimiento" => $vencimientoParam,
-                    "numero_factura" => $facturaFinalLote,
-                    "sin_factura" => $sinFacturaLote,
-                    "usuario_id" => $usuarioId,
-                    "motivo" => "Alta masiva por lote (" . ($proveedorParam ? "Proveedor: {$proveedorParam}" : "Lote proveedor") . ")" . ($facturaFinalLote ? " (Factura: {$facturaFinalLote})" : ""),
-                    "fecha" => date("Y-m-d H:i:s")
-                ];
-                $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDoc);
-            } catch (Throwable $eIngreso) {
-                error_log("Aviso: no se pudo registrar en ingresos_stock: " . $eIngreso->getMessage());
-            }
+            $ingresoId = $firestore->obtenerSiguienteId("contadores", "ingresos", "ultimo_id");
+            $ingresoDoc = [
+                "id" => $ingresoId,
+                "producto_id" => $productoId,
+                "producto_nombre" => $nombre,
+                "cantidad" => $stock,
+                "presentacion" => $presentacion,
+                "unidades_por_bulto" => $unidadesPorBulto,
+                "total_unidades" => $totalUnidades,
+                "precio_unitario" => $precioVenta,
+                "precio_costo" => $precioCosto,
+                "precio_venta" => $precioVenta,
+                "proveedor" => $proveedorParam,
+                "fecha_vencimiento" => $vencimientoParam,
+                "numero_factura" => $facturaFinalLote,
+                "sin_factura" => $sinFacturaLote,
+                "usuario_id" => $usuarioId,
+                "motivo" => "Alta masiva por lote (" . ($proveedorParam ? "Proveedor: {$proveedorParam}" : "Lote proveedor") . ")" . ($facturaFinalLote ? " (Factura: {$facturaFinalLote})" : ""),
+                "fecha" => date("Y-m-d H:i:s")
+            ];
+            $firestore->guardarDocumento("ingresos_stock", (string)$ingresoId, $ingresoDoc);
         }
 
         // Trazabilidad de movimientos
-        try {
-            FirestoreConexion::registrarMovimientoProducto(
-                productoId: $productoId,
-                tipo: "ALTA_INICIAL",
-                descripcion: "Alta masiva por lote con stock de {$totalUnidades} un. Costo: $" . number_format($precioCosto, 2) . " | Venta: $" . number_format($precioVenta, 2) . ($proveedorParam ? " [Proveedor: {$proveedorParam}]" : ""),
-                cantidadAnterior: 0,
-                cantidadNueva: $totalUnidades,
-                diferencia: $totalUnidades,
-                precioAnterior: null,
-                precioNuevo: $precioVenta,
-                usuarioId: $usuarioId,
-                usuarioNombre: $usuarioNombre
-            );
-        } catch (Throwable $eMov) {
-            error_log("Aviso: no se pudo registrar movimiento: " . $eMov->getMessage());
-        }
+        FirestoreConexion::registrarMovimientoProducto(
+            productoId: $productoId,
+            tipo: "ALTA_INICIAL",
+            descripcion: "Alta masiva por lote con stock de {$totalUnidades} un. Costo: $" . number_format($precioCosto, 2) . " | Venta: $" . number_format($precioVenta, 2) . ($proveedorParam ? " [Proveedor: {$proveedorParam}]" : ""),
+            cantidadAnterior: 0,
+            cantidadNueva: $totalUnidades,
+            diferencia: $totalUnidades,
+            precioAnterior: null,
+            precioNuevo: $precioVenta,
+            usuarioId: $usuarioId,
+            usuarioNombre: $usuarioNombre
+        );
 
         $guardados[] = [
             "id" => $productoId,

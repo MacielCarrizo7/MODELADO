@@ -9,8 +9,16 @@ $nombre = trim($_POST["nombre"] ?? "");
 $descripcion = trim($_POST["descripcion"] ?? "");
 $icono = trim($_POST["icono"] ?? "");
 
+// Rangos de Semáforo FIFO por categoría (días)
+$diasRojo = isset($_POST["dias_rojo"]) && $_POST["dias_rojo"] !== "" ? max(1, (int)$_POST["dias_rojo"]) : 45;
+$diasAmarillo = isset($_POST["dias_amarillo"]) && $_POST["dias_amarillo"] !== "" ? max($diasRojo + 1, (int)$_POST["dias_amarillo"]) : 90;
+
 if ($nombre === "" || mb_strlen($nombre) > 100) {
     responderJson(["error" => "El nombre de la categoría es obligatorio (máx. 100 caracteres)."], 400);
+}
+
+if ($diasAmarillo <= $diasRojo) {
+    responderJson(["error" => "Los días de rotación intermedia (amarillo) deben ser mayores a los días de vencimiento próximo (rojo)."], 400);
 }
 
 try {
@@ -35,11 +43,13 @@ try {
             "nombre" => $nombre,
             "descripcion" => $descripcion !== "" ? $descripcion : null,
             "icono" => $icono !== "" ? $icono : null,
+            "dias_rojo" => $diasRojo,
+            "dias_amarillo" => $diasAmarillo,
             "modificado_el" => $fechaActual
         ];
         $firestore->actualizarDocumento("categorias", (string)$id, $doc);
         $categoriaId = $id;
-        $mensaje = "Categoría de hielo actualizada exitosamente.";
+        $mensaje = "Categoría y configuración FIFO actualizadas exitosamente.";
     } else {
         // Creación
         $categoriaId = FirestoreConexion::obtenerSiguienteIdCategoria();
@@ -48,17 +58,21 @@ try {
             "nombre" => $nombre,
             "descripcion" => $descripcion !== "" ? $descripcion : null,
             "icono" => $icono !== "" ? $icono : null,
+            "dias_rojo" => $diasRojo,
+            "dias_amarillo" => $diasAmarillo,
             "creado_el" => $fechaActual,
             "modificado_el" => null
         ];
         $firestore->guardarDocumento("categorias", (string)$categoriaId, $doc);
-        $mensaje = "Categoría de hielo creada exitosamente.";
+        $mensaje = "Categoría creada exitosamente.";
     }
 
     responderJson([
         "success" => true,
         "id" => $categoriaId,
         "nombre" => $nombre,
+        "dias_rojo" => $diasRojo,
+        "dias_amarillo" => $diasAmarillo,
         "mensaje" => $mensaje
     ]);
 } catch (Throwable $e) {
