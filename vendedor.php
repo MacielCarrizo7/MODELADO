@@ -27,74 +27,60 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
     <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </head>
 <body data-rol="vendedor" data-csrf="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, "UTF-8") ?>" data-limite-descuento="<?= htmlspecialchars((string)($_SESSION['usuario_limite_descuento'] ?? 15), ENT_QUOTES, 'UTF-8') ?>">
-    <nav class="navbar navbar-expand-lg app-navbar sticky-top py-2">
-        <div class="container-xl">
-            <!-- Brand / Isotipo -->
-            <a class="navbar-brand d-flex align-items-center gap-2 me-lg-4" href="vendedor.php">
-                <span class="marca-icono" aria-hidden="true">CS</span>
-                <span class="fw-bold tracking-tight">Control Stock</span>
-            </a>
+    <nav class="navbar app-navbar sticky-top py-2 px-3">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <!-- Título Dinámico: Nombre o Rol del Vendedor -->
+            <div class="d-flex align-items-center gap-2">
+                <div>
+                    <span class="d-block fw-bold fs-5 lh-1 text-dark"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></span>
+                    <span class="badge text-bg-success-subtle text-success border border-success-subtle rounded-pill small" style="font-size: 0.72rem;">Ventas</span>
+                </div>
+            </div>
 
-            <!-- Toggle Mobile -->
-            <button class="navbar-toggler border-0 p-1" type="button" data-bs-toggle="collapse" data-bs-target="#menuVendedor" aria-controls="menuVendedor" aria-expanded="false" aria-label="Abrir menú">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <!-- Botones Derecha: Escáner y Silueta de Usuario con Menú -->
+            <div class="d-flex align-items-center gap-2">
+                <!-- Botón Escáner Global -->
+                <button class="btn btn-nav-icon" type="button" id="btnAbrirScannerGlobal" title="Escanear código con cámara" aria-label="Escanear código">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" x2="17" y1="12" y2="12"/></svg>
+                </button>
 
-            <!-- Collapsible Menu -->
-            <div class="collapse navbar-collapse" id="menuVendedor">
-                <!-- Enlaces de navegación limpios -->
-                <ul class="navbar-nav mx-auto align-items-lg-center gap-lg-1 my-2 my-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link nav-link-app active" href="vendedor.php" title="Panel de Ventas">Ventas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link nav-link-app" href="catalogo.php" title="Catálogo de Productos">Catálogo</a>
-                    </li>
-                </ul>
-
-                <!-- Acciones y Perfil -->
-                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2 pt-2 pt-lg-0 border-top border-lg-0">
-                    <!-- Botón Escáner -->
-                    <button class="btn btn-nav-icon" type="button" id="btnAbrirScannerGlobal" title="Escanear código con cámara" aria-label="Escanear código">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" x2="17" y1="12" y2="12"/></svg>
-                        <span class="d-lg-none ms-2 small fw-semibold">Escanear código</span>
+                <!-- Menú Desplegable con Silueta de Usuario -->
+                <div class="dropdown">
+                    <button class="btn btn-user-avatar" type="button" id="dropdownMenuVendedor" data-bs-toggle="dropdown" aria-expanded="false" title="Menú de Usuario">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     </button>
-
-                    <!-- Registrar Venta POS -->
-                    <a class="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1.5 px-3 py-1.5 shadow-sm fw-semibold rounded-pill" href="venta_form.php">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                        <span>Nueva Venta (POS)</span>
-                    </a>
-
-                    <!-- Perfil / Logout Discreto -->
-                    <div class="dropdown ms-lg-1">
-                        <button class="btn btn-nav-profile d-flex align-items-center gap-2 py-1 px-2 rounded-pill w-100" type="button" id="dropdownPerfilVendedor" data-bs-toggle="dropdown" aria-expanded="false" title="Mi Cuenta">
-                            <span class="avatar-chip"><?= htmlspecialchars(mb_strtoupper(mb_substr($nombreCompleto, 0, 1)), ENT_QUOTES, "UTF-8") ?></span>
-                            <span class="d-none d-xl-inline text-start lh-sm me-1">
-                                <span class="d-block fw-semibold text-dark small" style="max-width: 105px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></span>
-                                <span class="text-muted" style="font-size: 0.70rem;">Vendedor</span>
-                            </span>
-                            <svg class="d-none d-xl-inline text-muted" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2 py-2" aria-labelledby="dropdownPerfilVendedor">
-                            <li class="px-3 py-2 border-bottom mb-1">
-                                <div class="fw-bold small text-dark"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></div>
-                                <div class="text-muted" style="font-size: 0.75rem;">Vendedor Autorizado</div>
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="logout.php">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                                    <span>Cerrar sesión</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 mt-2 py-2" style="min-width: 250px;" aria-labelledby="dropdownMenuVendedor">
+                        <li class="px-3 py-2 border-bottom mb-1">
+                            <div class="fw-bold small text-dark"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Vendedor Autorizado</div>
+                        </li>
+                        <li><h6 class="dropdown-header text-uppercase small text-muted">Accesos Rápidos</h6></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="catalogo.php">
+                                <svg class="text-primary" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                                <span>Catálogo Visual de Productos</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="venta_form.php">
+                                <svg class="text-success" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                                <span>Punto de Venta (POS)</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5 text-danger fw-semibold" href="logout.php">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                                <span>Cerrar Sesión</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="container py-4 py-md-5">
+    <main class="container py-3 py-md-4">
         <?php if (isset($_GET["mfa_configurado"])): ?>
             <div class="alert alert-success alert-dismissible fade show" role="status">
                 Tu autenticador se configuró correctamente.
@@ -102,13 +88,29 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
             </div>
         <?php endif; ?>
 
-        <!-- Hero Section -->
-        <section class="hero-panel p-4 p-md-5 mb-4">
-            <div class="hero-contenido">
-                <p class="etiqueta text-white-50 mb-2">Panel de Ventas</p>
-                <h1 class="display-6 fw-bold mb-2">Hola, <?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></h1>
-                <p class="lead text-white-50 mb-0">Gestión de inventario con rotación FIFO, trazabilidad y atención a clientes.</p>
-            </div>
+        <!-- Acciones Rápidas Didácticas (Salida / Consulta) -->
+        <section class="action-cards-container" aria-label="Acciones Rápidas">
+            <!-- Botón Gigante: Salida / Venta -->
+            <a href="venta_form.php" class="action-card-btn btn-venta shadow-sm">
+                <div class="action-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                </div>
+                <div class="action-card-body">
+                    <h3>Nueva Venta</h3>
+                    <p>Registrar salida rápida en POS</p>
+                </div>
+            </a>
+
+            <!-- Botón Gigante: Catálogo Visual / Consulta -->
+            <a href="catalogo.php" class="action-card-btn btn-ingreso shadow-sm">
+                <div class="action-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                </div>
+                <div class="action-card-body">
+                    <h3>Catálogo Visual</h3>
+                    <p>Consultar stock, fotos y precios</p>
+                </div>
+            </a>
         </section>
 
         <!-- Navegación Modular por Pestañas -->
@@ -474,29 +476,23 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Vendedor") . " " . ($_SE
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
     </a>
 
-    <!-- Barra de Navegación Inferior Móvil (App Bottom Nav) -->
-    <nav class="app-bottom-nav d-lg-none" aria-label="Navegación Móvil">
-        <a href="vendedor.php" class="nav-item active">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            <span>Ventas</span>
+    <!-- Barra de Navegación Inferior (Bottom Navigation) Mobile -->
+    <nav class="app-bottom-nav" aria-label="Navegación Móvil">
+        <a href="vendedor.php" class="app-bottom-nav-item active" onclick="const b=document.getElementById('tab-vendedor-resumen-btn');if(b)b.click();">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span>Inicio</span>
         </a>
-        <a href="#bloqueVentas" class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-            <span>Historial</span>
+        <a href="#pestana-productos" class="app-bottom-nav-item" onclick="const b=document.getElementById('tab-vendedor-productos-btn');if(b)b.click();return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            <span>Inventario</span>
         </a>
-        <a href="venta_form.php" class="nav-item nav-item-primary">
-            <div class="nav-icon-circle">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-            </div>
+        <a href="venta_form.php" class="app-bottom-nav-item text-primary fw-bold">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
             <span>Vender</span>
         </a>
-        <a href="catalogo.php" class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-            <span>Catálogo</span>
-        </a>
-        <a href="cerrar_sesion.php" class="nav-item text-danger">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-            <span>Salir</span>
+        <a href="#pestana-ventas" class="app-bottom-nav-item" onclick="const b=document.getElementById('tab-vendedor-ventas-btn');if(b)b.click();return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Historial</span>
         </a>
     </nav>
 

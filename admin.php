@@ -35,125 +35,78 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body data-rol="admin" data-csrf="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, "UTF-8") ?>" data-limite-descuento="<?= htmlspecialchars((string)($_SESSION['usuario_limite_descuento'] ?? 100), ENT_QUOTES, 'UTF-8') ?>">
-    <nav class="navbar navbar-expand-lg app-navbar sticky-top py-2">
-        <div class="container-xl">
-            <!-- Brand / Isotipo -->
-            <a class="navbar-brand d-flex align-items-center gap-2 me-lg-4" href="admin.php">
-                <span class="marca-icono" aria-hidden="true">CS</span>
-                <span class="fw-bold tracking-tight">Control Stock</span>
-            </a>
+    <nav class="navbar app-navbar sticky-top py-2 px-3">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <!-- Título Dinámico: Nombre o Rol del Usuario -->
+            <div class="d-flex align-items-center gap-2">
+                <div>
+                    <span class="d-block fw-bold fs-5 lh-1 text-dark"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></span>
+                    <span class="badge text-bg-primary-subtle text-primary border border-primary-subtle rounded-pill small" style="font-size: 0.72rem;">Administrador</span>
+                </div>
+            </div>
 
-            <!-- Toggle Mobile -->
-            <button class="navbar-toggler border-0 p-1" type="button" data-bs-toggle="collapse" data-bs-target="#menuAdmin" aria-controls="menuAdmin" aria-expanded="false" aria-label="Abrir menú">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <!-- Botones Derecha: Escáner y Silueta de Usuario con Menú Administrativo -->
+            <div class="d-flex align-items-center gap-2">
+                <!-- Botón Escáner Global -->
+                <button class="btn btn-nav-icon" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras" aria-label="Escanear código">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" x2="17" y1="12" y2="12"/></svg>
+                </button>
 
-            <!-- Collapsible Menu -->
-            <div class="collapse navbar-collapse" id="menuAdmin">
-                <!-- Enlaces de navegación limpios y centralizados -->
-                <ul class="navbar-nav mx-auto align-items-lg-center gap-lg-1 my-2 my-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link nav-link-app active" href="admin.php" title="Panel Principal">Panel</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link nav-link-app" href="catalogo.php" title="Catálogo Visual">Catálogo</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link nav-link-app" href="categorias.php" title="Categorías y Rotación FIFO">Categorías</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link nav-link-app" href="registro.php" title="Gestión de Usuarios y Roles">Usuarios</a>
-                    </li>
-                </ul>
-
-                <!-- Acciones Rápidas y Perfil -->
-                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2 pt-2 pt-lg-0 border-top border-lg-0">
-                    
-                    <!-- Botón Escáner con Icono Limpio -->
-                    <button class="btn btn-nav-icon" type="button" id="btnAbrirScannerGlobal" title="Escanear código de barras con cámara" aria-label="Escanear código">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" x2="17" y1="12" y2="12"/></svg>
-                        <span class="d-lg-none ms-2 small fw-semibold">Escanear código</span>
+                <!-- Menú Desplegable con Silueta de Usuario -->
+                <div class="dropdown">
+                    <button class="btn btn-user-avatar" type="button" id="dropdownMenuUsuario" data-bs-toggle="dropdown" aria-expanded="false" title="Menú de Administración">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     </button>
-
-                    <!-- Acceso rápido a Punto de Venta (POS) -->
-                    <a class="btn btn-nav-pos" href="venta_form.php" title="Punto de Venta (POS)">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                        <span>POS</span>
-                    </a>
-
-                    <!-- Menú Desplegable "+ Operaciones" -->
-                    <div class="dropdown">
-                        <button class="btn btn-primary btn-sm dropdown-toggle d-flex align-items-center justify-content-center gap-1.5 px-3 py-1.5 shadow-sm fw-semibold rounded-pill w-100" type="button" id="dropdownOperaciones" data-bs-toggle="dropdown" aria-expanded="false">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            <span>Nuevo</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2 py-2" aria-labelledby="dropdownOperaciones">
-                            <li><h6 class="dropdown-header text-uppercase small text-muted">Operaciones Clave</h6></li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="producto_form.php">
-                                    <svg class="text-primary" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                                    <span>Ingreso de Productos</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="venta_form.php">
-                                    <svg class="text-success" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
-                                    <span>Punto de Venta (POS)</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="proveedor_form.php">
-                                    <svg class="text-secondary" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
-                                    <span>Nuevo Proveedor</span>
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider my-1"></li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="registro.php">
-                                    <svg class="text-warning" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
-                                    <span>Nuevo Usuario</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- Perfil y Cerrar Sesión Discreto -->
-                    <div class="dropdown ms-lg-1">
-                        <button class="btn btn-nav-profile d-flex align-items-center gap-2 py-1 px-2 rounded-pill w-100" type="button" id="dropdownPerfilUsuario" data-bs-toggle="dropdown" aria-expanded="false" title="Mi Cuenta">
-                            <span class="avatar-chip"><?= htmlspecialchars(mb_strtoupper(mb_substr($nombreCompleto, 0, 1)), ENT_QUOTES, "UTF-8") ?></span>
-                            <span class="d-none d-xl-inline text-start lh-sm me-1">
-                                <span class="d-block fw-semibold text-dark small" style="max-width: 105px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></span>
-                                <span class="text-muted" style="font-size: 0.70rem;">Administrador</span>
-                            </span>
-                            <svg class="d-none d-xl-inline text-muted" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2 py-2" aria-labelledby="dropdownPerfilUsuario">
-                            <li class="px-3 py-2 border-bottom mb-1">
-                                <div class="fw-bold small text-dark"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></div>
-                                <div class="text-muted" style="font-size: 0.75rem;">Administrador del Sistema</div>
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="registro.php">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                                    <span>Usuarios y Roles</span>
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider my-1"></li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="logout.php">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                                    <span>Cerrar sesión</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 mt-2 py-2" style="min-width: 250px;" aria-labelledby="dropdownMenuUsuario">
+                        <li class="px-3 py-2 border-bottom mb-1">
+                            <div class="fw-bold small text-dark"><?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Administrador General</div>
+                        </li>
+                        <li><h6 class="dropdown-header text-uppercase small text-muted">Gestión del Negocio</h6></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="registro.php">
+                                <svg class="text-primary" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                                <span>Administrar Usuarios y Roles</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="categorias.php">
+                                <svg class="text-info" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                                <span>Categorías y Rotación FIFO</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="proveedor_form.php">
+                                <svg class="text-secondary" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                                <span>Proveedores</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="#pestana-bajas" onclick="const b=document.getElementById('tab-bajas-btn');if(b)b.click();">
+                                <svg class="text-danger" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                                <span>Auditoría de Bajas de Stock</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5" href="catalogo.php">
+                                <svg class="text-success" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                                <span>Catálogo Visual de Productos</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2.5 text-danger fw-semibold" href="logout.php">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                                <span>Cerrar Sesión</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="container py-4 py-md-5">
+    <main class="container py-3 py-md-4">
         <?php if (isset($_GET["mfa_configurado"])): ?>
             <div class="alert alert-success alert-dismissible fade show" role="status">
                 El autenticador de segundo factor se configuró correctamente.
@@ -161,13 +114,29 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
             </div>
         <?php endif; ?>
 
-        <!-- Encabezado Principal -->
-        <section class="hero-panel p-4 p-md-5 mb-4">
-            <div class="hero-contenido">
-                <p class="etiqueta text-white-50 mb-2">Panel Administrativo</p>
-                <h1 class="display-6 fw-bold mb-2">Hola, <?= htmlspecialchars($nombreCompleto, ENT_QUOTES, "UTF-8") ?></h1>
-                <p class="lead text-white-50 mb-0">Gestión de inventario, ventas, auditoría de bajas y semáforo FIFO por categoría.</p>
-            </div>
+        <!-- Acciones Rápidas Didácticas (Entrada / Salida) -->
+        <section class="action-cards-container" aria-label="Acciones Rápidas">
+            <!-- Botón Gigante: Salida / Venta -->
+            <a href="venta_form.php" class="action-card-btn btn-venta shadow-sm">
+                <div class="action-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                </div>
+                <div class="action-card-body">
+                    <h3>Nueva Venta</h3>
+                    <p>Registrar salida ágil en POS</p>
+                </div>
+            </a>
+
+            <!-- Botón Gigante: Entrada / Ingreso de Mercadería -->
+            <a href="producto_form.php" class="action-card-btn btn-ingreso shadow-sm">
+                <div class="action-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                </div>
+                <div class="action-card-body">
+                    <h3>Ingreso de Mercadería</h3>
+                    <p>Cargar entrada, stock y lotes</p>
+                </div>
+            </a>
         </section>
 
         <!-- Navegación Modular por Pestañas -->
@@ -1263,11 +1232,11 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
     <nav class="app-bottom-nav" aria-label="Navegación Móvil">
         <a href="admin.php" class="app-bottom-nav-item active" onclick="const b=document.getElementById('tab-resumen-btn');if(b)b.click();">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-            <span>Panel</span>
+            <span>Inicio</span>
         </a>
         <a href="#pestana-productos" class="app-bottom-nav-item" onclick="const b=document.getElementById('tab-productos-btn');if(b)b.click();return false;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-            <span>Stock</span>
+            <span>Inventario</span>
         </a>
         <a href="venta_form.php" class="app-bottom-nav-item text-primary fw-bold">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
@@ -1275,11 +1244,7 @@ $nombreCompleto = trim(($_SESSION["usuario_nombre"] ?? "Administrador") . " " . 
         </a>
         <a href="#pestana-ventas" class="app-bottom-nav-item" onclick="const b=document.getElementById('tab-ventas-btn');if(b)b.click();return false;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span>Ventas</span>
-        </a>
-        <a href="catalogo.php" class="app-bottom-nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-            <span>Catálogo</span>
+            <span>Historial</span>
         </a>
     </nav>
 
