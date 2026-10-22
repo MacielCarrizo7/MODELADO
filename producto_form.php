@@ -31,10 +31,20 @@ $csrf = tokenCsrf();
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Control Stock">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
     <title><?= $esEdicion ? "Editar Producto #{$id}" : "Ingreso y Alta de Productos (1 a 50 ítems)" ?> | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link href="assets/estilos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 </head>
@@ -175,7 +185,7 @@ $csrf = tokenCsrf();
                                     <label for="prodPrecioCosto" class="form-label fw-bold">Precio de Costo ($) *</label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" min="0" class="form-control fw-bold" id="prodPrecioCosto" name="precio_costo" value="<?= htmlspecialchars((string)($producto['precio_costo'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" placeholder="0.00" required>
+                                        <input type="number" inputmode="numeric" step="0.01" min="0" class="form-control fw-bold" id="prodPrecioCosto" name="precio_costo" value="<?= htmlspecialchars((string)($producto['precio_costo'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" placeholder="0.00" required>
                                     </div>
                                     <small class="text-muted">Costo unitario de compra al proveedor.</small>
                                 </div>
@@ -184,7 +194,7 @@ $csrf = tokenCsrf();
                                     <label for="prodPrecioVenta" class="form-label fw-bold text-success">Precio de Venta ($) *</label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" min="0.01" class="form-control fw-bold text-success fs-5" id="prodPrecioVenta" name="precio_venta" value="<?= htmlspecialchars((string)($producto['precio_venta'] ?? $producto['precio'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" placeholder="0.00" required>
+                                        <input type="number" inputmode="numeric" step="0.01" min="0.01" class="form-control fw-bold text-success fs-5" id="prodPrecioVenta" name="precio_venta" value="<?= htmlspecialchars((string)($producto['precio_venta'] ?? $producto['precio'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" placeholder="0.00" required>
                                     </div>
                                     <small class="text-muted">Precio final al público.</small>
                                 </div>
@@ -214,12 +224,12 @@ $csrf = tokenCsrf();
 
                             <div class="col-12 col-md-4 <?= (isset($producto['presentacion']) && ($producto['presentacion'] === 'caja' || $producto['presentacion'] === 'bulto')) ? '' : 'd-none' ?>" id="contenedorUnidadesBulto">
                                 <label for="prodUnidadesBulto" class="form-label">Unidades por caja/bulto</label>
-                                <input type="number" min="1" class="form-control" id="prodUnidadesBulto" name="unidades_por_bulto" value="<?= htmlspecialchars((string)($producto['unidades_por_bulto'] ?? 1), ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="number" inputmode="numeric" min="1" class="form-control" id="prodUnidadesBulto" name="unidades_por_bulto" value="<?= htmlspecialchars((string)($producto['unidades_por_bulto'] ?? 1), ENT_QUOTES, 'UTF-8') ?>">
                             </div>
 
                             <div class="col-12 col-md-4">
                                 <label for="prodStock" class="form-label fw-bold">Stock Total *</label>
-                                <input type="number" step="0.01" min="0" class="form-control" id="prodStock" name="stock" value="<?= htmlspecialchars((string)($producto['stock'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" required>
+                                <input type="number" inputmode="numeric" step="0.01" min="0" class="form-control" id="prodStock" name="stock" value="<?= htmlspecialchars((string)($producto['stock'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" required>
                                 <small class="text-muted">Unidades / volumen físico total disponible.</small>
                             </div>
 

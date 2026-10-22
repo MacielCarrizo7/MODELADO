@@ -886,4 +886,262 @@ main, .container, .container-fluid, .tab-content, .tab-pane, .seccion-card {
     margin: 0.25rem !important;
 }
 
+/* ==========================================================================
+   MEJORAS MOBILE-FIRST Y EXPERIENCIA NATIVA APP
+   ========================================================================== */
+
+/* 1. TAMAÑOS TÁCTILES MÍNIMOS (Apple / Google 48px) */
+.form-control,
+.form-select,
+.input-group-text,
+.btn:not(.btn-sm):not(.badge-action) {
+    min-height: 48px !important;
+}
+
+.btn-sm,
+.btn-group-sm > .btn {
+    min-height: 38px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.85rem !important;
+}
+
+/* Evitar auto-zoom molesto en inputs en Safari iOS */
+@media screen and (max-width: 768px) {
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+}
+
+/* 2. MODALES FULLSCREEN EN MÓVILES */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+    }
+    
+    .modal-content {
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .modal-body {
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 1.25rem !important;
+    }
+
+    .modal-header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1055 !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid var(--cs-border) !important;
+        padding: 1rem 1.25rem !important;
+    }
+
+    .modal-footer {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 1055 !important;
+        background: #ffffff !important;
+        border-top: 1px solid var(--cs-border) !important;
+        padding: 0.85rem 1.25rem !important;
+        display: flex !important;
+        gap: 0.5rem !important;
+    }
+
+    .modal-footer .btn {
+        flex: 1 !important;
+        width: 100% !important;
+    }
+
+    /* Espacio inferior en el body para que la bottom bar no tape contenido */
+    body {
+        padding-bottom: 74px !important;
+    }
+}
+
+/* 3. TRANSFORMACIÓN DE TABLAS EN TARJETAS (CARDS) EN MOBILE */
+@media (max-width: 768px) {
+    .table-responsive {
+        border: none !important;
+        background: transparent !important;
+        overflow-x: visible !important;
+    }
+
+    /* Ocultar el thead tradicional */
+    .table-responsive table thead {
+        display: none !important;
+    }
+
+    .table-responsive table,
+    .table-responsive table tbody,
+    .table-responsive table tr,
+    .table-responsive table td {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* Cada fila es una tarjeta moderna */
+    .table-responsive table tbody tr:not(.table-empty-row) {
+        background: #ffffff !important;
+        border: 1px solid var(--cs-border) !important;
+        border-radius: 1rem !important;
+        margin-bottom: 0.9rem !important;
+        padding: 1rem !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+        position: relative !important;
+    }
+
+    /* Celdas interiores */
+    .table-responsive table tbody tr td {
+        padding: 0.35rem 0 !important;
+        border: none !important;
+        text-align: left !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Primera celda o código/ID destacado */
+    .table-responsive table tbody tr td:first-child {
+        padding-bottom: 0.4rem !important;
+        border-bottom: 1px dashed #e2e8f0 !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    /* Última celda: Acciones con botones táctiles anchos */
+    .table-responsive table tbody tr td:last-child {
+        padding-top: 0.75rem !important;
+        margin-top: 0.5rem !important;
+        border-top: 1px solid #f1f5f9 !important;
+        text-align: right !important;
+    }
+
+    .table-responsive table tbody tr td:last-child .btn-group,
+    .table-responsive table tbody tr td:last-child .d-inline-flex {
+        display: flex !important;
+        width: 100% !important;
+        gap: 0.5rem !important;
+    }
+
+    .table-responsive table tbody tr td:last-child .btn {
+        flex: 1 !important;
+    }
+
+    /* Tarjetas de estadísticas en pantalla completa / 2 columnas */
+    .stat-card {
+        padding: 1rem 1.15rem !important;
+        border-radius: 1rem !important;
+    }
+}
+
+/* 4. BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV) EN CELULARES */
+.app-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .app-bottom-nav {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 64px !important;
+        background: rgba(255, 255, 255, 0.98) !important;
+        backdrop-filter: blur(12px) !important;
+        border-top: 1px solid var(--cs-border) !important;
+        z-index: 1040 !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+        padding: 0 0.5rem !important;
+        box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .app-bottom-nav-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: #64748b !important;
+        text-decoration: none !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        gap: 2px !important;
+        flex: 1 !important;
+        padding: 4px 0 !important;
+        transition: color 0.15s ease !important;
+    }
+
+    .app-bottom-nav-item.active,
+    .app-bottom-nav-item:hover {
+        color: var(--cs-primary) !important;
+    }
+
+    .app-bottom-nav-item svg {
+        width: 22px !important;
+        height: 22px !important;
+    }
+}
+
+/* 5. BOTÓN FLOTANTE DE ACCIÓN (FAB - FLOATING ACTION BUTTON) */
+.mobile-fab {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-fab {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 76px !important;
+        right: 18px !important;
+        width: 56px !important;
+        height: 56px !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, var(--cs-primary) 0%, var(--cs-primary-dark) 100%) !important;
+        color: #ffffff !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45) !important;
+        z-index: 1035 !important;
+        text-decoration: none !important;
+        border: none !important;
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+    }
+
+    .mobile-fab:active {
+        transform: scale(0.92) !important;
+    }
+
+    .mobile-fab svg {
+        width: 28px !important;
+        height: 28px !important;
+    }
+}
+
+/* Notificaciones Toastify / SweetAlert2 personalizadas */
+.swal2-popup {
+    border-radius: 1.25rem !important;
+    font-family: inherit !important;
+    padding: 1.5rem !important;
+}
+
+.toastify {
+    border-radius: 0.75rem !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2) !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+}
+
+
 

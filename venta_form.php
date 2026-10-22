@@ -14,10 +14,20 @@ $csrf = tokenCsrf();
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Control Stock">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
     <title>Punto de Venta / Registrar Venta | Control Stock</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link href="assets/estilos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         .item-resultado-busqueda {
@@ -157,7 +167,7 @@ $csrf = tokenCsrf();
                         </div>
                         <div class="col-6 col-sm-4">
                             <label for="ventaCantidad" class="form-label small text-muted">Cantidad *</label>
-                            <input class="form-control fw-bold" id="ventaCantidad" type="number" min="1" value="1">
+                            <input class="form-control fw-bold" id="ventaCantidad" type="number" inputmode="numeric" min="1" value="1">
                         </div>
                         <div class="col-6 col-sm-4">
                             <label for="ventaDescuento" class="form-label small text-muted">Descuento (%)</label>
@@ -170,7 +180,7 @@ $csrf = tokenCsrf();
                                 <option value="25">25%</option>
                                 <option value="custom">Otro...</option>
                             </select>
-                            <input type="number" min="0" max="<?= $limiteDescuento ?>" class="form-control mt-1 d-none" id="ventaDescuentoCustom" placeholder="Máx <?= $limiteDescuento ?>%">
+                            <input type="number" inputmode="numeric" min="0" max="<?= $limiteDescuento ?>" class="form-control mt-1 d-none" id="ventaDescuentoCustom" placeholder="Máx <?= $limiteDescuento ?>%">
                         </div>
                     </div>
 

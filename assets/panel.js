@@ -12,6 +12,84 @@ let solicitudesCache = [];
 let html5QrScannerInstance = null;
 let callbackScannerActivo = null;
 
+// Notificaciones visuales didácticas (SweetAlert2 / Toastify o Fallback animado)
+function notificarExito(mensaje, titulo = "¡Listo!") {
+    if (typeof Swal !== "undefined") {
+        Swal.fire({
+            icon: "success",
+            title: titulo,
+            text: mensaje,
+            timer: 2200,
+            showConfirmButton: false,
+            toast: true,
+            position: "top-end",
+            timerProgressBar: true
+        });
+    } else if (typeof Toastify !== "undefined") {
+        Toastify({
+            text: `✓ ${mensaje}`,
+            duration: 2500,
+            gravity: "top",
+            position: "right",
+            style: { background: "linear-gradient(to right, #059669, #10b981)" }
+        }).showToast();
+    } else {
+        alert(mensaje);
+    }
+}
+
+function notificarError(mensaje, titulo = "Atención") {
+    if (typeof Swal !== "undefined") {
+        Swal.fire({
+            icon: "error",
+            title: titulo,
+            text: mensaje,
+            confirmButtonColor: "#2563eb",
+            confirmButtonText: "Entendido"
+        });
+    } else if (typeof Toastify !== "undefined") {
+        Toastify({
+            text: `✕ ${mensaje}`,
+            duration: 3500,
+            gravity: "top",
+            position: "right",
+            style: { background: "linear-gradient(to right, #dc2626, #ef4444)" }
+        }).showToast();
+    } else {
+        alert(mensaje);
+    }
+}
+
+function notificarInfo(mensaje, titulo = "Información") {
+    if (typeof Swal !== "undefined") {
+        Swal.fire({
+            icon: "info",
+            title: titulo,
+            text: mensaje,
+            timer: 2000,
+            showConfirmButton: false,
+            toast: true,
+            position: "top-end"
+        });
+    } else {
+        alert(mensaje);
+    }
+}
+
+// Sobreescribir alert estándar para toda la experiencia del panel
+window.alert = function(msg) {
+    if (typeof Swal !== "undefined") {
+        Swal.fire({
+            title: "Aviso",
+            text: String(msg),
+            confirmButtonColor: "#2563eb",
+            confirmButtonText: "Aceptar"
+        });
+    } else {
+        window.__nativeAlert ? window.__nativeAlert(msg) : console.log("Aviso:", msg);
+    }
+};
+
 function celda(texto, clase = "") {
     const td = document.createElement("td");
     td.className = clase;

@@ -26,10 +26,20 @@ $csrf = tokenCsrf();
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Control Stock">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
     <title>Gestión de Categorías y Semáforo FIFO | Panel de Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link href="assets/estilos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </head>
 <body data-rol="admin" data-csrf="<?= htmlspecialchars($csrf, ENT_QUOTES, "UTF-8") ?>">
     <nav class="navbar navbar-expand-lg app-navbar sticky-top py-3">
@@ -79,7 +89,7 @@ $csrf = tokenCsrf();
                                     <label for="catDiasRojo" class="form-label small fw-semibold text-danger">Próximo a Vencer (días)</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">&le;</span>
-                                        <input type="number" class="form-control" id="catDiasRojo" name="dias_rojo" value="45" min="1" max="365" required>
+                                        <input type="number" inputmode="numeric" class="form-control" id="catDiasRojo" name="dias_rojo" value="45" min="1" max="365" required>
                                         <span class="input-group-text">d</span>
                                     </div>
                                     <div class="form-text small text-muted">Semáforo Rojo</div>
@@ -88,7 +98,7 @@ $csrf = tokenCsrf();
                                     <label for="catDiasAmarillo" class="form-label small fw-semibold text-warning text-dark">Rotación Intermedia (días)</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">&le;</span>
-                                        <input type="number" class="form-control" id="catDiasAmarillo" name="dias_amarillo" value="90" min="2" max="730" required>
+                                        <input type="number" inputmode="numeric" class="form-control" id="catDiasAmarillo" name="dias_amarillo" value="90" min="2" max="730" required>
                                         <span class="input-group-text">d</span>
                                     </div>
                                     <div class="form-text small text-muted">Semáforo Amarillo</div>
